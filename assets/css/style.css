@@ -1,0 +1,182 @@
+/* ============================================================
+   Outil d'évaluation en ligne — Feuille de styles
+   ============================================================ */
+
+/* ── Variables ──────────────────────────────────────────────── */
+:root {
+    --primary:    #4f46e5;
+    --primary-dk: #3730a3;
+    --success:    #16a34a;
+    --danger:     #dc2626;
+    --warning:    #d97706;
+    --radius:     12px;
+}
+
+/* ── Body / Global ──────────────────────────────────────────── */
+body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+    min-height: 100vh;
+}
+
+/* ── Brand icon (accueil) ───────────────────────────────────── */
+.brand-icon {
+    width: 64px;
+    height: 64px;
+    background: rgba(255,255,255,0.2);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    font-size: 1.8rem;
+    color: white;
+    backdrop-filter: blur(10px);
+}
+
+/* ── Cartes ─────────────────────────────────────────────────── */
+.card {
+    transition: box-shadow 0.2s;
+}
+
+/* ── Choix QCM ──────────────────────────────────────────────── */
+.choice-label {
+    border: 2px solid #e5e7eb;
+    background: #f9fafb;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.choice-label:hover {
+    border-color: var(--primary);
+    background: #eef2ff;
+}
+
+.choice-label:has(input:checked) {
+    border-color: var(--primary);
+    background: #eef2ff;
+    font-weight: 600;
+}
+
+/* ── Numéros de questions ───────────────────────────────────── */
+.question-number {
+    width: 32px;
+    height: 32px;
+    min-width: 32px;
+    background: var(--primary);
+    color: white;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+}
+
+/* ── Question answered (quiz) ───────────────────────────────── */
+.question-card {
+    transition: border 0.15s;
+    border: 2px solid transparent !important;
+}
+
+.question-card.answered {
+    border-color: #d1fae5 !important;
+    background: #f0fdf4;
+}
+
+/* ── Timer badge ────────────────────────────────────────────── */
+.timer-badge {
+    background: rgba(255,255,255,0.2);
+    color: white;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-weight: 700;
+    font-size: 1rem;
+    letter-spacing: 0.05em;
+    backdrop-filter: blur(10px);
+    transition: background 0.3s;
+}
+
+.timer-badge.timer-warning {
+    background: rgba(217, 119, 6, 0.9);
+    animation: pulse 1s infinite;
+}
+
+.timer-badge.timer-danger {
+    background: rgba(220, 38, 38, 0.95);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.7; }
+}
+
+/* ── Barre de progression ───────────────────────────────────── */
+.progress-bar {
+    transition: width 0.4s ease;
+    border-radius: 4px;
+}
+
+/* ── Stat boxes (résultat) ──────────────────────────────────── */
+.stat-box {
+    padding: 12px;
+    background: #f9fafb;
+    border-radius: var(--radius);
+}
+
+/* ── Result row ─────────────────────────────────────────────── */
+.result-row {
+    transition: background 0.15s;
+}
+.result-row:hover {
+    background: #f8fafc;
+}
+
+/* ── Quick icon (dashboard admin) ──────────────────────────── */
+.quick-icon {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ── Navbar admin ───────────────────────────────────────────── */
+.navbar-dark .nav-link {
+    border-radius: 6px;
+    padding: 6px 12px;
+    transition: background 0.15s;
+}
+
+.navbar-dark .nav-link:hover,
+.navbar-dark .nav-link.active {
+    background: rgba(255,255,255,0.1);
+}
+
+/* ── Tables ─────────────────────────────────────────────────── */
+.table th {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+/* ── Print ──────────────────────────────────────────────────── */
+@media print {
+    .navbar, .btn, .alert { display: none !important; }
+    .card { box-shadow: none !important; border: 1px solid #ddd !important; }
+    body { background: white !important; }
+}
+
+/* ── Responsive ─────────────────────────────────────────────── */
+@media (max-width: 576px) {
+    .question-number { width: 26px; height: 26px; min-width: 26px; font-size: 0.75rem; }
+    .choices-list { padding-left: 0 !important; }
+}

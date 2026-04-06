@@ -1,0 +1,95 @@
+================================================================
+  OUTIL D'ÉVALUATION EN LIGNE — Guide d'installation Laragon
+================================================================
+
+ÉTAPE 1 — Installer Laragon
+-----------------------------
+1. Ouvrez votre navigateur
+2. Allez sur : laragon.org/download
+3. Téléchargez "Laragon Full" (inclut PHP 8 + MySQL + Apache)
+4. Lancez l'installeur → installez dans C:\laragon (par défaut)
+5. Démarrez Laragon → cliquez "Démarrer tout"
+
+
+ÉTAPE 2 — Lancer le script de configuration
+----------------------------------------------
+1. Clic droit sur : setup_laragon.bat
+2. Choisissez : "Exécuter en tant qu'administrateur"
+3. Suivez les instructions à l'écran
+
+
+ÉTAPE 3 — Accéder à l'application
+------------------------------------
+  Stagiaires : http://eval-projet.test/
+  Admin      : http://eval-projet.test/admin/
+
+  Ou via localhost :
+  Stagiaires : http://localhost/eval-projet/
+  Admin      : http://localhost/eval-projet/admin/
+
+
+IDENTIFIANTS ADMIN PAR DÉFAUT
+--------------------------------
+  Login        : admin
+  Mot de passe : admin123
+
+  !! Changez le mot de passe via :
+     http://eval-projet.test/changer_mot_de_passe_admin.php
+     (supprimez ce fichier après utilisation)
+
+
+FONCTIONNALITÉS
+-----------------
+  Stagiaires :
+    - Saisie nom, prénom, groupe, module
+    - QCM / Vrai-Faux / Réponse libre
+    - Timer décompte automatique
+    - Page de résultats avec mention et score /20 ou /40
+
+  Formateur (admin) :
+    - Gestion des modules, questions, groupes
+    - Notation configurable : sur 20 ou sur 40 points
+    - Génération automatique de questions par IA (Claude)
+      → Uploadez un PDF/DOCX/TXT de cours
+      → Obtenez un quiz complet en 30 secondes
+    - Consultation et export CSV des résultats
+    - Correction manuelle des réponses libres
+
+
+GÉNÉRATION IA (Claude Opus 4.6)
+----------------------------------
+  1. Connectez-vous à l'espace admin
+  2. Menu : "Génération IA"
+  3. Entrez votre clé API Anthropic (console.anthropic.com)
+  4. Uploadez votre document de cours (PDF, DOCX ou TXT)
+  5. Configurez : nb questions, types, niveau, notation
+  6. Cliquez "Générer avec Claude"
+  7. Vérifiez les questions et sauvegardez
+
+
+STRUCTURE DES FICHIERS
+------------------------
+  index.php              → Page d'identification stagiaire
+  quiz.php               → Page d'évaluation
+  result.php             → Page des résultats
+  config/database.php    → Configuration MySQL
+  db/schema.sql          → Script SQL (import initial)
+  db/migration_v2.sql    → Migration si base existante
+  admin/                 → Espace administration
+    login.php            → Connexion formateur
+    index.php            → Dashboard
+    modules.php          → Gestion modules
+    questions.php        → Gestion questions
+    groupes.php          → Gestion groupes
+    results.php          → Résultats + export CSV
+    generate.php         → Génération IA de quiz
+
+
+SUPPORT
+---------
+  En cas de problème de connexion DB :
+    → Vérifiez que Laragon est démarré (bouton vert)
+    → Ouvrez phpMyAdmin via Laragon pour vérifier la base
+    → Relancez setup_laragon.bat
+
+================================================================

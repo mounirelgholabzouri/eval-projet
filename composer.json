@@ -1,0 +1,17 @@
+{
+    "name": "eval/online-tool",
+    "description": "Outil d'évaluation en ligne avec génération IA",
+    "type": "project",
+    "require": {
+        "php": ">=8.1",
+        "anthropic-ai/sdk": "^0.7"
+    },
+    "autoload": {
+        "psr-4": {
+            "Eval\\": "src/"
+        }
+    },
+    "config": {
+        "optimize-autoloader": true
+    }
+}

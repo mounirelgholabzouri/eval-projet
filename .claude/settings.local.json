@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "Bash(composer install:*)",
+      "Bash(where composer:*)",
+      "Bash(where php:*)",
+      "Bash(where mysql:*)",
+      "Read(//c//**)",
+      "Bash(powershell -Command \"Get-Command curl,wget,Invoke-WebRequest | Select-Object Name\")",
+      "Bash(powershell -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; \\(Invoke-WebRequest -Uri ''''https://laragon.org/download/'''' -UseBasicParsing -TimeoutSec 10\\).StatusCode\")",
+      "Bash(powershell -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $r = Invoke-WebRequest -Uri ''https://github.com/leokhoa/laragon/releases/tag/8.6.1'' -UseBasicParsing -MaximumRedirection 10 -TimeoutSec 15; $links = $r.Links | Where-Object { $_.href -match ''laragon-wamp.exe'' } | Select-Object -ExpandProperty href; $links\")",
+      "Bash(powershell -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $r = Invoke-WebRequest -Uri ''https://github.com/leokhoa/laragon/releases/tag/8.6.1'' -UseBasicParsing -MaximumRedirection 10 -TimeoutSec 15; $r.Links | Where-Object { $_.href -match ''\\\\.exe'' } | Select-Object -ExpandProperty href\")",
+      "Bash(powershell -Command \"[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; $r = Invoke-WebRequest -Uri ''https://api.github.com/repos/leokhoa/laragon/releases/latest'' -UseBasicParsing -MaximumRedirection 10 -TimeoutSec 15 -Headers @{''User-Agent''=''PowerShell''}; $json = $r.Content | ConvertFrom-Json; $json.assets | Select-Object name, browser_download_url\")",
+      "Bash(powershell -Command \":*)",
+      "Bash(MYSQL=\"/c/laragon/bin/mysql/mysql-8.4.3-winx64/bin/mysql.exe\")",
+      "Bash(__NEW_LINE_58e62087dc55aefc__ \"$MYSQL\" -uroot --connect-timeout=10 -e \"SELECT VERSION\\(\\);\")",
+      "Bash(\"$MYSQL\" -uroot eval_online -e \"SELECT * FROM admins; SELECT nom FROM modules; SELECT nom FROM groupes;\")",
+      "Bash(\"/c/laragon/bin/apache/httpd-2.4.66-260223-Win64-VS18/bin/httpd.exe\" -f \"C:\\\\laragon\\\\bin\\\\apache\\\\httpd-2.4.66-260223-Win64-VS18\\\\conf\\\\httpd.conf\" -t)",
+      "Bash(gh auth:*)",
+      "Bash(git config:*)",
+      "Bash(winget install:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
