@@ -277,3 +277,17 @@ function getAnneeCourante(): string {
     $start = $m >= 9 ? $y : $y - 1;
     return $start . '-' . ($start + 1);
 }
+
+function getStagiaireByLogin(string $login): ?array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT s.*, g.nom AS groupe_nom FROM stagiaires s JOIN groupes g ON g.id = s.groupe_id WHERE s.login = ? LIMIT 1");
+    $stmt->execute([trim($login)]);
+    return $stmt->fetch() ?: null;
+}
+
+function loginExists(string $login): bool {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM stagiaires WHERE login = ?");
+    $stmt->execute([trim($login)]);
+    return (bool)$stmt->fetchColumn();
+}

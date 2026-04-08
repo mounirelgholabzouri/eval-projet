@@ -66,6 +66,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                         <th>Stagiaire</th>
                         <th>Groupe</th>
                         <th>Année</th>
+                        <th class="text-center">Compte</th>
                         <th class="text-center">Évaluations</th>
                         <th class="text-center">Moyenne</th>
                         <th>Inscrit le</th>
@@ -73,7 +74,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                 </thead>
                 <tbody>
                 <?php if (empty($stagiaires)): ?>
-                    <tr><td colspan="6" class="text-center text-muted py-4">Aucun stagiaire trouvé.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">Aucun stagiaire trouvé.</td></tr>
                 <?php else: ?>
                     <?php foreach ($stagiaires as $s): ?>
                     <tr>
@@ -82,6 +83,13 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                         </td>
                         <td><span class="badge bg-secondary"><?= sanitize($s['groupe_nom']) ?></span></td>
                         <td><?= sanitize($s['annee_scolaire']) ?></td>
+                        <td class="text-center">
+                            <?php if (!empty($s['login'])): ?>
+                                <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i><?= sanitize($s['login']) ?></span>
+                            <?php else: ?>
+                                <span class="badge bg-light text-muted border">Sans compte</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-center">
                             <?php if ($s['nb_evaluations'] > 0): ?>
                                 <span class="badge bg-info"><?= $s['nb_evaluations'] ?></span>
