@@ -90,57 +90,72 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     <?php else: ?>
 
-                    <form method="POST" action="" novalidate>
+                    <!-- Bannière identité mémorisée (affichée par JS) -->
+                    <div id="identity-banner" class="alert alert-success rounded-3 d-flex align-items-center justify-content-between mb-4" style="display:none!important">
+                        <div>
+                            <i class="bi bi-person-check-fill me-2"></i>
+                            <strong id="identity-name"></strong>
+                            <span class="text-muted ms-2 small" id="identity-group"></span>
+                        </div>
+                        <button type="button" class="btn btn-sm btn-outline-secondary ms-3" id="btn-change-identity">
+                            <i class="bi bi-pencil me-1"></i>Changer
+                        </button>
+                    </div>
+
+                    <form method="POST" action="" novalidate id="eval-form">
                         <div class="row g-3">
 
-                            <div class="col-sm-6">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-person me-1 text-primary"></i>Nom
-                                </label>
-                                <input type="text" name="nom" class="form-control form-control-lg"
-                                       placeholder="Dupont"
-                                       value="<?= sanitize($_POST['nom'] ?? '') ?>"
-                                       required autofocus>
-                            </div>
-
-                            <div class="col-sm-6">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-person-fill me-1 text-primary"></i>Prénom
-                                </label>
-                                <input type="text" name="prenom" class="form-control form-control-lg"
-                                       placeholder="Jean"
-                                       value="<?= sanitize($_POST['prenom'] ?? '') ?>"
-                                       required>
-                            </div>
-
-                            <div class="col-12">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-people me-1 text-primary"></i>Groupe
-                                </label>
-                                <?php if (!empty($groupes)): ?>
-                                <select name="groupe_id" id="groupe_select" class="form-select form-select-lg"
-                                        onchange="toggleGroupeLibre(this)">
-                                    <option value="">— Sélectionner votre groupe —</option>
-                                    <?php foreach ($groupes as $g): ?>
-                                        <option value="<?= $g['id'] ?>"
-                                            <?= (isset($_POST['groupe_id']) && $_POST['groupe_id'] == $g['id']) ? 'selected' : '' ?>>
-                                            <?= sanitize($g['nom']) ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                    <option value="-1">Autre (saisir manuellement)</option>
-                                </select>
-                                <div id="groupe_libre_wrap" class="mt-2" style="display:none;">
-                                    <input type="text" name="groupe_libre" class="form-control"
-                                           placeholder="Nom de votre groupe"
-                                           value="<?= sanitize($_POST['groupe_libre'] ?? '') ?>">
+                            <!-- Bloc identité (masqué si mémorisée) -->
+                            <div id="bloc-identite">
+                                <div class="row g-3">
+                                    <div class="col-sm-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-person me-1 text-primary"></i>Nom
+                                        </label>
+                                        <input type="text" name="nom" id="input-nom" class="form-control form-control-lg"
+                                               placeholder="Dupont"
+                                               value="<?= sanitize($_POST['nom'] ?? '') ?>"
+                                               required autofocus>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-person-fill me-1 text-primary"></i>Prénom
+                                        </label>
+                                        <input type="text" name="prenom" id="input-prenom" class="form-control form-control-lg"
+                                               placeholder="Jean"
+                                               value="<?= sanitize($_POST['prenom'] ?? '') ?>"
+                                               required>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="form-label fw-semibold">
+                                            <i class="bi bi-people me-1 text-primary"></i>Groupe
+                                        </label>
+                                        <?php if (!empty($groupes)): ?>
+                                        <select name="groupe_id" id="groupe_select" class="form-select form-select-lg"
+                                                onchange="toggleGroupeLibre(this)">
+                                            <option value="">— Sélectionner votre groupe —</option>
+                                            <?php foreach ($groupes as $g): ?>
+                                                <option value="<?= $g['id'] ?>"
+                                                    <?= (isset($_POST['groupe_id']) && $_POST['groupe_id'] == $g['id']) ? 'selected' : '' ?>>
+                                                    <?= sanitize($g['nom']) ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                            <option value="-1">Autre (saisir manuellement)</option>
+                                        </select>
+                                        <div id="groupe_libre_wrap" class="mt-2" style="display:none;">
+                                            <input type="text" name="groupe_libre" id="input-groupe-libre" class="form-control"
+                                                   placeholder="Nom de votre groupe"
+                                                   value="<?= sanitize($_POST['groupe_libre'] ?? '') ?>">
+                                        </div>
+                                        <?php else: ?>
+                                        <input type="text" name="groupe_libre" id="input-groupe-libre" class="form-control form-control-lg"
+                                               placeholder="Ex: Groupe A BTS SIO"
+                                               value="<?= sanitize($_POST['groupe_libre'] ?? '') ?>"
+                                               required>
+                                        <input type="hidden" name="groupe_id" value="0">
+                                        <?php endif; ?>
+                                    </div>
                                 </div>
-                                <?php else: ?>
-                                <input type="text" name="groupe_libre" class="form-control form-control-lg"
-                                       placeholder="Ex: Groupe A BTS SIO"
-                                       value="<?= sanitize($_POST['groupe_libre'] ?? '') ?>"
-                                       required>
-                                <input type="hidden" name="groupe_id" value="0">
-                                <?php endif; ?>
                             </div>
 
                             <div class="col-12">
@@ -169,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </div>
 
                             <div class="col-12">
-                                <button type="submit" class="btn btn-primary btn-lg w-100 fw-semibold py-3">
+                                <button type="submit" id="btn-submit" class="btn btn-primary btn-lg w-100 fw-semibold py-3">
                                     <i class="bi bi-play-circle-fill me-2"></i>Commencer l'évaluation
                                 </button>
                             </div>
@@ -194,6 +209,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+const LS_KEY = 'eval_stagiaire_identity';
+
 function toggleGroupeLibre(sel) {
     const wrap = document.getElementById('groupe_libre_wrap');
     if (sel.value === '-1') {
@@ -206,13 +223,97 @@ function toggleGroupeLibre(sel) {
     }
 }
 
-// Désactiver le bouton si checkbox non cochée
-document.addEventListener('DOMContentLoaded', function() {
+function sauvegarderIdentite() {
+    const nom         = document.getElementById('input-nom')?.value.trim();
+    const prenom      = document.getElementById('input-prenom')?.value.trim();
+    const groupeSel   = document.getElementById('groupe_select');
+    const groupeLibre = document.getElementById('input-groupe-libre')?.value.trim();
+    if (!nom || !prenom) return;
+    const data = {
+        nom,
+        prenom,
+        groupe_id:    groupeSel ? groupeSel.value : '0',
+        groupe_label: groupeSel ? groupeSel.options[groupeSel.selectedIndex]?.text : groupeLibre,
+        groupe_libre: groupeLibre || ''
+    };
+    localStorage.setItem(LS_KEY, JSON.stringify(data));
+}
+
+function chargerIdentite() {
+    const raw = localStorage.getItem(LS_KEY);
+    if (!raw) return;
+    let id;
+    try { id = JSON.parse(raw); } catch(e) { return; }
+    if (!id.nom || !id.prenom) return;
+
+    // Pré-remplir les champs cachés
+    const inputNom    = document.getElementById('input-nom');
+    const inputPrenom = document.getElementById('input-prenom');
+    const groupeSel   = document.getElementById('groupe_select');
+    const groupeLibre = document.getElementById('input-groupe-libre');
+
+    if (inputNom)    inputNom.value    = id.nom;
+    if (inputPrenom) inputPrenom.value = id.prenom;
+    if (groupeSel && id.groupe_id) {
+        groupeSel.value = id.groupe_id;
+        if (id.groupe_libre && groupeSel.value === '0') {
+            const wrap = document.getElementById('groupe_libre_wrap');
+            if (wrap) wrap.style.display = 'block';
+        }
+    }
+    if (groupeLibre && id.groupe_libre) groupeLibre.value = id.groupe_libre;
+
+    // Afficher bannière, masquer bloc identité
+    const banner = document.getElementById('identity-banner');
+    const bloc   = document.getElementById('bloc-identite');
+    const nameEl = document.getElementById('identity-name');
+    const grpEl  = document.getElementById('identity-group');
+
+    if (banner) {
+        nameEl.textContent = id.prenom + ' ' + id.nom.toUpperCase();
+        grpEl.textContent  = id.groupe_label && !id.groupe_label.includes('Sélectionner')
+                             ? '— ' + id.groupe_label : '';
+        banner.style.removeProperty('display');
+        banner.classList.remove('d-none');
+    }
+    if (bloc) bloc.style.display = 'none';
+
+    // Supprimer le required sur les champs masqués
+    [inputNom, inputPrenom, groupeSel].forEach(el => el && el.removeAttribute('required'));
+}
+
+function reinitialiserIdentite() {
+    localStorage.removeItem(LS_KEY);
+    const banner = document.getElementById('identity-banner');
+    const bloc   = document.getElementById('bloc-identite');
+    if (banner) banner.style.display = 'none';
+    if (bloc)   bloc.style.display   = 'block';
+    const inputNom    = document.getElementById('input-nom');
+    const inputPrenom = document.getElementById('input-prenom');
+    const groupeSel   = document.getElementById('groupe_select');
+    [inputNom, inputPrenom, groupeSel].forEach(el => { if(el) { el.value = ''; el.setAttribute('required',''); }});
+    if (inputNom) inputNom.focus();
+}
+
+document.addEventListener('DOMContentLoaded', function () {
+    // Bouton désactivé tant que checkbox non cochée
     const cb  = document.getElementById('accepte');
-    const btn = document.querySelector('button[type=submit]');
-    if (!cb || !btn) return;
-    btn.disabled = true;
-    cb.addEventListener('change', () => btn.disabled = !cb.checked);
+    const btn = document.getElementById('btn-submit');
+    if (cb && btn) {
+        btn.disabled = true;
+        cb.addEventListener('change', () => btn.disabled = !cb.checked);
+    }
+
+    // Charger identité mémorisée
+    chargerIdentite();
+
+    // Bouton "Changer d'identité"
+    document.getElementById('btn-change-identity')
+        ?.addEventListener('click', reinitialiserIdentite);
+
+    // Sauvegarder identité à la soumission
+    document.getElementById('eval-form')
+        ?.addEventListener('submit', sauvegarderIdentite);
 });
 </script>
 </body>
