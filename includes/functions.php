@@ -22,7 +22,7 @@ function formatDuration(int $minutes): string {
     if ($minutes < 60) return "{$minutes} min";
     $h = intdiv($minutes, 60);
     $m = $minutes % 60;
-    return $m > 0 ? "{$h}h{$m:02d}" : "{$h}h";
+    return $m > 0 ? "{$h}h" . str_pad($m, 2, '0', STR_PAD_LEFT) : "{$h}h";
 }
 
 function getMention(float $pourcentage): array {

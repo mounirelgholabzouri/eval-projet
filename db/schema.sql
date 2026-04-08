@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS config (
 
 -- Admin par défaut (mot de passe : admin123)
 INSERT INTO admins (username, password_hash, nom) VALUES
-('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Administrateur');
+('admin', '$2y$10$NxdWcjfkgvVxCFdIdTmdneMpukmP85OYB26IN8lQGvMV2tONeQnHW', 'Administrateur');
 
 -- Groupes
 INSERT INTO groupes (nom) VALUES

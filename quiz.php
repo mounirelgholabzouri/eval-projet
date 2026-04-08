@@ -1,8 +1,7 @@
 <?php
+require_once __DIR__ . '/includes/functions.php';
 session_name(SESSION_EVAL_NAME ?? 'eval_stagiaire');
 session_start();
-
-require_once __DIR__ . '/includes/functions.php';
 
 // Vérification session
 if (empty($_SESSION['eval_session_id'])) {
@@ -244,7 +243,7 @@ function updateTimer() {
         timerEl.textContent = '00:00';
         const modal = new bootstrap.Modal(document.getElementById('timeoutModal'));
         modal.show();
-        setTimeout(() => document.getElementById('quiz-form').submit(), 3000);
+        setTimeout(() => { const f = document.getElementById('quiz-form'); const h = document.createElement('input'); h.type='hidden'; h.name='submit_final'; h.value='1'; f.appendChild(h); f.submit(); }, 3000);
         return;
     }
     const m = Math.floor(restant / 60).toString().padStart(2, '0');
@@ -316,7 +315,11 @@ function confirmerSoumission() {
     document.getElementById('confirmBtn').onclick = function() {
         submitConfirmed = true;
         modal.hide();
-        document.getElementById('quiz-form').submit();
+        const f = document.getElementById('quiz-form');
+        const h = document.createElement('input');
+        h.type = 'hidden'; h.name = 'submit_final'; h.value = '1';
+        f.appendChild(h);
+        f.submit();
     };
     return false;
 }

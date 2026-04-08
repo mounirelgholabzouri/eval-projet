@@ -2,10 +2,10 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "preview-eval",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["serve", "-s", "preview", "-l", "3000", "--no-clipboard"],
-      "port": 3000
+      "name": "eval-projet",
+      "runtimeExecutable": "C:/laragon/bin/php/php-8.3.30-Win32-vs16-x64/php.exe",
+      "runtimeArgs": ["-S", "0.0.0.0:8080", "-t", "C:/Users/Administrateur/Eval-Projet"],
+      "port": 8080
     }
   ]
 }
