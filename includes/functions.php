@@ -92,14 +92,14 @@ function getTotalPoints(int $moduleId): float {
 // Fonctions sessions d'évaluation
 // ============================================================
 
-function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId): array {
+function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId, ?int $stagiaireId = null): array {
     $pdo = getDB();
     $token = generateToken();
     $totalPoints = getTotalPoints($moduleId);
 
-    $stmt = $pdo->prepare("INSERT INTO sessions_eval (token, nom, prenom, groupe_id, groupe_libre, module_id, total_points)
-                           VALUES (?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$token, $nom, $prenom, $groupeId ?: null, $groupeLibre, $moduleId, $totalPoints]);
+    $stmt = $pdo->prepare("INSERT INTO sessions_eval (token, nom, prenom, groupe_id, groupe_libre, module_id, total_points, stagiaire_id)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$token, $nom, $prenom, $groupeId ?: null, $groupeLibre, $moduleId, $totalPoints, $stagiaireId]);
 
     return ['id' => (int)$pdo->lastInsertId(), 'token' => $token];
 }
@@ -207,4 +207,73 @@ function getStatsGlobales(): array {
         'moy_pourcentage'  => (float)$pdo->query("SELECT COALESCE(AVG(pourcentage),0) FROM sessions_eval WHERE statut='termine'")->fetchColumn(),
         'nb_modules'       => (int)$pdo->query("SELECT COUNT(*) FROM modules WHERE actif=1")->fetchColumn(),
     ];
+}
+
+// ============================================================
+// Fonctions stagiaires
+// ============================================================
+
+function trouverOuCreerGroupe(string $nom, ?string $annee = null): int {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT id FROM groupes WHERE nom = ? LIMIT 1");
+    $stmt->execute([trim($nom)]);
+    $row = $stmt->fetch();
+    if ($row) return (int)$row['id'];
+    $stmt2 = $pdo->prepare("INSERT INTO groupes (nom, annee) VALUES (?, ?)");
+    $stmt2->execute([trim($nom), $annee]);
+    return (int)$pdo->lastInsertId();
+}
+
+function trouverOuCreerStagiaire(string $nom, string $prenom, int $groupeId, string $annee): int {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT id FROM stagiaires WHERE nom=? AND prenom=? AND groupe_id=? AND annee_scolaire=? LIMIT 1");
+    $stmt->execute([trim($nom), trim($prenom), $groupeId, $annee]);
+    $row = $stmt->fetch();
+    if ($row) return (int)$row['id'];
+    $stmt2 = $pdo->prepare("INSERT INTO stagiaires (nom, prenom, groupe_id, annee_scolaire) VALUES (?,?,?,?)");
+    $stmt2->execute([trim($nom), trim($prenom), $groupeId, $annee]);
+    return (int)$pdo->lastInsertId();
+}
+
+function getStagiaires(?int $groupeId = null, ?string $annee = null): array {
+    $pdo = getDB();
+    $where = []; $params = [];
+    if ($groupeId) { $where[] = 's.groupe_id = ?'; $params[] = $groupeId; }
+    if ($annee)    { $where[] = 's.annee_scolaire = ?'; $params[] = $annee; }
+    $sql = "SELECT s.*, g.nom AS groupe_nom,
+                COUNT(se.id) AS nb_evaluations,
+                COALESCE(AVG(CASE WHEN se.statut='termine' THEN se.pourcentage END), NULL) AS moy_pourcentage
+            FROM stagiaires s
+            JOIN groupes g ON g.id = s.groupe_id
+            LEFT JOIN sessions_eval se ON se.stagiaire_id = s.id
+            " . ($where ? 'WHERE ' . implode(' AND ', $where) : '') . "
+            GROUP BY s.id ORDER BY s.annee_scolaire DESC, g.nom, s.nom, s.prenom";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+function getStagiaire(int $id): ?array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT s.*, g.nom AS groupe_nom FROM stagiaires s JOIN groupes g ON g.id = s.groupe_id WHERE s.id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: null;
+}
+
+function getAnneesDisponibles(): array {
+    $y = (int)date('Y');
+    $m = (int)date('m');
+    $start = $m >= 9 ? $y : $y - 1;
+    $annees = [];
+    for ($i = $start + 1; $i >= $start - 1; $i--) {
+        $annees[] = $i . '-' . ($i + 1);
+    }
+    return $annees;
+}
+
+function getAnneeCourante(): string {
+    $y = (int)date('Y');
+    $m = (int)date('m');
+    $start = $m >= 9 ? $y : $y - 1;
+    return $start . '-' . ($start + 1);
 }

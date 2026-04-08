@@ -39,6 +39,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'stagiaires.php' ? 'active' : '' ?>"
+                       href="stagiaires.php">
+                        <i class="bi bi-people me-1"></i>Stagiaires
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'generate.php' ? 'active' : '' ?>"
                        href="generate.php">
                         <i class="bi bi-stars me-1"></i>Génération IA

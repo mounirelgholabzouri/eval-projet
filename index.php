@@ -28,12 +28,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($questions)) {
                 $erreurs[] = "Ce module ne contient pas encore de questions. Contactez votre formateur.";
             } else {
+                // Trouver ou créer le groupe si saisi manuellement
+                $annee = trim($_POST['annee_scolaire'] ?? getAnneeCourante());
+                if ($groupeId <= 0 && strlen($groupeLibre) >= 2) {
+                    $groupeId = trouverOuCreerGroupe($groupeLibre, $annee);
+                }
+                // Trouver ou créer le stagiaire
+                $nomSanitize    = htmlspecialchars($nom, ENT_QUOTES, 'UTF-8');
+                $prenomSanitize = htmlspecialchars($prenom, ENT_QUOTES, 'UTF-8');
+                $stagiaireId = trouverOuCreerStagiaire($nomSanitize, $prenomSanitize, $groupeId, $annee);
+
                 $session = creerSession(
-                    htmlspecialchars($nom, ENT_QUOTES, 'UTF-8'),
-                    htmlspecialchars($prenom, ENT_QUOTES, 'UTF-8'),
+                    $nomSanitize,
+                    $prenomSanitize,
                     $groupeId > 0 ? $groupeId : null,
                     htmlspecialchars($groupeLibre, ENT_QUOTES, 'UTF-8'),
-                    $moduleId
+                    $moduleId,
+                    $stagiaireId
                 );
                 $_SESSION['eval_session_id']    = $session['id'];
                 $_SESSION['eval_session_token'] = $session['token'];
@@ -160,6 +171,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             <div class="col-12">
                                 <label class="form-label fw-semibold">
+                                    <i class="bi bi-calendar2-week me-1 text-primary"></i>Année scolaire
+                                </label>
+                                <select name="annee_scolaire" id="input-annee" class="form-select form-select-lg">
+                                    <?php foreach (getAnneesDisponibles() as $a): ?>
+                                        <option value="<?= $a ?>" <?= $a === getAnneeCourante() ? 'selected' : '' ?>>
+                                            <?= $a ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+
+                            <div class="col-12">
+                                <label class="form-label fw-semibold">
                                     <i class="bi bi-journal-text me-1 text-primary"></i>Module / Évaluation
                                 </label>
                                 <select name="module_id" class="form-select form-select-lg" required>
@@ -232,9 +256,10 @@ function sauvegarderIdentite() {
     const data = {
         nom,
         prenom,
-        groupe_id:    groupeSel ? groupeSel.value : '0',
-        groupe_label: groupeSel ? groupeSel.options[groupeSel.selectedIndex]?.text : groupeLibre,
-        groupe_libre: groupeLibre || ''
+        groupe_id:      groupeSel ? groupeSel.value : '0',
+        groupe_label:   groupeSel ? groupeSel.options[groupeSel.selectedIndex]?.text : groupeLibre,
+        groupe_libre:   groupeLibre || '',
+        annee_scolaire: document.getElementById('input-annee')?.value || ''
     };
     localStorage.setItem(LS_KEY, JSON.stringify(data));
 }
@@ -262,6 +287,8 @@ function chargerIdentite() {
         }
     }
     if (groupeLibre && id.groupe_libre) groupeLibre.value = id.groupe_libre;
+    const inputAnnee = document.getElementById('input-annee');
+    if (inputAnnee && id.annee_scolaire) inputAnnee.value = id.annee_scolaire;
 
     // Afficher bannière, masquer bloc identité
     const banner = document.getElementById('identity-banner');
