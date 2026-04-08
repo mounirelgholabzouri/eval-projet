@@ -43,6 +43,11 @@ if ($action === 'delete' && $id > 0) {
 // ── Toggle actif ─────────────────────────────────────────────
 if ($action === 'toggle' && $id > 0) {
     $pdo->prepare("UPDATE modules SET actif = NOT actif WHERE id = ?")->execute([$id]);
+    if (isset($_GET['ajax'])) {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true]);
+        exit;
+    }
     $action = 'list';
 }
 
@@ -168,10 +173,16 @@ if ($action === 'edit' && $id > 0) {
                                     </a>
                                 </td>
                                 <td class="text-center">
-                                    <a href="modules.php?action=toggle&id=<?= $m['id'] ?>"
-                                       class="badge text-decoration-none <?= $m['actif'] ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary' ?>">
-                                        <?= $m['actif'] ? 'Actif' : 'Inactif' ?>
-                                    </a>
+                                    <div class="form-check form-switch d-flex justify-content-center align-items-center gap-2 mb-0">
+                                        <input class="form-check-input toggle-actif fs-5" type="checkbox"
+                                               role="switch"
+                                               data-id="<?= $m['id'] ?>"
+                                               <?= $m['actif'] ? 'checked' : '' ?>
+                                               title="<?= $m['actif'] ? 'Publié — cliquer pour dépublier' : 'Non publié — cliquer pour publier' ?>">
+                                        <span class="badge toggle-label <?= $m['actif'] ? 'bg-success' : 'bg-secondary' ?>" id="label-<?= $m['id'] ?>">
+                                            <?= $m['actif'] ? 'Publié' : 'Non publié' ?>
+                                        </span>
+                                    </div>
                                 </td>
                                 <td class="text-center">
                                     <div class="d-flex gap-1 justify-content-center">
@@ -201,5 +212,44 @@ if ($action === 'edit' && $id > 0) {
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.querySelectorAll('.toggle-actif').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+        const id    = this.dataset.id;
+        const actif = this.checked ? 1 : 0;
+        const label = document.getElementById('label-' + id);
+
+        // Désactiver pendant la requête
+        toggle.disabled = true;
+
+        fetch('modules.php?action=toggle&id=' + id + '&ajax=1')
+            .then(r => r.json())
+            .then(data => {
+                toggle.disabled = false;
+                if (data.success) {
+                    // Mettre à jour le label
+                    if (actif) {
+                        label.textContent = 'Publié';
+                        label.className   = 'badge toggle-label bg-success';
+                        toggle.title      = 'Publié — cliquer pour dépublier';
+                    } else {
+                        label.textContent = 'Non publié';
+                        label.className   = 'badge toggle-label bg-secondary';
+                        toggle.title      = 'Non publié — cliquer pour publier';
+                    }
+                } else {
+                    // Annuler le changement visuel si erreur
+                    toggle.checked = !toggle.checked;
+                    alert('Erreur lors de la mise à jour.');
+                }
+            })
+            .catch(() => {
+                toggle.disabled = false;
+                toggle.checked  = !toggle.checked;
+                alert('Erreur de connexion.');
+            });
+    });
+});
+</script>
 </body>
 </html>
