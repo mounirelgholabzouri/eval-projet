@@ -8,8 +8,8 @@ Ce fichier contient les instructions techniques essentielles pour travailler sur
 - **Serveur web** : Apache via **Laragon** (multi-thread, port 80) — NE PAS utiliser le serveur PHP built-in
 - **PHP** : `C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe`
 - **MySQL** : `C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe`
-- **Racine projet** : `C:\Users\Administrateur\Eval-Projet\`
-- **Symlink web** : `C:\laragon\www\eval-projet` → `C:\Users\Administrateur\Eval-Projet`
+- **Racine projet** : `C:\Users\Administrateur\Desktop\Eval-Projet\`
+- **Symlink web** : `C:\laragon\www\eval-projet` → `C:\Users\Administrateur\Desktop\Eval-Projet`
 - **URL locale** : `http://localhost/` (Apache `_default_:80` pointe sur le projet)
 - **URL réseau** : `http://<IP_locale>/`
 
@@ -22,7 +22,7 @@ Ce fichier contient les instructions techniques essentielles pour travailler sur
 
 ### Exécuter du PHP (pour insérer en DB, lancer des scripts)
 ```powershell
-powershell -Command "& 'C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe' 'C:\Users\Administrateur\Eval-Projet\monscript.php' 2>&1"
+powershell -Command "& 'C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe' 'C:\Users\Administrateur\Desktop\Eval-Projet\monscript.php' 2>&1"
 ```
 
 ## Conventions de code
@@ -85,8 +85,9 @@ Eval-Projet/
 │   └── partials/navbar.php    # Barre de navigation admin
 ├── assets/css/style.css       # Styles personnalisés
 ├── db/
-│   ├── schema.sql             # Schéma complet + données de démo
-│   └── migration_v2.sql       # Migrations ajoutées après création
+│   ├── schema.sql                    # Schéma complet + données de démo
+│   ├── migration_v2.sql              # note_max sur modules + table config
+│   └── migration_v3_stagiaires.sql   # Table stagiaires + colonnes stagiaire_id / annee_scolaire
 └── CLAUDE.md                  # Ce fichier
 ```
 
@@ -95,7 +96,7 @@ Eval-Projet/
 | Table | Rôle |
 |---|---|
 | `admins` | Comptes formateurs (login/password_hash) |
-| `groupes` | Groupes de stagiaires (nom, annee) |
+| `groupes` | Groupes de stagiaires (nom, annee_scolaire) |
 | `stagiaires` | Profils stagiaires (nom, prenom, groupe_id, annee_scolaire, login, password_hash) |
 | `modules` | Évaluations/QCM (nom, description, duree_minutes, note_max, actif) |
 | `questions` | Questions (texte, type, points, ordre, module_id) |
@@ -108,7 +109,7 @@ Eval-Projet/
 
 ### Lint PHP
 ```powershell
-powershell -Command "& 'C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe' -l 'C:\Users\Administrateur\Eval-Projet\fichier.php' 2>&1"
+powershell -Command "& 'C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe' -l 'C:\Users\Administrateur\Desktop\Eval-Projet\fichier.php' 2>&1"
 ```
 
 ### Vérifier la DB
@@ -117,7 +118,7 @@ powershell -Command "& 'C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe' -r
 ```
 
 ### Redémarrer Apache (Laragon)
-Laragon UI → Stop → Start (ou Laragon hérite du démarrage Windows)
+Laragon UI → clic droit → **Reload** ou Stop Apache puis Start Apache
 
 ## Points d'attention
 
@@ -125,4 +126,6 @@ Laragon UI → Stop → Start (ou Laragon hérite du démarrage Windows)
 2. **Encodage** : Ne JAMAIS insérer de données avec accents via MySQL CLI → passer par des scripts PHP
 3. **Session order** : `require_once` doit toujours précéder `session_name()` et `session_start()`
 4. **Submit JS** : `form.submit()` via JavaScript n'envoie pas la valeur des boutons submit → ajouter `<input type="hidden" name="submit_final" value="1">` avant soumission
-5. **VirtualHost Apache** : Config dans `C:\laragon\etc\apache2\sites-enabled\00-default.conf`
+5. **VirtualHost Apache** : Config dans `C:\laragon\etc\apache2\sites-enabled\00-default.conf` — le `DocumentRoot` doit pointer sur `C:/laragon/www/eval-projet`
+6. **ALTER TABLE ADD COLUMN IF NOT EXISTS** : syntaxe non supportée par MySQL 8.4 de Laragon → vérifier l'existence de la colonne via `SHOW COLUMNS` en PHP avant d'ajouter
+7. **Migrations** : toujours passer par un script PHP (PDO) pour exécuter les migrations — jamais le CLI MySQL (encodage cp850)
