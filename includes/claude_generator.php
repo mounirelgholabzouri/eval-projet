@@ -74,18 +74,23 @@ function genererQuestionsAvecClaude(
     array  $types,
     string $niveau,
     int    $noteMax,
-    string $apiKey
+    string $apiKey,
+    string $prompt = ''
 ): array {
     $typesStr = implode(', ', $types);
 
     // Calcul de la répartition des points pour atteindre noteMax
     $pointsParQuestion = round($noteMax / $nbQuestions, 2);
 
+    $sourceInstruction = ($docContent['text'] !== null || $docContent['is_pdf'])
+        ? "basées UNIQUEMENT sur le contenu fourni."
+        : "basées sur le sujet/prompt fourni par le formateur.";
+
     $systemPrompt = <<<SYSTEM
 Tu es un formateur expert en ingénierie pédagogique. Tu génères des questions d'évaluation à partir d'un contenu de cours.
 
 RÈGLES ABSOLUES :
-1. Génère exactement {$nbQuestions} questions basées UNIQUEMENT sur le contenu fourni.
+1. Génère exactement {$nbQuestions} questions {$sourceInstruction}
 2. Types demandés : {$typesStr}.
 3. Niveau : {$niveau}. Mix = 40% débutant, 40% intermédiaire, 20% avancé.
 4. L'évaluation est notée sur {$noteMax} points. La somme des points de toutes les questions DOIT être exactement {$noteMax}.
@@ -116,7 +121,10 @@ SYSTEM;
     // Construction du message utilisateur selon le type de document
     $messages = [];
 
+    $promptExtra = $prompt !== '' ? "\nConsigne supplémentaire : {$prompt}" : '';
+
     if ($docContent['is_pdf']) {
+        // Mode document PDF
         $messages[] = [
             'role'    => 'user',
             'content' => [
@@ -130,14 +138,22 @@ SYSTEM;
                 ],
                 [
                     'type' => 'text',
-                    'text' => "Génère {$nbQuestions} questions d'évaluation ({$typesStr}) sur ce document, notées sur {$noteMax} points au total.",
+                    'text' => "Génère {$nbQuestions} questions d'évaluation ({$typesStr}) sur ce document, notées sur {$noteMax} points au total.{$promptExtra}",
                 ],
             ],
         ];
-    } else {
+    } elseif ($docContent['text'] !== null) {
+        // Mode document texte (DOCX / TXT)
         $messages[] = [
             'role'    => 'user',
-            'content' => "Voici le contenu du cours :\n\n---\n{$docContent['text']}\n---\n\nGénère {$nbQuestions} questions d'évaluation ({$typesStr}) sur ce cours, notées sur {$noteMax} points au total.",
+            'content' => "Voici le contenu du cours :\n\n---\n{$docContent['text']}\n---\n\nGénère {$nbQuestions} questions d'évaluation ({$typesStr}) sur ce cours, notées sur {$noteMax} points au total.{$promptExtra}",
+        ];
+    } else {
+        // Mode prompt seul (sans document)
+        if ($prompt === '') throw new \RuntimeException("Un sujet ou un document est requis.");
+        $messages[] = [
+            'role'    => 'user',
+            'content' => "Génère {$nbQuestions} questions d'évaluation ({$typesStr}) sur le sujet suivant, notées sur {$noteMax} points au total.\n\nSujet : {$prompt}",
         ];
     }
 

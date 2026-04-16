@@ -1,0 +1,14 @@
+# Fichiers temporaires PHP
+*.tmp
+check_api.php
+test_api.php
+
+# Fichiers système Windows
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Fichiers de config locaux sensibles
+.env

@@ -67,28 +67,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     if (empty($types)) $types = ['qcm'];
     $niveau  = in_array($_POST['niveau'] ?? 'Mix', ['Débutant', 'Confirmé', 'Mix']) ? $_POST['niveau'] : 'Mix';
     $noteMax = in_array((int)($_POST['note_max'] ?? 20), [20, 40]) ? (int)$_POST['note_max'] : 20;
+    $prompt  = trim($_POST['prompt_sujet'] ?? '');
+
+    $hasFile   = !empty($_FILES['document']['name']) && $_FILES['document']['error'] === UPLOAD_ERR_OK;
+    $hasPrompt = $prompt !== '';
 
     if (!$apiKey) {
         $erreur = "Veuillez saisir votre clé API Anthropic.";
     } elseif ($moduleIdCible <= 0) {
         $erreur = "Veuillez sélectionner un module cible.";
-    } elseif (empty($_FILES['document']['name'])) {
-        $erreur = "Veuillez uploader un document (PDF, DOCX ou TXT).";
+    } elseif (!$hasFile && !$hasPrompt) {
+        $erreur = "Veuillez uploader un document ou saisir un sujet dans le champ Prompt.";
     } else {
-        $file     = $_FILES['document'];
-        $allowed  = ['pdf', 'docx', 'txt', 'md'];
-        $ext      = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+        // Vérification du fichier si présent
+        $fileError = '';
+        if ($hasFile) {
+            $file    = $_FILES['document'];
+            $allowed = ['pdf', 'docx', 'txt', 'md'];
+            $ext     = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, $allowed)) {
+                $fileError = "Format non supporté. Utilisez : PDF, DOCX, TXT ou MD.";
+            } elseif ($file['size'] > 20 * 1024 * 1024) {
+                $fileError = "Fichier trop volumineux (max 20 Mo).";
+            }
+        }
 
-        if ($file['error'] !== UPLOAD_ERR_OK) {
-            $erreur = "Erreur lors de l'upload : code " . $file['error'];
-        } elseif (!in_array($ext, $allowed)) {
-            $erreur = "Format non supporté. Utilisez : PDF, DOCX, TXT ou MD.";
-        } elseif ($file['size'] > 20 * 1024 * 1024) {
-            $erreur = "Fichier trop volumineux (max 20 Mo).";
+        if ($fileError) {
+            $erreur = $fileError;
         } else {
             try {
-                // Extraire le contenu du document
-                $docContent = extractDocumentContent($file['tmp_name'], $file['type']);
+                // Contenu du document (null si prompt seul)
+                $docContent = $hasFile
+                    ? extractDocumentContent($_FILES['document']['tmp_name'], $_FILES['document']['type'])
+                    : ['text' => null, 'is_pdf' => false, 'pdf_base64' => null];
 
                 // Appel Claude
                 $questionsGenerees = genererQuestionsAvecClaude(
@@ -97,7 +108,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                     $types,
                     $niveau,
                     $noteMax,
-                    $apiKey
+                    $apiKey,
+                    $prompt
                 );
 
                 $succes = count($questionsGenerees) . " questions générées. Vérifiez et sauvegardez.";
@@ -229,11 +241,13 @@ $apiKeySaved = getApiKey();
                 </div>
                 <div class="card-body p-4">
                     <form method="POST" enctype="multipart/form-data" id="generateForm">
+                        <input type="hidden" name="generate" value="1">
 
                         <!-- Upload document -->
                         <div class="mb-3">
                             <label class="form-label fw-semibold">
                                 <i class="bi bi-file-earmark-text me-1 text-primary"></i>Document de cours
+                                <span class="text-muted fw-normal small">(optionnel si un sujet est saisi)</span>
                             </label>
                             <div class="upload-zone p-4 text-center" id="dropZone"
                                  onclick="document.getElementById('fileInput').click()">
@@ -263,6 +277,20 @@ $apiKeySaved = getApiKey();
                                 <a href="modules.php" class="text-muted small">
                                     <i class="bi bi-plus-circle me-1"></i>Créer un nouveau module
                                 </a>
+                            </div>
+                        </div>
+
+                        <!-- Prompt / Sujet -->
+                        <div class="mb-3">
+                            <label for="promptSujet" class="form-label fw-semibold">
+                                <i class="bi bi-chat-left-text me-1 text-primary"></i>Sujet / Instructions pour Claude
+                            </label>
+                            <textarea name="prompt_sujet" id="promptSujet"
+                                      class="form-control form-control-sm"
+                                      rows="3"
+                                      placeholder="Ex : Concentre-toi sur les notions de base des réseaux TCP/IP, évite les questions sur la couche physique…"><?= htmlspecialchars($_POST['prompt_sujet'] ?? '') ?></textarea>
+                            <div class="text-muted small mt-1">
+                                <i class="bi bi-info-circle me-1"></i>Facultatif — précisez le sujet, les thèmes à cibler ou à exclure.
                             </div>
                         </div>
 
@@ -497,6 +525,7 @@ $apiKeySaved = getApiKey();
                     <div class="row g-3 text-start w-100" style="max-width:420px">
                         <?php $steps = [
                             ['bi-file-earmark-arrow-up','Uploadez votre support de cours'],
+                            ['bi-chat-left-text','Rédigez un prompt pour guider Claude (facultatif)'],
                             ['bi-sliders','Choisissez le nombre, les types et la notation'],
                             ['bi-stars','Claude analyse et génère les questions'],
                             ['bi-cloud-check','Vérifiez et sauvegardez en un clic'],

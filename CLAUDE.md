@@ -175,3 +175,5 @@ Génère un `.xls` SpreadsheetML **sans bibliothèque externe** (aucun Composer 
 8. **GROUP BY MySQL** : mode `only_full_group_by` actif → toutes les colonnes SELECT non-agrégées doivent être dans GROUP BY ou wrappées dans MAX()/MIN()
 9. **Suppression stagiaire** : cascade manuelle (reponses_stagiaires → sessions_eval → stagiaire) — pas de FK ON DELETE CASCADE en DB
 10. **VirtualHost Apache** : `C:\laragon\etc\apache2\sites-enabled\00-default.conf`
+11. **Clé API Anthropic** : stockée en table `config` (clé `anthropic_api_key`). Crédits à gérer sur **console.anthropic.com** (≠ claude.ai qui est l'interface web). En cas d'erreur "credit balance too low", recharger sur console.anthropic.com → Billing → Add credits.
+12. **Génération IA** : `admin/generate.php` accepte un document (PDF/DOCX/TXT) **et/ou** un prompt texte libre — les deux sont optionnels séparément mais au moins un est requis.
