@@ -206,6 +206,8 @@ function getStatsGlobales(): array {
         'terminees'        => (int)$pdo->query("SELECT COUNT(*) FROM sessions_eval WHERE statut='termine'")->fetchColumn(),
         'moy_pourcentage'  => (float)$pdo->query("SELECT COALESCE(AVG(pourcentage),0) FROM sessions_eval WHERE statut='termine'")->fetchColumn(),
         'nb_modules'       => (int)$pdo->query("SELECT COUNT(*) FROM modules WHERE actif=1")->fetchColumn(),
+        'nb_stagiaires'    => (int)$pdo->query("SELECT COUNT(*) FROM stagiaires")->fetchColumn(),
+        'nb_groupes'       => (int)$pdo->query("SELECT COUNT(*) FROM groupes")->fetchColumn(),
     ];
 }
 
@@ -219,8 +221,8 @@ function trouverOuCreerGroupe(string $nom, ?string $annee = null): int {
     $stmt->execute([trim($nom)]);
     $row = $stmt->fetch();
     if ($row) return (int)$row['id'];
-    $stmt2 = $pdo->prepare("INSERT INTO groupes (nom, annee) VALUES (?, ?)");
-    $stmt2->execute([trim($nom), $annee]);
+    $stmt2 = $pdo->prepare("INSERT INTO groupes (nom) VALUES (?)");
+    $stmt2->execute([trim($nom)]);
     return (int)$pdo->lastInsertId();
 }
 

@@ -29,32 +29,46 @@ $sessions = getAllSessions(10, 0);
 
     <!-- Statistiques -->
     <div class="row g-3 mb-4">
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
             <div class="card border-0 shadow-sm rounded-4 text-center p-3">
-                <div class="text-primary display-6 mb-1"><i class="bi bi-people-fill"></i></div>
-                <div class="h3 fw-bold mb-0"><?= $stats['total_sessions'] ?></div>
-                <div class="text-muted small">Évaluations lancées</div>
+                <div class="text-primary display-6 mb-1"><i class="bi bi-person-badge-fill"></i></div>
+                <div class="h3 fw-bold mb-0"><?= $stats['nb_stagiaires'] ?></div>
+                <div class="text-muted small">Stagiaires</div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm rounded-4 text-center p-3">
+                <div class="text-secondary display-6 mb-1"><i class="bi bi-people-fill"></i></div>
+                <div class="h3 fw-bold mb-0"><?= $stats['nb_groupes'] ?></div>
+                <div class="text-muted small">Groupes</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm rounded-4 text-center p-3">
+                <div class="text-info display-6 mb-1"><i class="bi bi-journal-text"></i></div>
+                <div class="h3 fw-bold mb-0"><?= $stats['nb_modules'] ?></div>
+                <div class="text-muted small">Modules actifs</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
+            <div class="card border-0 shadow-sm rounded-4 text-center p-3">
+                <div class="text-warning display-6 mb-1"><i class="bi bi-pencil-square"></i></div>
+                <div class="h3 fw-bold mb-0"><?= $stats['total_sessions'] ?></div>
+                <div class="text-muted small">Évaluations</div>
+            </div>
+        </div>
+        <div class="col-6 col-md-2">
             <div class="card border-0 shadow-sm rounded-4 text-center p-3">
                 <div class="text-success display-6 mb-1"><i class="bi bi-check-circle-fill"></i></div>
                 <div class="h3 fw-bold mb-0"><?= $stats['terminees'] ?></div>
                 <div class="text-muted small">Terminées</div>
             </div>
         </div>
-        <div class="col-6 col-md-3">
+        <div class="col-6 col-md-2">
             <div class="card border-0 shadow-sm rounded-4 text-center p-3">
-                <div class="text-warning display-6 mb-1"><i class="bi bi-graph-up"></i></div>
+                <div class="text-danger display-6 mb-1"><i class="bi bi-graph-up"></i></div>
                 <div class="h3 fw-bold mb-0"><?= number_format($stats['moy_pourcentage'], 1) ?>%</div>
                 <div class="text-muted small">Moyenne générale</div>
-            </div>
-        </div>
-        <div class="col-6 col-md-3">
-            <div class="card border-0 shadow-sm rounded-4 text-center p-3">
-                <div class="text-info display-6 mb-1"><i class="bi bi-journal-text"></i></div>
-                <div class="h3 fw-bold mb-0"><?= $stats['nb_modules'] ?></div>
-                <div class="text-muted small">Modules actifs</div>
             </div>
         </div>
     </div>
@@ -62,14 +76,40 @@ $sessions = getAllSessions(10, 0);
     <!-- Accès rapides -->
     <div class="row g-3 mb-4">
         <div class="col-md-4">
-            <a href="modules.php" class="card border-0 shadow-sm rounded-4 text-decoration-none h-100">
+            <a href="stagiaires.php" class="card border-0 shadow-sm rounded-4 text-decoration-none h-100">
                 <div class="card-body p-4 d-flex align-items-center gap-3">
                     <div class="quick-icon bg-primary-subtle text-primary">
+                        <i class="bi bi-person-plus-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold text-dark">Gérer les stagiaires</div>
+                        <div class="text-muted small">Ajouter, modifier, réinitialiser</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="groupes.php" class="card border-0 shadow-sm rounded-4 text-decoration-none h-100">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="quick-icon bg-secondary-subtle text-secondary">
+                        <i class="bi bi-people-fill fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold text-dark">Gérer les groupes</div>
+                        <div class="text-muted small">Créer et organiser les groupes</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="modules.php" class="card border-0 shadow-sm rounded-4 text-decoration-none h-100">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="quick-icon bg-info-subtle text-info">
                         <i class="bi bi-journal-plus fs-4"></i>
                     </div>
                     <div>
                         <div class="fw-semibold text-dark">Gérer les modules</div>
-                        <div class="text-muted small">Créer et modifier les modules</div>
+                        <div class="text-muted small">Créer et publier les modules QCM</div>
                     </div>
                 </div>
             </a>
@@ -88,14 +128,27 @@ $sessions = getAllSessions(10, 0);
             </a>
         </div>
         <div class="col-md-4">
-            <a href="results.php" class="card border-0 shadow-sm rounded-4 text-decoration-none h-100">
+            <a href="generate.php" class="card border-0 shadow-sm rounded-4 text-decoration-none h-100">
                 <div class="card-body p-4 d-flex align-items-center gap-3">
                     <div class="quick-icon bg-warning-subtle text-warning">
+                        <i class="bi bi-stars fs-4"></i>
+                    </div>
+                    <div>
+                        <div class="fw-semibold text-dark">Génération IA</div>
+                        <div class="text-muted small">Créer des QCM avec Claude</div>
+                    </div>
+                </div>
+            </a>
+        </div>
+        <div class="col-md-4">
+            <a href="results.php" class="card border-0 shadow-sm rounded-4 text-decoration-none h-100">
+                <div class="card-body p-4 d-flex align-items-center gap-3">
+                    <div class="quick-icon bg-danger-subtle text-danger">
                         <i class="bi bi-bar-chart-fill fs-4"></i>
                     </div>
                     <div>
                         <div class="fw-semibold text-dark">Voir les résultats</div>
-                        <div class="text-muted small">Consulter et exporter</div>
+                        <div class="text-muted small">Consulter et corriger</div>
                     </div>
                 </div>
             </a>
