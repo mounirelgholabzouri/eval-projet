@@ -168,6 +168,10 @@ unset($_SESSION['eval_session_id'], $_SESSION['eval_session_token'], $_SESSION['
         <a href="index.php" class="btn btn-primary btn-lg">
             <i class="bi bi-arrow-clockwise me-2"></i>Nouvelle évaluation
         </a>
+        <a href="admin/export_excel.php?module_id=<?= (int)$session['module_id'] ?>"
+           class="btn btn-success btn-lg">
+            <i class="bi bi-file-earmark-excel me-2"></i>Télécharger Excel (récap module)
+        </a>
         <button onclick="window.print()" class="btn btn-outline-secondary btn-lg">
             <i class="bi bi-printer me-2"></i>Imprimer
         </button>
