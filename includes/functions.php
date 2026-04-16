@@ -340,11 +340,23 @@ function modifierStagiaire(int $id, string $nom, string $prenom, int $groupeId, 
 
 function supprimerStagiaire(int $id): bool {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM sessions_eval WHERE stagiaire_id = ?");
-    $stmt->execute([$id]);
-    if ((int)$stmt->fetchColumn() > 0) return false;
-    $pdo->prepare("DELETE FROM stagiaires WHERE id = ?")->execute([$id]);
-    return true;
+    $pdo->beginTransaction();
+    try {
+        // 1. Supprimer les réponses liées aux sessions du stagiaire
+        $pdo->prepare("
+            DELETE FROM reponses_stagiaires
+            WHERE session_id IN (SELECT id FROM sessions_eval WHERE stagiaire_id = ?)
+        ")->execute([$id]);
+        // 2. Supprimer les sessions du stagiaire
+        $pdo->prepare("DELETE FROM sessions_eval WHERE stagiaire_id = ?")->execute([$id]);
+        // 3. Supprimer le stagiaire
+        $pdo->prepare("DELETE FROM stagiaires WHERE id = ?")->execute([$id]);
+        $pdo->commit();
+        return true;
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        return false;
+    }
 }
 
 function resetPasswordStagiaire(int $id): void {

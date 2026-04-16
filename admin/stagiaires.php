@@ -206,6 +206,7 @@ $stagiaires  = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                                 <button class="btn btn-outline-danger btn-supprimer"
                                     data-id="<?= $s['id'] ?>"
                                     data-nom="<?= sanitize($s['prenom'] . ' ' . strtoupper($s['nom'])) ?>"
+                                    data-nb="<?= (int)$s['nb_evaluations'] ?>"
                                     title="Supprimer"><i class="bi bi-trash"></i>
                                 </button>
                             </div>
@@ -359,8 +360,13 @@ $stagiaires  = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <p>Supprimer définitivement <strong id="suppr_nom"></strong> ?</p>
-                <p class="text-danger small mb-0"><i class="bi bi-exclamation-triangle me-1"></i>Impossible si le stagiaire a des évaluations.</p>
+                <p class="mb-2">Supprimer définitivement <strong id="suppr_nom"></strong> ?</p>
+                <div id="suppr_warning_eval" class="alert alert-warning py-2 small mb-2" style="display:none">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    Ce stagiaire a <strong id="suppr_nb_eval"></strong> évaluation(s) enregistrée(s).<br>
+                    Elles seront <strong>définitivement supprimées</strong> avec le compte.
+                </div>
+                <p class="text-muted small mb-0"><i class="bi bi-info-circle me-1"></i>Cette action est irréversible.</p>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
@@ -411,8 +417,16 @@ document.querySelectorAll('.btn-reset').forEach(btn => {
 
 document.querySelectorAll('.btn-supprimer').forEach(btn => {
     btn.addEventListener('click', () => {
-        document.getElementById('suppr_id').value = btn.dataset.id;
+        const nb = parseInt(btn.dataset.nb) || 0;
+        document.getElementById('suppr_id').value        = btn.dataset.id;
         document.getElementById('suppr_nom').textContent = btn.dataset.nom;
+        const warn = document.getElementById('suppr_warning_eval');
+        if (nb > 0) {
+            document.getElementById('suppr_nb_eval').textContent = nb;
+            warn.style.display = 'block';
+        } else {
+            warn.style.display = 'none';
+        }
         new bootstrap.Modal(document.getElementById('modalSupprimer')).show();
     });
 });
