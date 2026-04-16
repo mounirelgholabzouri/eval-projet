@@ -58,7 +58,7 @@ Eval-Projet/
 ├── logout_stagiaire.php       # Déconnexion stagiaire
 ├── changer_password.php       # Changement mot de passe stagiaire (forcé si must_change_password)
 ├── quiz.php                   # Page d'évaluation (requiert eval_session_id en SESSION)
-├── result.php                 # Résultats après évaluation
+├── result.php                 # Résultats après évaluation + bouton export Excel module
 ├── config/
 │   └── database.php           # Config DB + constantes + getDB()
 ├── includes/
@@ -69,10 +69,11 @@ Eval-Projet/
 │   ├── index.php              # Dashboard admin
 │   ├── modules.php            # Gestion modules/QCM (toggle actif AJAX)
 │   ├── questions.php          # Gestion questions
-│   ├── results.php            # Liste des résultats
+│   ├── results.php            # Liste des résultats + export Excel/CSV
+│   ├── export_excel.php       # Export SpreadsheetML .xls (2 feuilles : évals + moyennes/stagiaire)
 │   ├── detail.php             # Détail d'une session
-│   ├── stagiaires.php         # CRUD stagiaires (créer/modifier/supprimer/reset mdp)
-│   ├── groupes.php            # Gestion des groupes
+│   ├── stagiaires.php         # CRUD stagiaires (créer/modifier/supprimer cascade/reset mdp)
+│   ├── groupes.php            # Gestion des groupes (modals, nb stagiaires, protection FK)
 │   ├── generate.php           # Génération QCM par IA
 │   ├── correct_texte.php      # Correction questions texte libre
 │   ├── login.php              # Connexion admin
@@ -112,7 +113,7 @@ Eval-Projet/
 
 1. `index.php` (POST `module_id`) → `creerSession()` → `$_SESSION['eval_session_id']` → redirect `quiz.php`
 2. `quiz.php` → lit `eval_session_id` → affiche les questions → POST `submit_final` → `terminerSession()`
-3. `result.php` → affiche le score depuis `$_SESSION['eval_result']`
+3. `result.php` → affiche le score + bouton **Télécharger Excel** filtré sur le module
 
 ## Fonctions métier clés (`includes/functions.php`)
 
@@ -129,6 +130,8 @@ Eval-Projet/
 | `creerStagiaireAdmin(...)` | Crée stagiaire avec mdp par défaut 123456 |
 | `trouverOuCreerGroupe($nom, $annee)` | Groupe auto-créé si inexistant |
 | `getAnneeCourante()` / `getAnneesDisponibles()` | Années scolaires |
+| `supprimerStagiaire($id)` | Cascade : reponses_stagiaires → sessions_eval → stagiaire |
+| `getStatsGlobales()` | KPIs dashboard (nb_stagiaires, nb_groupes, nb_modules, sessions…) |
 
 ## Commandes utiles
 
@@ -150,6 +153,16 @@ curl -s -o /dev/null -w "%{http_code}" "http://localhost/page.php"
 ### Redémarrer Apache
 Laragon UI → clic droit → **Reload** ou Stop Apache puis Start Apache
 
+## Export Excel (`admin/export_excel.php`)
+
+Génère un `.xls` SpreadsheetML **sans bibliothèque externe** (aucun Composer requis).
+
+- **Feuille 1 "Évaluations"** : toutes les évals terminées — nom, prénom, groupe, module, date, score brut, note /20, %, mention. Cellules colorées vert (≥50%) / rouge (<50%).
+- **Feuille 2 "Moyennes par stagiaire"** : moyenne %, meilleure note, note la plus basse, mention + ligne MOYENNE GÉNÉRALE.
+- **Paramètres GET** : `?module_id=X` et/ou `?groupe_id=Y`
+- **Auth** : session admin (`eval_admin`) **ou** session stagiaire (`eval_stagiaire`)
+- **Accès** : bouton sur `result.php` (filtré module) + bouton sur `admin/results.php`
+
 ## Points d'attention
 
 1. **Serveur** : Ne jamais utiliser `php -S` (mono-thread, bloque AJAX) → Apache Laragon uniquement
@@ -159,4 +172,6 @@ Laragon UI → clic droit → **Reload** ou Stop Apache puis Start Apache
 5. **MySQL CLI pipe** : utiliser `Get-Content fichier.sql | mysql.exe` (l'opérateur `<` est bloqué en PowerShell)
 6. **ALTER TABLE IF NOT EXISTS** : non supporté par MySQL 8.4 de Laragon → vérifier via `SHOW COLUMNS` en PHP avant d'ajouter
 7. **Migrations** : toujours via un script PHP/PDO — jamais le CLI MySQL (encodage cp850)
-8. **VirtualHost Apache** : `C:\laragon\etc\apache2\sites-enabled\00-default.conf`
+8. **GROUP BY MySQL** : mode `only_full_group_by` actif → toutes les colonnes SELECT non-agrégées doivent être dans GROUP BY ou wrappées dans MAX()/MIN()
+9. **Suppression stagiaire** : cascade manuelle (reponses_stagiaires → sessions_eval → stagiaire) — pas de FK ON DELETE CASCADE en DB
+10. **VirtualHost Apache** : `C:\laragon\etc\apache2\sites-enabled\00-default.conf`
