@@ -18,12 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $stagiaire = getStagiaireByLogin($login);
         if ($stagiaire && $stagiaire['password_hash'] && password_verify($password, $stagiaire['password_hash'])) {
             session_regenerate_id(true);
-            $_SESSION['stagiaire_id']       = $stagiaire['id'];
-            $_SESSION['stagiaire_nom']       = $stagiaire['nom'];
-            $_SESSION['stagiaire_prenom']    = $stagiaire['prenom'];
-            $_SESSION['stagiaire_groupe_id'] = $stagiaire['groupe_id'];
-            $_SESSION['stagiaire_groupe_nom']= $stagiaire['groupe_nom'];
-            $_SESSION['stagiaire_annee']     = $stagiaire['annee_scolaire'];
+            $_SESSION['stagiaire_id']            = $stagiaire['id'];
+            $_SESSION['stagiaire_nom']            = $stagiaire['nom'];
+            $_SESSION['stagiaire_prenom']         = $stagiaire['prenom'];
+            $_SESSION['stagiaire_groupe_id']      = $stagiaire['groupe_id'];
+            $_SESSION['stagiaire_groupe_nom']     = $stagiaire['groupe_nom'];
+            $_SESSION['stagiaire_annee']          = $stagiaire['annee_scolaire'];
+            $_SESSION['must_change_password']     = !empty($stagiaire['must_change_password']);
             redirect('index.php');
         } else {
             $erreur = "Identifiants invalides.";

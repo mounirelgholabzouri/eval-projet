@@ -77,6 +77,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="card shadow-lg border-0 rounded-4">
                 <div class="card-body p-4 p-md-5">
 
+                    <?php if (!empty($_SESSION['must_change_password'])): ?>
+                    <div class="alert alert-warning rounded-3 d-flex align-items-center justify-content-between mb-3 py-2">
+                        <div class="small">
+                            <i class="bi bi-key-fill me-2"></i>
+                            <strong>Mot de passe par défaut détecté.</strong>
+                            Pour sécuriser votre compte, veuillez le modifier.
+                        </div>
+                        <a href="changer_password.php" class="btn btn-sm btn-warning ms-3 text-nowrap">
+                            <i class="bi bi-pencil-square me-1"></i>Modifier
+                        </a>
+                    </div>
+                    <?php endif; ?>
+
                     <!-- Bannière identité -->
                     <div class="alert alert-success rounded-3 d-flex align-items-center justify-content-between mb-4 py-2">
                         <div>

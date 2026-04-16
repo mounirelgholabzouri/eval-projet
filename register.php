@@ -110,12 +110,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <label class="form-label fw-semibold small">Nom <span class="text-danger">*</span></label>
-                                <input type="text" name="nom" class="form-control"
+                                <input type="text" name="nom" id="nom" class="form-control"
                                        value="<?= sanitize($_POST['nom'] ?? '') ?>" placeholder="DUPONT" required>
                             </div>
                             <div class="col-6">
                                 <label class="form-label fw-semibold small">Prénom <span class="text-danger">*</span></label>
-                                <input type="text" name="prenom" class="form-control"
+                                <input type="text" name="prenom" id="prenom" class="form-control"
                                        value="<?= sanitize($_POST['prenom'] ?? '') ?>" placeholder="Jean" required>
                             </div>
                         </div>
@@ -156,18 +156,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label class="form-label fw-semibold small">Identifiant <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-at"></i></span>
-                                <input type="text" name="login" class="form-control"
+                                <input type="text" name="login" id="login" class="form-control"
                                        value="<?= sanitize($_POST['login'] ?? '') ?>"
-                                       placeholder="ex: jean.dupont" required>
+                                       placeholder="ex: Jean.DUPONT" required>
                             </div>
-                            <div class="form-text">Lettres, chiffres, points et tirets uniquement.</div>
+                            <div class="form-text">Généré automatiquement depuis votre prénom et nom.</div>
                         </div>
 
                         <div class="mb-3">
                             <label class="form-label fw-semibold small">Mot de passe <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                                <input type="password" name="password" class="form-control"
+                                <input type="password" name="password" id="password" class="form-control"
                                        placeholder="6 caractères minimum" required>
                             </div>
                         </div>
@@ -176,7 +176,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <label class="form-label fw-semibold small">Confirmer le mot de passe <span class="text-danger">*</span></label>
                             <div class="input-group">
                                 <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
-                                <input type="password" name="confirm" class="form-control"
+                                <input type="password" name="confirm" id="confirm" class="form-control"
                                        placeholder="Répétez le mot de passe" required>
                             </div>
                         </div>

@@ -285,9 +285,69 @@ function getStagiaireByLogin(string $login): ?array {
     return $stmt->fetch() ?: null;
 }
 
-function loginExists(string $login): bool {
+function loginExists(string $login, int $excludeId = 0): bool {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT COUNT(*) FROM stagiaires WHERE login = ?");
-    $stmt->execute([trim($login)]);
+    $sql = "SELECT COUNT(*) FROM stagiaires WHERE login = ?";
+    $params = [trim($login)];
+    if ($excludeId > 0) { $sql .= " AND id != ?"; $params[] = $excludeId; }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     return (bool)$stmt->fetchColumn();
+}
+
+function normaliserPourLogin(string $s): string {
+    $s = mb_strtolower(trim($s), 'UTF-8');
+    $s = strtr($s, ['é'=>'e','è'=>'e','ê'=>'e','ë'=>'e','à'=>'a','â'=>'a','ä'=>'a',
+                    'î'=>'i','ï'=>'i','ô'=>'o','ö'=>'o','ù'=>'u','û'=>'u','ü'=>'u',
+                    'ç'=>'c','ñ'=>'n','æ'=>'ae','œ'=>'oe']);
+    return preg_replace('/[^a-z0-9]/', '', $s);
+}
+
+function genererLogin(string $prenom, string $nom, int $excludeId = 0): string {
+    $p = ucfirst(normaliserPourLogin($prenom));
+    $n = strtoupper(normaliserPourLogin($nom));
+    $base = $p . '.' . $n;
+    $login = $base;
+    $i = 2;
+    while (loginExists($login, $excludeId)) {
+        $login = $base . $i;
+        $i++;
+    }
+    return $login;
+}
+
+function creerStagiaireAdmin(string $nom, string $prenom, int $groupeId, string $annee): array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT id FROM stagiaires WHERE nom=? AND prenom=? AND groupe_id=? AND annee_scolaire=? LIMIT 1");
+    $stmt->execute([trim($nom), trim($prenom), $groupeId, $annee]);
+    if ($stmt->fetchColumn()) {
+        throw new RuntimeException("Ce stagiaire existe déjà dans ce groupe pour cette année.");
+    }
+    $login = genererLogin($prenom, $nom);
+    $hash  = password_hash('123456', PASSWORD_BCRYPT);
+    $pdo->prepare("INSERT INTO stagiaires (nom, prenom, groupe_id, annee_scolaire, login, password_hash, must_change_password) VALUES (?,?,?,?,?,?,1)")
+        ->execute([trim($nom), trim($prenom), $groupeId, $annee, $login, $hash]);
+    return ['id' => (int)$pdo->lastInsertId(), 'login' => $login];
+}
+
+function modifierStagiaire(int $id, string $nom, string $prenom, int $groupeId, string $annee, string $login): void {
+    $pdo = getDB();
+    $pdo->prepare("UPDATE stagiaires SET nom=?, prenom=?, groupe_id=?, annee_scolaire=?, login=? WHERE id=?")
+        ->execute([trim($nom), trim($prenom), $groupeId, $annee, trim($login), $id]);
+}
+
+function supprimerStagiaire(int $id): bool {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM sessions_eval WHERE stagiaire_id = ?");
+    $stmt->execute([$id]);
+    if ((int)$stmt->fetchColumn() > 0) return false;
+    $pdo->prepare("DELETE FROM stagiaires WHERE id = ?")->execute([$id]);
+    return true;
+}
+
+function resetPasswordStagiaire(int $id): void {
+    $pdo = getDB();
+    $hash = password_hash('123456', PASSWORD_BCRYPT);
+    $pdo->prepare("UPDATE stagiaires SET password_hash=?, must_change_password=1 WHERE id=?")
+        ->execute([$hash, $id]);
 }
