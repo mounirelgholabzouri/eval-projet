@@ -3,10 +3,10 @@
 // Configuration de la base de données — Laragon
 // ============================================================
 
-define('DB_HOST',    'localhost');
-define('DB_NAME',    'eval_online');
-define('DB_USER',    'root');
-define('DB_PASS',    '');           // Laragon : mot de passe root vide par défaut
+define('DB_HOST',    getenv('DB_HOST') ?: 'localhost');
+define('DB_NAME',    getenv('DB_NAME') ?: 'eval_online');
+define('DB_USER',    getenv('DB_USER') ?: 'root');
+define('DB_PASS',    getenv('DB_PASS') ?: '');  // Laragon: vide | Docker: voir .env
 define('DB_CHARSET', 'utf8mb4');
 
 define('SITE_NAME',          "Outil d'Évaluation en Ligne");

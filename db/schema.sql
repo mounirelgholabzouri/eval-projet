@@ -45,10 +45,25 @@ CREATE TABLE IF NOT EXISTS choix_reponses (
     FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
+-- Table des stagiaires (comptes authentifiés)
+CREATE TABLE IF NOT EXISTS stagiaires (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(100) NOT NULL,
+    prenom VARCHAR(100) NOT NULL,
+    groupe_id INT DEFAULT NULL,
+    annee_scolaire VARCHAR(9) DEFAULT NULL,
+    login VARCHAR(100) DEFAULT NULL UNIQUE,
+    password_hash VARCHAR(255) DEFAULT NULL,
+    must_change_password TINYINT(1) DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (groupe_id) REFERENCES groupes(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- Table des sessions d'évaluation (une par stagiaire)
 CREATE TABLE IF NOT EXISTS sessions_eval (
     id INT AUTO_INCREMENT PRIMARY KEY,
     token VARCHAR(64) NOT NULL UNIQUE,
+    stagiaire_id INT DEFAULT NULL,
     nom VARCHAR(100) NOT NULL,
     prenom VARCHAR(100) NOT NULL,
     groupe_id INT,
@@ -60,6 +75,7 @@ CREATE TABLE IF NOT EXISTS sessions_eval (
     total_points DECIMAL(6,2) DEFAULT 0,
     pourcentage DECIMAL(5,2) DEFAULT 0,
     statut ENUM('en_cours', 'termine') DEFAULT 'en_cours',
+    FOREIGN KEY (stagiaire_id) REFERENCES stagiaires(id) ON DELETE SET NULL,
     FOREIGN KEY (groupe_id) REFERENCES groupes(id) ON DELETE SET NULL,
     FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

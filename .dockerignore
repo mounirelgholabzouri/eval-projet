@@ -1,0 +1,7 @@
+.git/
+*.bat
+*.log
+.gitignore
+CLAUDE.md
+CONTEXT.md
+LIRE_MOI.txt

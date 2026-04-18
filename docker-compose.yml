@@ -1,0 +1,42 @@
+services:
+
+  app:
+    build: .
+    container_name: eval_app
+    ports:
+      - "8080:80"
+    volumes:
+      - .:/var/www/html
+    environment:
+      DB_HOST: db
+      DB_NAME: ${DB_NAME:-eval_online}
+      DB_USER: ${DB_USER:-root}
+      DB_PASS: ${DB_PASS:-root}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - eval_net
+
+  db:
+    image: mysql:8.4
+    container_name: eval_db
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_PASS:-root}
+      MYSQL_DATABASE: ${DB_NAME:-eval_online}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - eval_net
+
+volumes:
+  mysql_data:
+
+networks:
+  eval_net:
