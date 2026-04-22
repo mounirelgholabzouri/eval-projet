@@ -178,61 +178,18 @@ REM ============================================================
 echo.
 echo [6/7] Creation base de donnees...
 
-set "TMPPHP=%TEMP%\setup-eval.php"
+if not exist "%WEB_ROOT%\install_db.php" (
+    echo ERREUR : install_db.php introuvable dans %WEB_ROOT%
+    pause
+    exit /b 1
+)
 
-REM Creer le script PHP
-(
-    echo ^<?php
-    echo $db_host = '%DB_HOST%';
-    echo $db_user = '%DB_USER%';
-    echo $db_pass = '%DB_PASS%';
-    echo $db_name = '%DB_NAME%';
-    echo $web_root = '%WEB_ROOT%';
-    echo.
-    echo try {
-    echo     // 1. Connexion root
-    echo     $pdo = new PDO("mysql:host=$db_host", $db_user, $db_pass);
-    echo.
-    echo     // 2. Creer base
-    echo     $pdo-^>exec("DROP DATABASE IF EXISTS `$db_name`");
-    echo     $pdo-^>exec("CREATE DATABASE `$db_name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-    echo.
-    echo     // 3. Reconnexion
-    echo     $pdo = new PDO("mysql:host=$db_host;dbname=$db_name;charset=utf8mb4", $db_user, $db_pass);
-    echo.
-    echo     // 4. Import schema
-    echo     $schema = file_get_contents($web_root . '/db/schema.sql');
-    echo     foreach (array_filter(array_map('trim', explode(';', $schema))) as $sql) {
-    echo         if (!empty($sql^) ^&^& !str_starts_with($sql, '--')) {
-    echo             try { $pdo-^>exec($sql); } catch(Exception $e) {}
-    echo         }
-    echo     }
-    echo.
-    echo     // 5. Donnees de base
-    echo     $admin_hash = password_hash('admin123', PASSWORD_BCRYPT);
-    echo     $pdo-^>exec("INSERT IGNORE INTO admins (username, password_hash, nom) VALUES ('admin', '$admin_hash', 'Admin')");
-    echo     $pdo-^>exec("INSERT IGNORE INTO groupes (nom) VALUES ('Groupe A - 2025')");
-    echo     $pdo-^>exec("INSERT IGNORE INTO groupes (nom) VALUES ('Groupe B - 2025')");
-    echo     $pdo-^>exec("INSERT IGNORE INTO modules (nom, description, duree_minutes, note_max, actif) VALUES ('Module Demo', 'Demo', 30, 20, 1)");
-    echo     $pdo-^>exec("INSERT IGNORE INTO questions (module_id, texte, type, points, ordre) VALUES (1, 'Quelle est la capitale de la France ?', 'qcm', 5, 1)");
-    echo     $pdo-^>exec("INSERT IGNORE INTO choix_reponses (question_id, texte, is_correct) VALUES (1, 'Paris', 1), (1, 'Lyon', 0)");
-    echo     $pdo-^>exec("INSERT IGNORE INTO config (cle, valeur) VALUES ('anthropic_api_key', '')");
-    echo     echo "OK\n";
-    echo.
-    echo } catch(Exception $e) {
-    echo     echo "ERREUR: " . $e-^>getMessage() . "\n";
-    echo     exit(1);
-    echo }
-) > "%TMPPHP%"
-
-REM Executer le script PHP
-"%PHP_BIN%" "%TMPPHP%"
+"%PHP_BIN%" "%WEB_ROOT%\install_db.php" "%DB_HOST%" "%DB_USER%" "%DB_PASS%" "%DB_NAME%" "%WEB_ROOT%"
 if errorlevel 1 (
     echo ERREUR : Installation base echouee.
     pause
     exit /b 1
 )
-del "%TMPPHP%" >nul 2>&1
 echo OK.
 
 REM ============================================================
