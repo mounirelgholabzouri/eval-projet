@@ -106,36 +106,30 @@ if exist "%XAMPP_DIR%\xampp-control.exe" (
     goto :xampp_ok
 )
 
-echo XAMPP absent.
-echo.
-echo [1] Installer XAMPP (recommande)
-echo [2] Installer manuellement et relancer
-set /p "CHOICE=Choix : "
-
-if "%CHOICE%"=="1" (
-    set "INSTALLER=%TEMP%\xampp.exe"
-    if not exist "!INSTALLER!" (
-        echo Telechargement XAMPP...
-        certutil -urlcache -split -f "https://sourceforge.net/projects/xampp/files/XAMPP%%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe/download" "!INSTALLER!" >nul 2>&1
-        if errorlevel 1 (
-            echo Telechargement echoue. Telechargez manuellement : https://www.apachefriends.org
-            pause
-            exit /b 1
-        )
+echo XAMPP absent - telechargement automatique...
+set "INSTALLER=%TEMP%\xampp.exe"
+if not exist "%INSTALLER%" (
+    echo Telechargement XAMPP (160 Mo, patientez)...
+    certutil -urlcache -split -f "https://sourceforge.net/projects/xampp/files/XAMPP%%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe/download" "%INSTALLER%" >nul 2>&1
+    if errorlevel 1 (
+        echo Telechargement certutil echoue, essai PowerShell...
+        powershell -NoProfile -Command "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri 'https://sourceforge.net/projects/xampp/files/XAMPP Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe/download' -OutFile '%INSTALLER%' -UseBasicParsing" >nul 2>&1
     )
-    echo Installation en cours...
-    "!INSTALLER!" --mode unattended --unattendedmodeui minimal --prefix "%XAMPP_DIR%" --launchapps 0 --disable-components xampp_mailtodisk,xampp_mercury,xampp_filezilla,xampp_tomcat,xampp_perl >nul 2>&1
-    if not exist "%XAMPP_DIR%\xampp-control.exe" (
-        echo Installation XAMPP echouee.
+    if not exist "%INSTALLER%" (
+        echo ERREUR : Telechargement XAMPP impossible.
+        echo Telechargez manuellement : https://www.apachefriends.org/download.html
         pause
         exit /b 1
     )
-    echo OK - XAMPP installe.
-) else (
-    start https://www.apachefriends.org/download.html
-    pause
-    exit /b 0
 )
+echo Installation XAMPP en cours (2-5 min, patientez)...
+"%INSTALLER%" --mode unattended --unattendedmodeui minimal --prefix "%XAMPP_DIR%" --launchapps 0 --disable-components xampp_mailtodisk,xampp_mercury,xampp_filezilla,xampp_tomcat,xampp_perl
+if not exist "%XAMPP_DIR%\xampp-control.exe" (
+    echo ERREUR : Installation XAMPP echouee.
+    pause
+    exit /b 1
+)
+echo OK - XAMPP installe.
 
 :xampp_ok
 
