@@ -1,0 +1,126 @@
+================================================================================
+  DEPLOIEMENT EVAL-PROJET - Package Technicien
+  Tout ce qu'il faut pour installer l'app sur un serveur Windows
+================================================================================
+
+STRUCTURE DU PACKAGE
+====================
+
+[1] FICHIER PRINCIPAL
+    deploy_windows.bat
+    >>> C'est LE fichier a executer
+    >>> Clic droit -> "Executer en tant qu'administrateur"
+    >>> Il fait tout : telechargement, XAMPP, base, deploiement
+
+[2] GUIDE COMPLET
+    DEPLOIEMENT.md
+    >>> Documentation detaillee (8 pages)
+    >>> Lire si probleme ou doute
+    >>> Architecture, config avancee, troubleshooting
+
+[3] AIDE RAPIDE (A IMPRIMER)
+    QUICK_START.txt
+    >>> 1 page, lire en 2 minutes
+    >>> "Clic droit -> Admin -> OK -> 15 min"
+
+[4] IDENTIFIANTS
+    CREDENTIALS.txt
+    >>> Login/password par defaut
+    >>> Base de donnees info
+    >>> A CONSERVER ET TRANSMETTRE
+
+[5] DEPANNAGE
+    DEPANNAGE.txt
+    >>> 15 problemes courants + solutions
+    >>> "MySQL ne repond pas?" -> Solution directe
+    >>> Lire DABORD si erreur
+
+[6] VERIFICATION POST-DEPLOY
+    VERIFICATION.txt
+    >>> Checklist 50 items
+    >>> A remplir apres deploiement
+    >>> Signature + date
+
+[7] INFO APPLI
+    README.txt
+    >>> Tech stack (PHP, MySQL, Apache)
+    >>> Features, architecture, support
+
+================================================================================
+POUR COMMENCER : 3 ETAPES
+================================================================================
+
+  ETAPE 1 : Lire QUICK_START.txt (2 min)
+  ETAPE 2 : Executer deploy_windows.bat (15 min)
+  ETAPE 3 : Remplir VERIFICATION.txt (5 min)
+
+================================================================================
+LE SCRIPT DEPLOY_WINDOWS.BAT FAIT :
+================================================================================
+
+  [1/7] Verifie droits administrateur
+  [2/7] Telecharge le code depuis GitHub (git clone ou ZIP)
+  [3/7] Installe XAMPP si absent
+  [4/7] Deploie les fichiers
+  [5/7] Demarrage Apache + MySQL
+  [6/7] Creation base de donnees 'eval_online' + donnees de demo
+  [7/7] Ouverture navigateur sur http://localhost/eval-projet/
+
+Tout est AUTOMATIQUE. Aucune interaction requise.
+
+================================================================================
+IDENTIFIANTS PAR DEFAUT
+================================================================================
+
+  ADMIN LOGIN     : admin
+  ADMIN PASSWORD  : admin123 (A CHANGER IMMEDIATEMENT)
+
+  DATABASE        : eval_online
+  DATABASE USER   : root
+  DATABASE PASS   : (vide)
+  HOST            : localhost
+
+================================================================================
+ACCES APRES DEPLOIEMENT
+================================================================================
+
+  Interface Stagiaire
+  URL : http://localhost/eval-projet/
+
+  Interface Admin
+  URL : http://localhost/eval-projet/admin/
+  Login : admin / admin123
+
+  PhpMyAdmin (gestion base)
+  URL : http://localhost/phpmyadmin/
+  Login : root (pas de password)
+
+================================================================================
+DONNEES DE DEMO INCLUSES
+================================================================================
+
+  - Compte admin : admin / admin123
+  - Groupes : A, B, C (2025)
+  - Module : "Module Demo" avec 3 questions
+  - Questions : QCM, V/F, texte libre
+
+Ces donnees peuvent etre supprimees via l'interface admin.
+
+================================================================================
+SI ERREUR
+================================================================================
+
+  1. Consulter DEPANNAGE.txt (15 solutions)
+  2. Verifier QUICK_START.txt (rappel des etapes)
+  3. Consulter DEPLOIEMENT.md (guide complet)
+  4. Relancer le script (il reinitialise la base)
+
+================================================================================
+CONTACT SUPPORT
+================================================================================
+
+  Developpeur : mounir.elgholabzouri@gmail.com
+  GitHub      : https://github.com/mounirelgholabzouri/eval-projet
+  Urgent      : Fournir le message d'erreur exact + logs
+
+================================================================================

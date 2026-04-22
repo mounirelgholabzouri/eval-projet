@@ -1,0 +1,252 @@
+================================================================================
+  VERIFICATION POST-DEPLOIEMENT - EVAL-PROJET
+================================================================================
+
+Apres le deploiement, verifiez que tout fonctionne correctement :
+
+
+[1] PAGES ACCESSIBLES
+================================================================================
+
+  [ ] Interface Stagiaire
+      URL : http://localhost/eval-projet/
+      Attendu : Page d'accueil "Outil d'Evaluation en Ligne"
+      Statut : ___________
+
+  [ ] Interface Admin
+      URL : http://localhost/eval-projet/admin/
+      Attendu : Formulaire de connexion "Admin - Eval-Projet"
+      Statut : ___________
+
+  [ ] PhpMyAdmin
+      URL : http://localhost/phpmyadmin/
+      Attendu : Interface PhpMyAdmin
+      Statut : ___________
+
+
+[2] AUTHENTIFICATION ADMIN
+================================================================================
+
+  [ ] Connexion admin avec identifiants par defaut
+      URL : http://localhost/eval-projet/admin/
+      Login : admin
+      Password : admin123
+      Attendu : Tableau de bord admin charge
+      Statut : ___________
+
+  [ ] Le menu admin affiche les sections
+      - Gestion Modules
+      - Gestion Questions
+      - Gestion Groupes
+      - Gestion Stagiaires
+      - Resultats
+      Statut : ___________
+
+  [ ] Changement mot de passe possible
+      Admin > Configuration > Changer mot de passe
+      Attendu : Formulaire accessible
+      Statut : ___________
+
+
+[3] BASE DE DONNEES
+================================================================================
+
+  [ ] Base 'eval_online' creee
+      Via PhpMyAdmin ou : mysql -u root -e "SHOW DATABASES;"
+      Attendu : eval_online dans la liste
+      Statut : ___________
+
+  [ ] Tables creees
+      Via PhpMyAdmin > eval_online > Tables
+      Verifier presence de :
+        - admins
+        - groupes
+        - modules
+        - questions
+        - choix_reponses
+        - sessions_eval
+        - reponses_stagiaires
+        - config
+      Statut : ___________
+
+  [ ] Compte admin existe et fonctionne
+      PhpMyAdmin > eval_online > admins
+      Attendu : 1 ligne avec username='admin'
+      Statut : ___________
+
+  [ ] Donnees de demo insertees
+      PhpMyAdmin > eval_online > modules
+      Attendu : "Module Demo" present avec statut actif=1
+      Statut : ___________
+
+  [ ] Questions de demo presentes
+      PhpMyAdmin > eval_online > questions
+      Attendu : 4 lignes (ou plus)
+      Statut : ___________
+
+  [ ] Groupes de demo presentes
+      PhpMyAdmin > eval_online > groupes
+      Attendu : Groupe A, B, C ou equivalents
+      Statut : ___________
+
+
+[4] SERVICES XAMPP
+================================================================================
+
+  [ ] Apache en cours d'execution
+      XAMPP Control : C:\xampp\xampp-control.exe
+      Attendu : icone Apache = verte
+      Statut : ___________
+
+  [ ] MySQL en cours d'execution
+      XAMPP Control : icone MySQL = verte
+      Attendu : MySQL demarre
+      Statut : ___________
+
+  [ ] Apache redemarrаge propre
+      XAMPP Control : cliquez "Restart" pour Apache
+      Attendu : Apache s'arrete puis redémarre sans erreur
+      Statut : ___________
+
+  [ ] MySQL redemarrage propre
+      XAMPP Control : cliquez "Restart" pour MySQL
+      Attendu : MySQL s'arrete puis redémarre sans erreur
+      Statut : ___________
+
+
+[5] PAGES STAGIAIRE
+================================================================================
+
+  [ ] Page d'accueil charge
+      URL : http://localhost/eval-projet/
+      Attendu : Message "Bienvenue" ou similaire
+      Statut : ___________
+
+  [ ] Formulaire d'inscription visible
+      Attendu : Champs nom, prenom, groupe, etc.
+      Statut : ___________
+
+  [ ] Les modules demo sont visibles
+      Attendu : "Module Demo" affiche avec bouton "Evaluer"
+      Statut : ___________
+
+  [ ] Evaluation peut etre lancee
+      Cliquez "Evaluer" sur Module Demo
+      Attendu : Quiz affiche les 4 questions
+      Statut : ___________
+
+  [ ] Questions affichees correctement
+      Attendu : QCM avec choix, V/F avec boutons, etc.
+      Statut : ___________
+
+
+[6] EXTENSIONS PHP
+================================================================================
+
+  [ ] PDO MySQL activee
+      Admin > (futur) Info PHP
+      OU PhpMyAdmin > Accueil > Variables
+      Verifier : PDO MySQL driver = loaded
+      Statut : ___________
+
+  [ ] MBString activee
+      Attendu : accents fonctionnent dans les donnees
+      Statut : ___________
+
+  [ ] Curl activee
+      Attendu : generation IA possible (quand clé API config)
+      Statut : ___________
+
+  [ ] FileInfo activee
+      Attendu : upload de fichiers fonctionne
+      Statut : ___________
+
+
+[7] CONFIGURATION API ANTHROPIC (optionnel)
+================================================================================
+
+  [ ] Clé API peut etre entree
+      Admin > Configuration > Clé API Anthropic
+      Ou PhpMyAdmin > eval_online > config > anthropic_api_key
+      Attendu : Champ vide, peut etre rempli
+      Statut : ___________
+
+  [ ] Generation IA accessible (si clé present)
+      Admin > Gerer Modules > bouton "Generer avec IA"
+      Attendu : Formulaire pour description module
+      Statut : ___________
+
+
+[8] EXPORT EXCEL
+================================================================================
+
+  [ ] Bouton export visible en admin
+      Admin > Resultats
+      Attendu : Bouton "Telecharger Excel"
+      Statut : ___________
+
+  [ ] Excel peut etre telecharge
+      Cliquez "Telecharger Excel"
+      Attendu : Fichier .xls telecharge (formatage + couleurs)
+      Statut : ___________
+
+
+[9] LOGS
+================================================================================
+
+  [ ] Aucune erreur dans les logs PHP
+      C:\xampp\logs\php_error.log
+      Attendu : fichier vide ou warnings seulement
+      Statut : ___________
+
+  [ ] Aucune erreur dans les logs Apache
+      C:\xampp\apache\logs\error.log
+      Attendu : "Server started" ou similar
+      Statut : ___________
+
+  [ ] Aucune erreur dans les logs MySQL
+      C:\xampp\mysql\data\MACHINE_NAME.err
+      Attendu : "ready for connections"
+      Statut : ___________
+
+
+[10] FINALISATION
+================================================================================
+
+  [ ] Mot de passe admin change
+      Ancien : admin123
+      Nouveau : (mot de passe fort)
+      Statut : ___________
+
+  [ ] Donnees de demo supprimees (optionnel)
+      Admin > Gestion Modules > supprimer "Module Demo"
+      Statut : ___________
+
+  [ ] Donnees metier creees
+      Groupes, modules, questions specifiques a l'organisme
+      Statut : ___________
+
+
+================================================================================
+RESULTATS FINAUX
+================================================================================
+
+Si TOUS les items [ ] sont coches : ✓ DEPLOIEMENT OK
+
+Nombre d'items coches     : _____ / 50
+Nombre de problemes rencontres : _____
+
+Si des problemes restent, consultez DEPANNAGE.txt ou contactez le support.
+
+
+================================================================================
+SIGNATURE VERIFICATION
+================================================================================
+
+Technicien        : ________________________
+Date              : ________________________
+Heure de fin      : ________________________
+Prochaines actions: ________________________
+Problemes notes   : ________________________
+
+================================================================================
