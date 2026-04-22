@@ -86,6 +86,7 @@ Eval-Projet/
 │   ├── groupes.php            # Gestion des groupes (modals, nb stagiaires, protection FK)
 │   ├── generate.php           # Génération QCM par IA
 │   ├── correct_texte.php      # Correction questions texte libre
+│   ├── fusion.php             # Fusion de plusieurs modules QCM en un seul
 │   ├── login.php              # Connexion admin
 │   ├── logout.php             # Déconnexion admin
 │   └── partials/navbar.php    # Barre de navigation admin
