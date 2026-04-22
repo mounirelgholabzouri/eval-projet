@@ -132,25 +132,32 @@ if "%CHOICE%"=="2" (
 exit /b 0
 
 :install_xampp
-set "XAMPP_URL=https://sourceforge.net/projects/xampp/files/XAMPP%%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe/download"
 set "XAMPP_INSTALLER=%TEMP%\xampp-installer.exe"
 if not exist "%XAMPP_INSTALLER%" (
     echo [INFO] Telechargement XAMPP (160 Mo)...
-    powershell -NoProfile -Command "try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; Invoke-WebRequest -Uri '%XAMPP_URL%' -OutFile '%XAMPP_INSTALLER%' -UseBasicParsing } catch { exit 1 }"
+    REM Utiliser certutil (toujours disponible sur Windows)
+    certutil -urlcache -split -f "https://sourceforge.net/projects/xampp/files/XAMPP%%20Windows/8.2.12/xampp-windows-x64-8.2.12-0-VS16-installer.exe/download" "%XAMPP_INSTALLER%" >nul 2>&1
     if errorlevel 1 (
-        echo [ERREUR] Telechargement XAMPP echoue.
+        REM Fallback : PowerShell simple
+        powershell -NoProfile "Invoke-WebRequest -Uri 'https://www.apachefriends.org/faq-windows.html' -OutFile '%XAMPP_INSTALLER%' 2>&1" >nul
+    )
+    if not exist "%XAMPP_INSTALLER%" (
+        echo [ERREUR] Telechargement XAMPP impossible.
+        echo          Telechargez manuellement : https://www.apachefriends.org/download.html
+        echo          Et relancez ce script.
         pause
         exit /b 1
     )
 )
-echo [INFO] Installation (2-5 min)...
+echo [INFO] Installation XAMPP en cours (2-5 min, patientez)...
 "%XAMPP_INSTALLER%" --mode unattended --unattendedmodeui minimal --prefix "%XAMPP_DIR%" --launchapps 0 --disable-components xampp_mailtodisk,xampp_mercury,xampp_filezilla,xampp_tomcat,xampp_perl
 if not exist "%XAMPP_DIR%\xampp-control.exe" (
     echo [ERREUR] Installation XAMPP echouee.
+    echo          Installez manuellement : https://www.apachefriends.org/download.html
     pause
     exit /b 1
 )
-echo [OK] XAMPP installe.
+echo [OK] XAMPP installe avec succes.
 
 :xampp_ready
 echo     %XAMPP_DIR%
