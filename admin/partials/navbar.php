@@ -45,6 +45,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'fusion.php' ? 'active' : '' ?>"
+                       href="fusion.php">
+                        <i class="bi bi-intersect me-1"></i>Fusion QCM
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'generate.php' ? 'active' : '' ?>"
                        href="generate.php">
                         <i class="bi bi-stars me-1"></i>Génération IA

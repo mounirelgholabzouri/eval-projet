@@ -9,6 +9,10 @@ $action    = $_GET['action'] ?? 'list';
 $moduleId  = (int)($_GET['module_id'] ?? 0);
 $questionId = (int)($_GET['id'] ?? 0);
 
+if (($_GET['msg'] ?? '') === 'fusion_ok') {
+    $msg = "Module synthèse créé avec succès. Vous pouvez vérifier et modifier les questions ci-dessous.";
+}
+
 // Sélection du module
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_module'])) {
     $moduleId = (int)$_POST['module_id'];

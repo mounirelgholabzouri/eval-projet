@@ -2,12 +2,22 @@
 
 ## Environnement
 
+### Développement local (Windows / Laragon)
 - **OS** : Windows 10/11, utilisateur `Administrateur`
 - **Serveur web** : Apache via **Laragon** (multi-thread, port 80) — NE PAS utiliser le serveur PHP built-in
 - **PHP** : `C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe`
 - **MySQL** : `C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe`
 - **Racine projet** : `C:\Users\Administrateur\Eval-Projet\`
 - **URL locale** : `http://localhost/` (Apache `_default_:80` pointe sur le projet)
+
+### Docker (optionnel)
+- **Image** : `php:8.3-apache` + extensions `pdo_mysql`, `mbstring`, `opcache`
+- **Lancer** : `docker compose up --build`
+- **URL** : `http://localhost:8080`
+- **DB dans Docker** : `mysql:8.4`, mot de passe root `root`, init automatique via `db/schema.sql`
+- **Variables d'env** : `DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS` (défauts : `db` / `eval_online` / `root` / `root`)
+- **Entrypoint** : attend MySQL, installe Composer si besoin, démarre Apache
+- **php.ini Docker** : upload 10M, post 12M, memory 256M, exec 120s, UTF-8
 
 ## Base de données
 
@@ -81,8 +91,17 @@ Eval-Projet/
 │   └── partials/navbar.php    # Barre de navigation admin
 ├── assets/css/style.css       # Styles personnalisés
 ├── db/
-│   ├── schema.sql             # Schéma complet + données de démo (source de vérité)
-│   └── migration_v2.sql       # Migration historique (déjà intégrée dans schema.sql)
+│   ├── schema.sql                 # Schéma complet + données de démo (source de vérité)
+│   ├── migration_v2.sql           # Migration historique (déjà intégrée dans schema.sql)
+│   └── migration_stagiaires.sql   # Migration stagiaires (déjà appliquée)
+├── docker/
+│   ├── apache-vhost.conf      # VirtualHost Apache pour Docker
+│   ├── entrypoint.sh          # Attend MySQL, installe Composer, lance Apache
+│   └── php.ini                # Config PHP (upload, memory, charset UTF-8)
+├── Dockerfile                 # Image php:8.3-apache + pdo_mysql + mbstring
+├── docker-compose.yml         # Services app (port 8080) + db (mysql:8.4)
+├── .dockerignore
+├── .gitignore
 └── CLAUDE.md                  # Ce fichier
 ```
 
