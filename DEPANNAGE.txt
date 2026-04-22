@@ -1,0 +1,239 @@
+================================================================================
+  GUIDE DE DEPANNAGE - EVAL-PROJET
+================================================================================
+
+
+PROBLEME 1 : "Ce script doit etre lance en tant qu'Administrateur"
+===============================================================================
+Symptome    : Le script s'arrete immediatement avec ce message
+Cause       : Droits administrateur insuffisants
+Solution    : 1. Clic DROIT sur deploy_windows.bat
+              2. Selectionner "Executer en tant qu'administrateur"
+              3. Cliquer "Oui" si alerte de securite
+
+
+PROBLEME 2 : "Telechargement ZIP echoue" ou "git clone a echoue"
+===============================================================================
+Symptome    : Le script s'arrete avec erreur reseau
+Cause       : Pas d'acces internet ou proxy bloquant
+Solution    : 1. Verifiez votre connexion internet
+              2. Si vous etes en entreprise : verifiez les parametres proxy
+              3. Relancez le script
+              4. Alternative : telecharger manuellement sur GitHub
+                 https://github.com/mounirelgholabzouri/eval-projet
+                 et extraire dans C:\xampp\htdocs\eval-projet
+
+
+PROBLEME 3 : "MySQL ne repond pas sur 127.0.0.1"
+===============================================================================
+Symptome    : Erreur lors du test MySQL (etape 4)
+Cause       : MySQL n'a pas demarrе ou est occupe
+Solution    : 1. Lancez C:\xampp\xampp-control.exe
+              2. Cliquez "Start" pour Apache et MySQL
+              3. Attendez 5-10 secondes (les barres deviennent vertes)
+              4. Relancez le script deploy_windows.bat
+
+Alternative : Tuer les processus existants :
+              powershell (admin) : Get-Process mysqld | Stop-Process -Force
+                                  Get-Process httpd | Stop-Process -Force
+              Relancez XAMPP control
+
+
+PROBLEME 4 : "Echec installation base" ou erreur SQL
+===============================================================================
+Symptome    : L'installation reussit jusqu'a l'etape 6, puis erreur SQL
+Cause       : Probleme de droits MySQL ou encodage
+Solution    : 1. Verifiez que MySQL est bien running (icone verte dans XAMPP)
+              2. Relancez le script (il recree la base)
+              3. Si l'erreur persiste, consultez :
+                 C:\xampp\logs\mysql_error.log
+
+              4. Alternative : reinitialiser MySQL
+                 a. Fermez XAMPP
+                 b. Supprimez C:\xampp\mysql\data\eval_online
+                 c. Rouvrez XAMPP et relancez le script
+
+
+PROBLEME 5 : Page blanche ou "Erreur 500" apres l'installation
+===============================================================================
+Symptome    : http://localhost/eval-projet/ affiche erreur ou rien
+Cause       : Extension PHP manquante ou erreur PHP
+Solution    : 1. Consultez les logs : C:\xampp\logs\php_error.log
+              2. Erreurs courantes et solutions :
+
+                 "Fatal error: Class PDO not found"
+                 → Activez pdo_mysql dans XAMPP
+                   Lancez C:\xampp\xampp-control.exe
+                   Cliquez "Config" > "PHP (php.ini)"
+                   Decommentez les lignes :
+                     extension=pdo_mysql
+                     extension=mbstring
+                     extension=curl
+                   Redemarrez Apache
+
+                 "Class 'PDO' not found"
+                 → Meme solution : verifiez php.ini
+
+                 "Cannot connect to MySQL"
+                 → MySQL n'est pas en cours : cliquez Start dans XAMPP
+
+              3. Redemarrez Apache dans XAMPP Control :
+                 Cliquez "Stop" Apache, attendez 2 sec, cliquez "Start"
+
+              4. Videz le cache navigateur :
+                 Ctrl+Shift+Suppr > tout effacer > Vider
+
+
+PROBLEME 6 : "Impossible de connecter a MySQL" au test de connexion
+===============================================================================
+Symptome    : Erreur lors de l'etape 4 (test MySQL)
+Cause       : MySQL occupe / port deja utilise / non demarrе
+Solution    : 1. Verifiez quel processus utilise le port 3306 :
+                 powershell (admin) : netstat -ano | findstr :3306
+              2. Si mysqld tourne, tuez-le :
+                 taskkill /PID <numero> /F
+              3. Lancez XAMPP control et demarrez MySQL correctement
+              4. Relancez le script
+
+
+PROBLEME 7 : "Impossible de creer C:\xampp" ou erreur installation XAMPP
+===============================================================================
+Symptome    : XAMPP ne s'installe pas ou installation interrompue
+Cause       : Droits insuffisants / C:\xampp existe deja / disque plein
+Solution    : 1. Lancez le script EN TANT QU'ADMINISTRATEUR
+              2. Si C:\xampp existe deja :
+                 Option A : Relancez le script (il utilisera XAMPP existant)
+                 Option B : Supprimez C:\xampp completement
+                           (sauvegardez les donnees avant)
+                           Puis relancez le script
+              3. Verifiez l'espace disque : 2+ GB libres
+
+
+PROBLEME 8 : "Port 80 deja utilise" ou "Port 3306 deja utilise"
+===============================================================================
+Symptome    : Apache/MySQL ne demarrent pas (barres restent grises)
+Cause       : Autre application utilise ces ports
+Solution    : 1. Trouvez qui utilise ces ports :
+                 Port 80 (HTTP) : powershell (admin) : netstat -ano | findstr :80
+                 Port 3306 (MySQL) : netstat -ano | findstr :3306
+              2. Tuez le processus conflit :
+                 taskkill /PID <numero> /F
+              3. Relancez Apache/MySQL dans XAMPP
+              4. Alternative : changez les ports dans XAMPP
+                 C:\xampp\xampp-control.exe > Config > Services Ports
+
+
+PROBLEME 9 : La base de donnees ne contient pas les donnees de demo
+===============================================================================
+Symptome    : PhpMyAdmin montre la base vide ou sans module demo
+Cause       : L'etape 6 a echouee silencieusement
+Solution    : 1. Verifiez C:\xampp\logs\php_error.log
+              2. Relancez le script (il recreera tout)
+              3. Si MySQL est occupe, il bloquera l'insertion :
+                 Fermez les connexions : PhpMyAdmin > Deconnecter
+                 Relancez le script
+
+
+PROBLEME 10 : "File not found" ou "Cannot open file" lors du telechargement
+===============================================================================
+Symptome    : Erreur lors du telechargement du ZIP ou git clone
+Cause       : Fichier temporaire verrouille / espace temp insuffisant
+Solution    : 1. Videz le temp :
+                 powershell (admin) : Remove-Item -Path $env:TEMP\eval-projet* -Recurse -Force
+              2. Relancez le script
+
+
+PROBLEME 11 : Admin ne peut pas se connecter avec admin / admin123
+===============================================================================
+Symptome    : Erreur de login sur http://localhost/eval-projet/admin/
+Cause       : Base corrompue ou compte non cree
+Solution    : 1. Relancez le script deploy_windows.bat
+              2. Le compte admin sera recreе automatiquement
+              3. Si le probleme persiste :
+                 a. Ouvrez PhpMyAdmin : http://localhost/phpmyadmin/
+                 b. Base eval_online > table "admins"
+                 c. Verifiez qu'une ligne "admin" existe
+                 d. Si absent, recrea-la :
+                    INSERT INTO admins (username, password_hash, nom)
+                    VALUES ('admin', '$2y$10$N9qo8uLO...', 'Admin');
+                    (utiliser un hash bcrypt valide)
+                 e. Allez plus simple : relancez le script
+
+
+PROBLEME 12 : "Erreur lors de l'import SQL" (etape 6)
+===============================================================================
+Symptome    : Le script echoue avec message SQL
+Cause       : Schema corrompue / tables dupliquees / encodage
+Solution    : 1. Supprimez la base et recreez-la :
+                 a. PhpMyAdmin : database eval_online > DROP
+                 b. Relancez le script
+              2. Si le schema.sql est corrompue :
+                 a. Verifiez C:\xampp\htdocs\eval-projet\db\schema.sql existe
+                 b. Si absent ou corrupta, re-telecharger depuis GitHub
+              3. Consultez les logs : C:\xampp\logs\mysql_error.log
+
+
+PROBLEME 13 : Apres relance du script, les donnees anciennes sont perdues
+===============================================================================
+Symptome    : Les modules/questions/stagiaires disparus apres relance
+Cause       : Normal - le script DROP + CREATE la base a chaque fois
+Solution    : Pour conserver les donnees :
+              1. AVANT de relancer le script :
+                 mysqldump -u root eval_online > C:\backup_eval.sql
+              2. Relancez le script (recreera la base vierge)
+              3. APRES, restaurez vos donnees :
+                 mysql -u root eval_online < C:\backup_eval.sql
+
+
+PROBLEME 14 : "Connexion timeout" ou lent au demarrage
+===============================================================================
+Symptome    : La page met tres longtemps a charger (> 10 sec)
+Cause       : MySQL/Apache chargement long ou lenteur reseau
+Solution    : 1. Attendez 30 secondes au demarrage de XAMPP
+              2. Verifiez les logs pour les erreurs : C:\xampp\logs\
+              3. Verifiez l'utilisation CPU/RAM :
+                 Outils > Ressources du systeme
+              4. Relancez Apache/MySQL
+              5. Alternative : redemarrez le PC
+
+
+PROBLEME 15 : Script echoue avec "Fichier access denied"
+===============================================================================
+Symptome    : Impossible de copier fichiers vers C:\xampp
+Cause       : Permissions Windows insuffisantes / fichiers verrouilles
+Solution    : 1. Executez le script EN TANT QU'ADMINISTRATEUR
+              2. Fermez tous les editeurs/IDEs utilisant les fichiers
+              3. Fermez PhpMyAdmin et relancez le script
+              4. Si toujours bloque :
+                 a. Redemarrez le PC
+                 b. Relancez le script
+
+
+================================================================================
+LOGS A CONSULTER EN CAS DE PROBLEME
+================================================================================
+
+Logs PHP                : C:\xampp\logs\php_error.log
+Logs Apache             : C:\xampp\apache\logs\error.log
+Logs MySQL              : C:\xampp\mysql\data\*.err
+PhpMyAdmin (inspection): http://localhost/phpmyadmin/
+Fichier test            : C:\xampp\htdocs\eval-projet\index.php
+
+Pour les afficher :
+  powershell (admin)
+  Get-Content C:\xampp\logs\php_error.log -Tail 50
+  Get-Content C:\xampp\apache\logs\error.log -Tail 50
+
+
+================================================================================
+CONTACTER LE SUPPORT
+================================================================================
+
+Developpeur : mounir.elgholabzouri@gmail.com
+GitHub      : https://github.com/mounirelgholabzouri/eval-projet
+
+Lors du contact, fournissez :
+  - La derniere ligne d'erreur affichee
+  - La version de Windows (ver en PowerShell)
+  - La sortie de : C:\xampp\logs\php_error.log
+  - Les etapes pour reproduire le probleme

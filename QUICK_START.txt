@@ -1,0 +1,89 @@
+================================================================================
+  EVAL-PROJET : Demarrage rapide (5 min)
+================================================================================
+
+POUR DEPLOYER L'APPLICATION SUR UN NOUVEAU SERVEUR WINDOWS :
+
+  1. Clic DROIT sur "deploy_windows.bat"
+  2. Selectionner "Executer en tant qu'administrateur"
+  3. Cliquer "Oui" si une alerte de securite apparait
+  4. Suivre les messages a l'ecran (15 min max)
+
+================================================================================
+APRES LE DEPLOIEMENT : ACCES
+================================================================================
+
+  INTERFACE STAGIAIRE
+  URL      : http://localhost/eval-projet/
+
+  INTERFACE ADMIN
+  URL      : http://localhost/eval-projet/admin/
+  Login    : admin
+  Password : admin123
+
+  PhpMyAdmin (gestion base)
+  URL      : http://localhost/phpmyadmin/
+  Login    : root
+  Password : (vide - juste appuyer sur Connexion)
+
+================================================================================
+CONFIGURATION INITIALE (3 MINUTES)
+================================================================================
+
+  ⚠️  ETAPE 1 : CHANGER LE MOT DE PASSE ADMIN
+      - Connectez-vous avec : admin / admin123
+      - Admin > Configuration > Changer mot de passe
+      - Entrez un nouveau mot de passe fort
+
+  ETAPE 2 : Creer vos groupes (Admin > Gestion Groupes)
+            Exemple : "Groupe A 2025", "Groupe B 2025"
+
+  ETAPE 3 : Creer vos modules (Admin > Gestion Modules)
+            Exemple : "Francais", "Mathematiques", "Informatique"
+
+  ETAPE 4 : Creer vos questions (Admin > Gestion Questions)
+            Types : QCM, Vrai/Faux, Texte libre
+
+================================================================================
+SI CA NE MARCHE PAS
+================================================================================
+
+  ❌ "Pas de droits administrateur"
+     → Clic droit deploy_windows.bat > "Executer en tant qu'admin"
+
+  ❌ "MySQL ne repond pas"
+     → Lancez C:\xampp\xampp-control.exe
+     → Cliquez "Start" pour MySQL
+     → Relancez le script
+
+  ❌ "Telechargement ZIP echoue"
+     → Verifiez la connexion internet / proxy
+     → Relancez le script
+
+  ❌ "Erreur 500 ou page blanche"
+     → Consultez C:\xampp\logs\php_error.log
+     → Relancez C:\xampp\xampp-control.exe
+
+  Pour plus de solutions : voir DEPANNAGE.txt
+
+================================================================================
+CONTENU DE DEMO
+================================================================================
+
+  Le script cree automatiquement :
+    - Groupe A, B, C (annee 2025)
+    - Module "Module Demo"
+    - 4 questions (QCM, V/F, texte libre)
+    - Compte admin : admin / admin123
+
+  Supprimez/modifiez via l'interface Admin.
+
+================================================================================
+SUPPORT
+================================================================================
+
+  Developpeur   : mounir.elgholabzouri@gmail.com
+  GitHub        : https://github.com/mounirelgholabzouri/eval-projet
+  Documentation : DEPLOIEMENT.md (guide complet)
+
+================================================================================
