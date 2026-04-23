@@ -23,16 +23,30 @@ CREATE TABLE IF NOT EXISTS modules (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 
--- Table des questions
+-- Table des parties (sections au sein d'un module)
+CREATE TABLE IF NOT EXISTS parties (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    module_id INT NOT NULL,
+    nom VARCHAR(200) NOT NULL,
+    ordre INT DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_partie_module FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE,
+    INDEX idx_partie_module (module_id, ordre)
+) ENGINE=InnoDB;
+
+-- Table des questions (chaque question appartient à une partie d'un module)
 CREATE TABLE IF NOT EXISTS questions (
     id INT AUTO_INCREMENT PRIMARY KEY,
     module_id INT NOT NULL,
+    partie_id INT NOT NULL,
     texte TEXT NOT NULL,
     type ENUM('qcm', 'vrai_faux', 'texte_libre', 'multiple') NOT NULL DEFAULT 'qcm',
     points DECIMAL(5,2) DEFAULT 1.00,
     ordre INT DEFAULT 0,
     image_path VARCHAR(255) DEFAULT NULL,
-    FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE
+    FOREIGN KEY (module_id) REFERENCES modules(id) ON DELETE CASCADE,
+    CONSTRAINT fk_question_partie FOREIGN KEY (partie_id) REFERENCES parties(id) ON DELETE RESTRICT,
+    INDEX idx_module_partie (module_id, partie_id)
 ) ENGINE=InnoDB;
 
 -- Table des choix de réponses (pour QCM et vrai/faux)

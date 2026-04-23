@@ -32,6 +32,14 @@ $moduleIdCible = 0;
 
 $allModules = getAllModules();
 
+// ── AJAX : récupérer les parties d'un module ─────────────────
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'parties') {
+    header('Content-Type: application/json');
+    $mid = (int)($_GET['module_id'] ?? 0);
+    echo json_encode($mid > 0 ? getPartiesModule($mid) : []);
+    exit;
+}
+
 // ── Sauvegarde clé API ───────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api_key'])) {
     $apiKey = trim($_POST['anthropic_api_key'] ?? '');
@@ -45,12 +53,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api_key'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_questions'])) {
     $questionsJson = $_POST['questions_json'] ?? '';
     $moduleIdCible = (int)($_POST['module_id_save'] ?? 0);
+    $partieChoix   = $_POST['partie_choix_save'] ?? '';
+    $nouvellePartie = trim($_POST['nouvelle_partie_save'] ?? '');
 
     if ($questionsJson && $moduleIdCible > 0) {
         $questions = json_decode($questionsJson, true);
         if ($questions) {
-            $nb = sauvegarderQuestionsGenerees($questions, $moduleIdCible);
-            $succes = "$nb question(s) ajoutée(s) au module avec succès !";
+            // Résoudre la partie : "__new__" crée, sinon ID existant, sinon partie par défaut
+            if ($partieChoix === '__new__' && strlen($nouvellePartie) >= 2) {
+                $parties = getPartiesModule($moduleIdCible);
+                $partieFinaleId = creerPartie($moduleIdCible, $nouvellePartie, count($parties) + 1);
+            } elseif ((int)$partieChoix > 0) {
+                $partieFinaleId = (int)$partieChoix;
+            } else {
+                $partieFinaleId = ensurePartieDefault($moduleIdCible);
+            }
+
+            $nb = sauvegarderQuestionsGenerees($questions, $moduleIdCible, $partieFinaleId);
+            $partie = getPartie($partieFinaleId);
+            $nomPartie = $partie ? $partie['nom'] : '';
+            $succes = "$nb question(s) ajoutée(s)"
+                . ($nomPartie ? " dans la partie « $nomPartie »" : "")
+                . " !";
         } else {
             $erreur = "Données JSON invalides.";
         }
@@ -264,7 +288,7 @@ $apiKeySaved = getApiKey();
                             <label class="form-label fw-semibold">
                                 <i class="bi bi-journal me-1 text-primary"></i>Module cible
                             </label>
-                            <select name="module_id" class="form-select form-select-sm" required>
+                            <select name="module_id" id="moduleSelect" class="form-select form-select-sm" required>
                                 <option value="">— Choisir un module —</option>
                                 <?php foreach ($allModules as $m): ?>
                                 <option value="<?= $m['id'] ?>"
@@ -278,6 +302,21 @@ $apiKeySaved = getApiKey();
                                     <i class="bi bi-plus-circle me-1"></i>Créer un nouveau module
                                 </a>
                             </div>
+                        </div>
+
+                        <!-- Partie (section du module) -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-bookmark me-1 text-primary"></i>Partie du module
+                            </label>
+                            <select name="partie_choix" id="partieSelect" class="form-select form-select-sm mb-2">
+                                <option value="">— Partie par défaut (Général) —</option>
+                                <option value="__new__">+ Créer une nouvelle partie…</option>
+                            </select>
+                            <input type="text" name="nouvelle_partie" id="nouvellePartie"
+                                   class="form-control form-control-sm d-none"
+                                   placeholder="Nom de la nouvelle partie (ex : Renforcer VM)"
+                                   maxlength="200">
                         </div>
 
                         <!-- Prompt / Sujet -->
@@ -413,10 +452,17 @@ $apiKeySaved = getApiKey();
         <div class="col-lg-8">
 
             <?php if ($questionsGenerees): ?>
+            <?php
+            $partieChoixPost = $_POST['partie_choix'] ?? '';
+            $nouvellePartiePost = trim($_POST['nouvelle_partie'] ?? '');
+            $partiesDuModule = getPartiesModule($moduleIdCible);
+            ?>
             <!-- Formulaire de sauvegarde -->
             <form method="POST" id="saveForm">
                 <input type="hidden" name="questions_json" value="<?= htmlspecialchars(json_encode($questionsGenerees)) ?>">
                 <input type="hidden" name="module_id_save" value="<?= $moduleIdCible ?>">
+                <input type="hidden" name="partie_choix_save" value="<?= htmlspecialchars($partieChoixPost) ?>">
+                <input type="hidden" name="nouvelle_partie_save" value="<?= htmlspecialchars($nouvellePartiePost) ?>">
 
                 <div class="card border-0 shadow-sm rounded-4 mb-3">
                     <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
@@ -427,6 +473,22 @@ $apiKeySaved = getApiKey();
                             </h5>
                             <div class="text-muted small">
                                 Module : <strong><?= htmlspecialchars(getModule($moduleIdCible)['nom'] ?? 'N/A') ?></strong>
+                                <?php
+                                $labelPartie = '';
+                                if ($partieChoixPost === '__new__' && $nouvellePartiePost !== '') {
+                                    $labelPartie = ' <span class="badge bg-success-subtle text-success ms-1"><i class="bi bi-plus-circle me-1"></i>Nouvelle partie : ' . htmlspecialchars($nouvellePartiePost) . '</span>';
+                                } elseif ((int)$partieChoixPost > 0) {
+                                    foreach ($partiesDuModule as $p) {
+                                        if ((int)$p['id'] === (int)$partieChoixPost) {
+                                            $labelPartie = ' <span class="badge bg-primary-subtle text-primary ms-1"><i class="bi bi-bookmark me-1"></i>Partie : ' . htmlspecialchars($p['nom']) . '</span>';
+                                            break;
+                                        }
+                                    }
+                                } else {
+                                    $labelPartie = ' <span class="badge bg-secondary-subtle text-secondary ms-1"><i class="bi bi-bookmark me-1"></i>Partie par défaut</span>';
+                                }
+                                echo $labelPartie;
+                                ?>
                                 — Total points :
                                 <strong><?= array_sum(array_column($questionsGenerees, 'points')) ?></strong>
                             </div>
@@ -591,6 +653,48 @@ document.getElementById('generateForm').addEventListener('submit', function(e) {
         alert('Veuillez sélectionner au moins un type de question.');
     }
 });
+
+// ── Chargement AJAX des parties selon le module ──────────────
+const moduleSelect   = document.getElementById('moduleSelect');
+const partieSelect   = document.getElementById('partieSelect');
+const nouvellePartieInput = document.getElementById('nouvellePartie');
+
+async function loadParties(moduleId, selectedChoix = '') {
+    partieSelect.innerHTML = '<option value="">— Partie par défaut (Général) —</option>';
+    if (moduleId) {
+        try {
+            const res = await fetch(`generate.php?ajax=parties&module_id=${moduleId}`);
+            const parties = await res.json();
+            parties.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = p.id;
+                opt.textContent = `${p.nom} (${p.nb_questions} Q)`;
+                if (String(p.id) === String(selectedChoix)) opt.selected = true;
+                partieSelect.appendChild(opt);
+            });
+        } catch (e) { console.error(e); }
+    }
+    const optNew = document.createElement('option');
+    optNew.value = '__new__';
+    optNew.textContent = '+ Créer une nouvelle partie…';
+    if (selectedChoix === '__new__') optNew.selected = true;
+    partieSelect.appendChild(optNew);
+    toggleNouvellePartie();
+}
+
+function toggleNouvellePartie() {
+    const show = partieSelect.value === '__new__';
+    nouvellePartieInput.classList.toggle('d-none', !show);
+    nouvellePartieInput.required = show;
+    if (!show) nouvellePartieInput.value = '';
+}
+
+moduleSelect.addEventListener('change', () => loadParties(moduleSelect.value));
+partieSelect.addEventListener('change', toggleNouvellePartie);
+
+if (moduleSelect.value) {
+    loadParties(moduleSelect.value, '<?= htmlspecialchars($_POST['partie_choix'] ?? '') ?>');
+}
 </script>
 </body>
 </html>

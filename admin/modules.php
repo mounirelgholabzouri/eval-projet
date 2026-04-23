@@ -150,13 +150,14 @@ if ($action === 'edit' && $id > 0) {
                                 <th class="ps-4">Module</th>
                                 <th class="text-center">Durée</th>
                                 <th class="text-center">Questions</th>
+                                <th class="text-center">Parties</th>
                                 <th class="text-center">Statut</th>
                                 <th class="text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                         <?php if (empty($modules)): ?>
-                            <tr><td colspan="5" class="text-center text-muted py-4">Aucun module créé</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted py-4">Aucun module créé</td></tr>
                         <?php endif; ?>
                         <?php foreach ($modules as $m): ?>
                             <tr>
@@ -170,6 +171,13 @@ if ($action === 'edit' && $id > 0) {
                                 <td class="text-center">
                                     <a href="questions.php?module_id=<?= $m['id'] ?>" class="badge bg-primary-subtle text-primary text-decoration-none">
                                         <?= $m['nb_questions'] ?> Q
+                                    </a>
+                                </td>
+                                <td class="text-center">
+                                    <a href="questions.php?module_id=<?= $m['id'] ?>"
+                                       class="btn btn-sm btn-outline-secondary rounded-pill px-3"
+                                       title="Gérer les parties et questions">
+                                        <i class="bi bi-layers me-1"></i><?= (int)($m['nb_parties'] ?? 0) ?>
                                     </a>
                                 </td>
                                 <td class="text-center">

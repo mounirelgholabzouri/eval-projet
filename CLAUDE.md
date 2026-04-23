@@ -106,7 +106,9 @@ Eval-Projet/
 └── CLAUDE.md                  # Ce fichier
 ```
 
-> **Migrations appliquées hors schema.sql** : table `stagiaires` + colonne `stagiaire_id` dans `sessions_eval` + table `parties` + colonne `partie_id` dans `questions` (toutes via script PHP PDO, cf. `migrate_parties.php`).
+> **Migrations appliquées hors schema.sql** : table `stagiaires` + colonne `stagiaire_id` dans `sessions_eval` + table `parties` + colonne `partie_id NOT NULL` dans `questions` (via `migrate_parties.php` puis `migrate_parties_v2.php`).
+>
+> **Invariants** : chaque module possède au moins une partie (« Général » par défaut) ; chaque question appartient à une partie ; on ne peut pas supprimer la dernière partie d'un module.
 
 ## Schéma de base de données
 
@@ -116,8 +118,8 @@ Eval-Projet/
 | `groupes` | id, nom |
 | `stagiaires` | id, nom, prenom, groupe_id, annee_scolaire, login, password_hash, **must_change_password** |
 | `modules` | id, nom, description, duree_minutes, note_max, actif |
-| `parties` | id, module_id, nom, ordre (sections d'un module : ex. M205 → "Renforcer VM", "Azure Firewall") |
-| `questions` | id, module_id, **partie_id** (nullable, FK parties), texte, type (qcm/vrai_faux/texte_libre/multiple), points, ordre |
+| `parties` | id, module_id, nom, ordre — sections d'un module (ex. M205 → "Renforcer VM", "Azure Firewall") |
+| `questions` | id, module_id, **partie_id NOT NULL** (FK parties, ON DELETE RESTRICT), texte, type, points, ordre |
 | `choix_reponses` | id, question_id, texte, is_correct, ordre |
 | `sessions_eval` | id, token, **stagiaire_id**, nom, prenom, groupe_id, module_id, statut, score, pourcentage |
 | `reponses_stagiaires` | id, session_id, question_id, choix_id, reponse_texte, is_correct, points_obtenus |
@@ -143,9 +145,12 @@ Eval-Projet/
 | `getModulesActifs()` | Modules avec actif=1 |
 | `getQuestionsModule($id)` | Questions + choix d'un module (ordonnées par partie_id puis ordre) |
 | `getPartiesModule($id)` | Parties d'un module + nb_questions |
-| `creerPartie($moduleId, $nom, $ordre)` | Crée une partie |
-| `supprimerPartie($id)` | Détache les questions (partie_id=NULL) puis supprime la partie |
-| `getQuestionsGroupeesParPartie($id)` | Questions groupées par partie (sans partie en tête si présent) |
+| `creerPartie($moduleId, $nom, $ordre)` | Crée une partie (ordre auto si 0) |
+| `ensurePartieDefault($moduleId)` | Retourne la 1re partie, crée « Général » si aucune — garantit l'invariant |
+| `supprimerPartie($id)` | Réassigne les questions à une autre partie ; refuse si dernière partie du module |
+| `renommerPartie($id, $nom)` | Renomme une partie |
+| `getPartie($id)` | Fetch une partie par id |
+| `getQuestionsGroupeesParPartie($id)` | Questions groupées par partie (toutes rattachées) |
 | `creerSession(...)` | Démarre une session d'évaluation |
 | `sauvegarderReponse(...)` | Upsert réponse stagiaire |
 | `terminerSession($id)` | Calcule score, passe statut à 'termine' |

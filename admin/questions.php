@@ -20,35 +20,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_module'])) {
     header("Location: questions.php?module_id=$moduleId"); exit;
 }
 
-// ── Gestion des parties ──────────────────────────────────────
-
-// Ajouter une partie
+// ── Parties : créer ──────────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_partie'])) {
     $nomPartie = trim($_POST['partie_nom'] ?? '');
     if (strlen($nomPartie) >= 2 && $moduleId > 0) {
-        $parties = getPartiesModule($moduleId);
-        creerPartie($moduleId, $nomPartie, count($parties) + 1);
-        $msg = "Partie « $nomPartie » créée.";
-    } else {
-        $erreur = "Nom de partie trop court (2 caractères minimum).";
+        $newPartieId = creerPartie($moduleId, $nomPartie);
+        header("Location: questions.php?module_id=$moduleId&partie_id=$newPartieId&added_partie=1"); exit;
     }
-    header("Location: questions.php?module_id=$moduleId" . ($msg ? "&ok=1" : "")); exit;
+    $erreur = "Nom de partie trop court (2 caractères minimum).";
 }
 
-// Supprimer une partie
+// ── Parties : renommer ───────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['rename_partie'])) {
+    $pid = (int)$_POST['partie_id'];
+    $nouveau = trim($_POST['partie_nom'] ?? '');
+    if ($pid > 0 && strlen($nouveau) >= 2) {
+        renommerPartie($pid, $nouveau);
+        header("Location: questions.php?module_id=$moduleId&partie_id=$pid&renamed=1"); exit;
+    }
+}
+
+// ── Parties : supprimer ──────────────────────────────────────
 if ($action === 'delete_partie' && $partieId > 0) {
-    supprimerPartie($partieId);
-    $msg = "Partie supprimée (questions déplacées hors partie).";
-    header("Location: questions.php?module_id=$moduleId"); exit;
+    $ok = supprimerPartie($partieId);
+    $msg = $ok ? "Partie supprimée (questions déplacées vers une autre partie)." : "Impossible de supprimer : c'est la dernière partie du module.";
+    header("Location: questions.php?module_id=$moduleId" . ($ok ? "&deleted_partie=1" : "&last_partie=1")); exit;
 }
 
-// ── Ajout / Modification question ────────────────────────────
+// ── Question : enregistrer (ajout ou modification) ───────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
     $texte       = trim($_POST['texte'] ?? '');
     $type        = $_POST['type'] ?? 'qcm';
     $points      = (float)($_POST['points'] ?? 1);
     $ordre       = (int)($_POST['ordre'] ?? 0);
-    $qPartieId   = (int)($_POST['partie_id'] ?? 0) ?: null;
+    $qPartieId   = (int)($_POST['partie_id'] ?? 0);
     $choixTextes  = $_POST['choix_texte'] ?? [];
     $choixCorrects = $_POST['choix_correct'] ?? [];
 
@@ -56,6 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
         $erreur = "Le texte de la question est requis.";
     } elseif ($moduleId <= 0) {
         $erreur = "Module non sélectionné.";
+    } elseif ($qPartieId <= 0) {
+        $erreur = "Partie requise.";
     } else {
         if ($questionId > 0) {
             $pdo->prepare("UPDATE questions SET texte=?, type=?, points=?, ordre=?, partie_id=? WHERE id=?")
@@ -76,37 +83,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
                     ->execute([$questionId, $ct, $isC, $i + 1]);
             }
         }
-        $msg = "Question enregistrée.";
-        $questionId = 0;
-        $action = 'list';
+        header("Location: questions.php?module_id=$moduleId&partie_id=$qPartieId&saved=1"); exit;
     }
 }
 
-// ── Suppression question ─────────────────────────────────────
+// ── Question : supprimer ─────────────────────────────────────
 if ($action === 'delete' && $questionId > 0) {
-    $stmt = $pdo->prepare("SELECT module_id FROM questions WHERE id=?");
+    $stmt = $pdo->prepare("SELECT module_id, partie_id FROM questions WHERE id=?");
     $stmt->execute([$questionId]);
     $row = $stmt->fetch();
-    if ($row) $moduleId = (int)$row['module_id'];
+    if ($row) { $moduleId = (int)$row['module_id']; $partieId = (int)$row['partie_id']; }
     $pdo->prepare("DELETE FROM questions WHERE id=?")->execute([$questionId]);
-    $msg = "Question supprimée.";
-    $action = 'list';
+    header("Location: questions.php?module_id=$moduleId&partie_id=$partieId&deleted=1"); exit;
 }
 
+// ── Chargement données ───────────────────────────────────────
 $allModules = getAllModules();
-$questions  = $moduleId > 0 ? getQuestionsModule($moduleId) : [];
-$parties    = $moduleId > 0 ? getPartiesModule($moduleId) : [];
 $module     = $moduleId > 0 ? getModule($moduleId) : null;
-$grouped    = $moduleId > 0 ? getQuestionsGroupeesParPartie($moduleId) : [];
-
+$parties    = [];
+$currentPartie = null;
+$questionsCurrent = [];
 $editQuestion = null;
-if ($action === 'edit' && $questionId > 0) {
-    foreach ($questions as $q) {
-        if ((int)$q['id'] === $questionId) { $editQuestion = $q; break; }
+
+if ($moduleId > 0 && $module) {
+    // Garantir qu'une partie existe (auto "Général" si besoin)
+    ensurePartieDefault($moduleId);
+    $parties = getPartiesModule($moduleId);
+
+    // Partie active (URL ou première)
+    if ($partieId > 0) {
+        foreach ($parties as $p) if ((int)$p['id'] === $partieId) { $currentPartie = $p; break; }
+    }
+    if (!$currentPartie && !empty($parties)) $currentPartie = $parties[0];
+
+    // Questions de la partie courante
+    if ($currentPartie) {
+        $stmt = $pdo->prepare("SELECT * FROM questions WHERE partie_id = ? ORDER BY ordre, id");
+        $stmt->execute([$currentPartie['id']]);
+        $questionsCurrent = $stmt->fetchAll();
+        foreach ($questionsCurrent as &$q) {
+            $stmt2 = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
+            $stmt2->execute([$q['id']]);
+            $q['choix'] = $stmt2->fetchAll();
+        }
+        unset($q);
+    }
+
+    if ($action === 'edit' && $questionId > 0) {
+        foreach ($questionsCurrent as $q) if ((int)$q['id'] === $questionId) { $editQuestion = $q; break; }
     }
 }
 
-if (($_GET['ok'] ?? '') === '1') $msg = "Partie créée.";
+// Flash messages
+$flash = $_GET;
+if (isset($flash['saved']))          $msg = "Question enregistrée.";
+if (isset($flash['deleted']))        $msg = "Question supprimée.";
+if (isset($flash['added_partie']))   $msg = "Partie créée.";
+if (isset($flash['renamed']))        $msg = "Partie renommée.";
+if (isset($flash['deleted_partie'])) $msg = "Partie supprimée.";
+if (isset($flash['last_partie']))    $erreur = "Impossible : c'est la dernière partie du module (au moins une partie est obligatoire).";
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -116,6 +151,12 @@ if (($_GET['ok'] ?? '') === '1') $msg = "Partie créée.";
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="../assets/css/style.css" rel="stylesheet">
+    <style>
+        .partie-tab { border:1px solid #e5e7eb; background:#fff; border-radius:12px; padding:.65rem 1rem; cursor:pointer; transition:all .15s; display:flex; align-items:center; gap:.5rem; text-decoration:none; color:inherit; }
+        .partie-tab:hover { border-color:#6366f1; background:#eef2ff; color:inherit; }
+        .partie-tab.active { background:#4f46e5; border-color:#4f46e5; color:#fff !important; box-shadow:0 2px 6px rgba(79,70,229,.25); }
+        .partie-tab.active .badge { background:rgba(255,255,255,.25) !important; color:#fff !important; }
+    </style>
 </head>
 <body class="bg-light">
 <?php include __DIR__ . '/partials/navbar.php'; ?>
@@ -141,7 +182,7 @@ if (($_GET['ok'] ?? '') === '1') $msg = "Partie créée.";
                     <option value="">— Choisir un module —</option>
                     <?php foreach ($allModules as $m): ?>
                     <option value="<?= $m['id'] ?>" <?= $m['id'] == $moduleId ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($m['nom']) ?> (<?= $m['nb_questions'] ?> questions)
+                        <?= htmlspecialchars($m['nom']) ?> (<?= $m['nb_questions'] ?> Q · <?= $m['nb_parties'] ?? 0 ?> parties)
                     </option>
                     <?php endforeach; ?>
                 </select>
@@ -153,29 +194,62 @@ if (($_GET['ok'] ?? '') === '1') $msg = "Partie créée.";
     </div>
 
     <?php if ($moduleId > 0 && $module): ?>
+
+    <!-- Onglets parties -->
+    <div class="card border-0 shadow-sm rounded-4 mb-4" id="parties-bar">
+        <div class="card-body p-3">
+            <div class="d-flex gap-2 flex-wrap align-items-center">
+                <span class="fw-semibold text-muted me-2"><i class="bi bi-layers me-1"></i>Parties :</span>
+                <?php foreach ($parties as $p): ?>
+                <a href="questions.php?module_id=<?= $moduleId ?>&partie_id=<?= $p['id'] ?>"
+                   class="partie-tab <?= $currentPartie && (int)$currentPartie['id'] === (int)$p['id'] ? 'active' : '' ?>">
+                    <i class="bi bi-bookmark-fill"></i>
+                    <span><?= htmlspecialchars($p['nom']) ?></span>
+                    <span class="badge bg-primary-subtle text-primary"><?= (int)$p['nb_questions'] ?></span>
+                </a>
+                <?php endforeach; ?>
+                <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addPartieModal">
+                    <i class="bi bi-plus-lg me-1"></i>Nouvelle partie
+                </button>
+                <?php if ($currentPartie && count($parties) > 1): ?>
+                <div class="ms-auto d-flex gap-2">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#renamePartieModal">
+                        <i class="bi bi-pencil me-1"></i>Renommer
+                    </button>
+                    <a href="questions.php?module_id=<?= $moduleId ?>&action=delete_partie&partie_id=<?= $currentPartie['id'] ?>"
+                       class="btn btn-sm btn-outline-danger"
+                       onclick="return confirm('Supprimer la partie « <?= htmlspecialchars(addslashes($currentPartie['nom'])) ?> » ? Ses questions seront déplacées vers une autre partie.')">
+                        <i class="bi bi-trash me-1"></i>Supprimer
+                    </a>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
     <div class="row g-4">
-
-        <!-- ── Colonne gauche : formulaire question + gestion parties ── -->
+        <!-- Formulaire question -->
         <div class="col-lg-5">
-
-            <!-- Formulaire question -->
-            <div class="card border-0 shadow-sm rounded-4 mb-3">
+            <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-header bg-white border-0 py-3 px-4">
                     <h5 class="mb-0 fw-bold">
                         <i class="bi bi-<?= $editQuestion ? 'pencil' : 'plus-circle' ?> me-2 text-primary"></i>
                         <?= $editQuestion ? 'Modifier' : 'Ajouter' ?> une question
+                        <?php if ($currentPartie): ?>
+                        <small class="text-muted fw-normal">· dans <strong class="text-primary"><?= htmlspecialchars($currentPartie['nom']) ?></strong></small>
+                        <?php endif; ?>
                     </h5>
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST" action="questions.php?module_id=<?= $moduleId ?><?= $editQuestion ? '&action=edit&id='.$questionId : '' ?>" id="questionForm">
+                    <form method="POST" action="questions.php?module_id=<?= $moduleId ?>&partie_id=<?= $currentPartie['id'] ?? 0 ?><?= $editQuestion ? '&action=edit&id='.$questionId : '' ?>">
 
-                        <!-- Partie -->
+                        <!-- Partie (select) -->
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Partie</label>
-                            <select name="partie_id" class="form-select form-select-sm">
-                                <option value="">— Sans partie —</option>
+                            <label class="form-label fw-semibold">Partie <span class="text-danger">*</span></label>
+                            <select name="partie_id" class="form-select form-select-sm" required>
                                 <?php foreach ($parties as $p): ?>
-                                <option value="<?= $p['id'] ?>" <?= (int)($editQuestion['partie_id'] ?? 0) === (int)$p['id'] ? 'selected' : '' ?>>
+                                <option value="<?= $p['id'] ?>"
+                                    <?= (int)($editQuestion['partie_id'] ?? ($currentPartie['id'] ?? 0)) === (int)$p['id'] ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($p['nom']) ?>
                                 </option>
                                 <?php endforeach; ?>
@@ -204,7 +278,7 @@ if (($_GET['ok'] ?? '') === '1') $msg = "Partie créée.";
                             <div class="col-2">
                                 <label class="form-label fw-semibold">Ordre</label>
                                 <input type="number" name="ordre" class="form-control" min="0"
-                                       value="<?= $editQuestion['ordre'] ?? count($questions) + 1 ?>">
+                                       value="<?= $editQuestion['ordre'] ?? count($questionsCurrent) + 1 ?>">
                             </div>
                         </div>
 
@@ -243,89 +317,36 @@ if (($_GET['ok'] ?? '') === '1') $msg = "Partie créée.";
                                 <i class="bi bi-save me-1"></i>Enregistrer
                             </button>
                             <?php if ($editQuestion): ?>
-                            <a href="questions.php?module_id=<?= $moduleId ?>" class="btn btn-outline-secondary">Annuler</a>
+                            <a href="questions.php?module_id=<?= $moduleId ?>&partie_id=<?= $currentPartie['id'] ?? 0 ?>" class="btn btn-outline-secondary">Annuler</a>
                             <?php endif; ?>
                         </div>
                     </form>
                 </div>
             </div>
-
-            <!-- Gestion des parties -->
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-0 py-3 px-4">
-                    <h5 class="mb-0 fw-bold"><i class="bi bi-layers me-2 text-secondary"></i>Parties du module</h5>
-                    <div class="text-muted small mt-1">Organisez vos questions en sections thématiques</div>
-                </div>
-                <div class="card-body p-3">
-                    <?php if (empty($parties)): ?>
-                        <p class="text-muted small text-center py-2">Aucune partie définie.</p>
-                    <?php else: ?>
-                        <ul class="list-group list-group-flush mb-3">
-                        <?php foreach ($parties as $p): ?>
-                            <li class="list-group-item d-flex align-items-center justify-content-between px-2 py-2 rounded-3">
-                                <div>
-                                    <i class="bi bi-bookmark-fill text-primary me-2 small"></i>
-                                    <span class="fw-semibold"><?= htmlspecialchars($p['nom']) ?></span>
-                                    <span class="badge bg-primary-subtle text-primary ms-2 small"><?= (int)$p['nb_questions'] ?> Q</span>
-                                </div>
-                                <a href="questions.php?module_id=<?= $moduleId ?>&action=delete_partie&partie_id=<?= $p['id'] ?>"
-                                   class="btn btn-sm btn-outline-danger rounded-3"
-                                   onclick="return confirm('Supprimer la partie « <?= htmlspecialchars(addslashes($p['nom'])) ?> » ? Les questions ne seront pas supprimées.')">
-                                    <i class="bi bi-trash"></i>
-                                </a>
-                            </li>
-                        <?php endforeach; ?>
-                        </ul>
-                    <?php endif; ?>
-
-                    <!-- Ajouter une partie -->
-                    <form method="POST" action="questions.php?module_id=<?= $moduleId ?>" class="d-flex gap-2">
-                        <input type="text" name="partie_nom" class="form-control form-control-sm"
-                               placeholder="Nom de la nouvelle partie…" required minlength="2">
-                        <button type="submit" name="add_partie" class="btn btn-sm btn-outline-primary text-nowrap">
-                            <i class="bi bi-plus me-1"></i>Ajouter
-                        </button>
-                    </form>
-                </div>
-            </div>
         </div>
 
-        <!-- ── Colonne droite : questions groupées par partie ── -->
+        <!-- Liste questions de la partie courante -->
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between">
                     <h5 class="mb-0 fw-bold">
+                        <?php if ($currentPartie): ?>
+                        <i class="bi bi-bookmark-fill me-2 text-primary"></i><?= htmlspecialchars($currentPartie['nom']) ?>
+                        <?php else: ?>
                         Questions — <?= htmlspecialchars($module['nom']) ?>
+                        <?php endif; ?>
                     </h5>
-                    <span class="badge bg-primary"><?= count($questions) ?> questions</span>
+                    <span class="badge bg-primary"><?= count($questionsCurrent) ?> question(s)</span>
                 </div>
                 <div class="card-body p-0">
-                    <?php if (empty($questions)): ?>
-                        <p class="text-center text-muted py-4">Aucune question. Utilisez le formulaire pour en ajouter.</p>
+                    <?php if (empty($questionsCurrent)): ?>
+                        <p class="text-center text-muted py-4">
+                            <i class="bi bi-inbox me-2"></i>Aucune question dans cette partie.
+                        </p>
                     <?php endif; ?>
-
-                    <?php
-                    $globalIdx = 1;
-                    foreach ($grouped as $group):
-                        if (empty($group['questions'])) continue;
-                    ?>
-                    <!-- En-tête de partie -->
-                    <?php if ($group['partie']): ?>
-                    <div class="d-flex align-items-center gap-2 px-3 py-2 bg-primary-subtle border-bottom">
-                        <i class="bi bi-bookmark-fill text-primary"></i>
-                        <span class="fw-bold text-primary"><?= htmlspecialchars($group['partie']['nom']) ?></span>
-                        <span class="badge bg-primary ms-1"><?= count($group['questions']) ?> Q</span>
-                    </div>
-                    <?php else: ?>
-                    <div class="d-flex align-items-center gap-2 px-3 py-2 bg-light border-bottom">
-                        <i class="bi bi-dash-circle text-muted"></i>
-                        <span class="text-muted fw-semibold small">Sans partie</span>
-                    </div>
-                    <?php endif; ?>
-
-                    <?php foreach ($group['questions'] as $q): ?>
+                    <?php foreach ($questionsCurrent as $idx => $q): ?>
                     <div class="p-3 border-bottom d-flex align-items-start gap-3">
-                        <div class="question-number small"><?= $globalIdx++ ?></div>
+                        <div class="question-number small"><?= $idx + 1 ?></div>
                         <div class="flex-grow-1">
                             <div class="fw-semibold small"><?= htmlspecialchars(mb_substr($q['texte'], 0, 100)) ?><?= mb_strlen($q['texte']) > 100 ? '…' : '' ?></div>
                             <div class="mt-1 d-flex gap-2 flex-wrap">
@@ -338,11 +359,11 @@ if (($_GET['ok'] ?? '') === '1') $msg = "Partie créée.";
                             </div>
                         </div>
                         <div class="d-flex gap-1 flex-shrink-0">
-                            <a href="questions.php?module_id=<?= $moduleId ?>&action=edit&id=<?= $q['id'] ?>"
+                            <a href="questions.php?module_id=<?= $moduleId ?>&partie_id=<?= $currentPartie['id'] ?>&action=edit&id=<?= $q['id'] ?>"
                                class="btn btn-sm btn-outline-primary rounded-3" title="Modifier">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <a href="questions.php?module_id=<?= $moduleId ?>&action=delete&id=<?= $q['id'] ?>"
+                            <a href="questions.php?module_id=<?= $moduleId ?>&partie_id=<?= $currentPartie['id'] ?>&action=delete&id=<?= $q['id'] ?>"
                                class="btn btn-sm btn-outline-danger rounded-3"
                                onclick="return confirm('Supprimer cette question ?')" title="Supprimer">
                                 <i class="bi bi-trash"></i>
@@ -350,11 +371,56 @@ if (($_GET['ok'] ?? '') === '1') $msg = "Partie créée.";
                         </div>
                     </div>
                     <?php endforeach; ?>
-                    <?php endforeach; ?>
                 </div>
             </div>
         </div>
     </div>
+
+    <!-- ── Modal ajouter partie ── -->
+    <div class="modal fade" id="addPartieModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" action="questions.php?module_id=<?= $moduleId ?>" class="modal-content rounded-4">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2 text-primary"></i>Nouvelle partie</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">Nom de la partie</label>
+                    <input type="text" name="partie_nom" class="form-control" required minlength="2" maxlength="200"
+                           placeholder="Ex : Renforcer VM">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" name="add_partie" class="btn btn-primary">Créer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ── Modal renommer partie ── -->
+    <?php if ($currentPartie): ?>
+    <div class="modal fade" id="renamePartieModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="POST" action="questions.php?module_id=<?= $moduleId ?>" class="modal-content rounded-4">
+                <input type="hidden" name="partie_id" value="<?= $currentPartie['id'] ?>">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-pencil me-2 text-primary"></i>Renommer la partie</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label fw-semibold">Nouveau nom</label>
+                    <input type="text" name="partie_nom" class="form-control" required minlength="2" maxlength="200"
+                           value="<?= htmlspecialchars($currentPartie['nom']) ?>">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" name="rename_partie" class="btn btn-primary">Enregistrer</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <?php else: ?>
         <div class="alert alert-info rounded-3">
             <i class="bi bi-arrow-up me-2"></i>Sélectionnez un module pour gérer ses questions.
@@ -401,7 +467,7 @@ function addChoix() {
     list.appendChild(div);
 }
 
-toggleChoix();
+if (document.getElementById('typeSelect')) toggleChoix();
 </script>
 </body>
 </html>

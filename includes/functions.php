@@ -51,7 +51,14 @@ function getModule(int $id): ?array {
 
 function getAllModules(): array {
     $pdo = getDB();
-    return $pdo->query("SELECT m.*, COALESCE(m.note_max, 20) AS note_max, COUNT(q.id) AS nb_questions FROM modules m LEFT JOIN questions q ON q.module_id = m.id GROUP BY m.id ORDER BY m.nom")->fetchAll();
+    return $pdo->query("
+        SELECT m.*,
+               COALESCE(m.note_max, 20) AS note_max,
+               (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS nb_questions,
+               (SELECT COUNT(*) FROM parties p WHERE p.module_id = m.id) AS nb_parties
+        FROM modules m
+        ORDER BY m.nom
+    ")->fetchAll();
 }
 
 // ============================================================
@@ -101,16 +108,67 @@ function getPartiesModule(int $moduleId): array {
 
 function creerPartie(int $moduleId, string $nom, int $ordre = 0): int {
     $pdo = getDB();
+    if ($ordre === 0) {
+        $stmt = $pdo->prepare("SELECT COALESCE(MAX(ordre), 0) + 1 FROM parties WHERE module_id = ?");
+        $stmt->execute([$moduleId]);
+        $ordre = (int)$stmt->fetchColumn();
+    }
     $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?,?,?)")
         ->execute([$moduleId, $nom, $ordre]);
     return (int)$pdo->lastInsertId();
 }
 
-function supprimerPartie(int $partieId): void {
+/**
+ * Garantit qu'un module a au moins une partie. Retourne l'id de la première.
+ */
+function ensurePartieDefault(int $moduleId): int {
     $pdo = getDB();
-    // Détacher les questions (pas supprimer)
-    $pdo->prepare("UPDATE questions SET partie_id = NULL WHERE partie_id = ?")->execute([$partieId]);
+    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre, id LIMIT 1");
+    $stmt->execute([$moduleId]);
+    $id = $stmt->fetchColumn();
+    if ($id) return (int)$id;
+    return creerPartie($moduleId, 'Général', 1);
+}
+
+/**
+ * Supprime une partie. Ses questions sont d'abord réassignées à une autre partie
+ * du même module. Si c'est la dernière partie, la suppression est refusée.
+ * Retourne true si supprimée, false sinon.
+ */
+function supprimerPartie(int $partieId): bool {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT module_id FROM parties WHERE id = ?");
+    $stmt->execute([$partieId]);
+    $moduleId = (int)$stmt->fetchColumn();
+    if (!$moduleId) return false;
+
+    // Trouver une autre partie du même module pour recevoir les questions
+    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND id <> ? ORDER BY ordre, id LIMIT 1");
+    $stmt->execute([$moduleId, $partieId]);
+    $autrePartieId = $stmt->fetchColumn();
+
+    if (!$autrePartieId) {
+        return false; // Dernière partie du module : suppression refusée
+    }
+
+    $pdo->beginTransaction();
+    $pdo->prepare("UPDATE questions SET partie_id = ? WHERE partie_id = ?")
+        ->execute([$autrePartieId, $partieId]);
     $pdo->prepare("DELETE FROM parties WHERE id = ?")->execute([$partieId]);
+    $pdo->commit();
+    return true;
+}
+
+function renommerPartie(int $partieId, string $nom): void {
+    $pdo = getDB();
+    $pdo->prepare("UPDATE parties SET nom = ? WHERE id = ?")->execute([$nom, $partieId]);
+}
+
+function getPartie(int $partieId): ?array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT * FROM parties WHERE id = ?");
+    $stmt->execute([$partieId]);
+    return $stmt->fetch() ?: null;
 }
 
 function getQuestionsGroupeesParPartie(int $moduleId): array {
@@ -118,12 +176,6 @@ function getQuestionsGroupeesParPartie(int $moduleId): array {
     $allQ    = getQuestionsModule($moduleId);
 
     $result = [];
-    // Questions sans partie
-    $sansPartie = array_filter($allQ, fn($q) => $q['partie_id'] === null);
-    if (!empty($sansPartie)) {
-        $result[] = ['partie' => null, 'questions' => array_values($sansPartie)];
-    }
-    // Questions par partie
     foreach ($parties as $p) {
         $qs = array_filter($allQ, fn($q) => (int)$q['partie_id'] === (int)$p['id']);
         $result[] = ['partie' => $p, 'questions' => array_values($qs)];
