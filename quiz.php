@@ -16,6 +16,7 @@ if (!$session || $session['statut'] === 'termine') {
 }
 
 $questions = getQuestionsModule((int)$session['module_id']);
+$grouped   = getQuestionsGroupeesParPartie((int)$session['module_id']);
 $nbQ       = count($questions);
 
 // ── Traitement de la soumission finale ──────────────────────
@@ -116,8 +117,33 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
     <!-- Formulaire questions -->
     <form method="POST" id="quiz-form" action="" onsubmit="return confirmerSoumission()">
 
-        <?php foreach ($questions as $idx => $q): ?>
-        <?php $qNum = $idx + 1; $qId = (int)$q['id']; ?>
+        <?php
+        $typeLabels = [
+            'qcm'         => 'QCM',
+            'vrai_faux'   => 'Vrai / Faux',
+            'texte_libre' => 'Réponse libre',
+            'multiple'    => 'Choix multiples'
+        ];
+        $qNum = 0;
+        foreach ($grouped as $group):
+            if (empty($group['questions'])) continue;
+        ?>
+
+        <?php if ($group['partie']): ?>
+        <!-- Séparateur de partie -->
+        <div class="d-flex align-items-center gap-3 mb-3 mt-2">
+            <div class="flex-shrink-0">
+                <span class="badge bg-primary fs-6 px-3 py-2 rounded-pill">
+                    <i class="bi bi-bookmark-fill me-1"></i><?= sanitize($group['partie']['nom']) ?>
+                </span>
+            </div>
+            <div class="border-top flex-grow-1"></div>
+            <div class="flex-shrink-0 text-muted small"><?= count($group['questions']) ?> question<?= count($group['questions']) > 1 ? 's' : '' ?></div>
+        </div>
+        <?php endif; ?>
+
+        <?php foreach ($group['questions'] as $q): ?>
+        <?php $qNum++; $qId = (int)$q['id']; ?>
 
         <div class="card border-0 shadow-sm rounded-4 mb-4 question-card" id="card-<?= $qId ?>">
             <div class="card-body p-4">
@@ -133,15 +159,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
                             </span>
                         </div>
                         <span class="badge bg-light text-muted border small">
-                            <?php
-                            $typeLabels = [
-                                'qcm'         => 'QCM',
-                                'vrai_faux'   => 'Vrai / Faux',
-                                'texte_libre' => 'Réponse libre',
-                                'multiple'    => 'Choix multiples'
-                            ];
-                            echo $typeLabels[$q['type']] ?? $q['type'];
-                            ?>
+                            <?= $typeLabels[$q['type']] ?? $q['type'] ?>
                         </span>
                     </div>
                 </div>
@@ -179,6 +197,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
             </div>
         </div>
 
+        <?php endforeach; ?>
         <?php endforeach; ?>
 
         <!-- Bouton de soumission -->

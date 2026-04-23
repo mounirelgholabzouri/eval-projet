@@ -78,7 +78,7 @@ Eval-Projet/
 ├── admin/
 │   ├── index.php              # Dashboard admin
 │   ├── modules.php            # Gestion modules/QCM (toggle actif AJAX)
-│   ├── questions.php          # Gestion questions
+│   ├── questions.php          # Gestion questions + CRUD parties (sections)
 │   ├── results.php            # Liste des résultats + export Excel/CSV
 │   ├── export_excel.php       # Export SpreadsheetML .xls (2 feuilles : évals + moyennes/stagiaire)
 │   ├── detail.php             # Détail d'une session
@@ -86,7 +86,7 @@ Eval-Projet/
 │   ├── groupes.php            # Gestion des groupes (modals, nb stagiaires, protection FK)
 │   ├── generate.php           # Génération QCM par IA
 │   ├── correct_texte.php      # Correction questions texte libre
-│   ├── fusion.php             # Fusion de plusieurs modules QCM en un seul
+│   ├── fusion.php             # Fusion modules QCM : chaque module source → une partie du module synthèse
 │   ├── login.php              # Connexion admin
 │   ├── logout.php             # Déconnexion admin
 │   └── partials/navbar.php    # Barre de navigation admin
@@ -106,7 +106,7 @@ Eval-Projet/
 └── CLAUDE.md                  # Ce fichier
 ```
 
-> **Migrations appliquées hors schema.sql** : table `stagiaires` + colonne `stagiaire_id` dans `sessions_eval` (appliquées via script PHP PDO).
+> **Migrations appliquées hors schema.sql** : table `stagiaires` + colonne `stagiaire_id` dans `sessions_eval` + table `parties` + colonne `partie_id` dans `questions` (toutes via script PHP PDO, cf. `migrate_parties.php`).
 
 ## Schéma de base de données
 
@@ -116,7 +116,8 @@ Eval-Projet/
 | `groupes` | id, nom |
 | `stagiaires` | id, nom, prenom, groupe_id, annee_scolaire, login, password_hash, **must_change_password** |
 | `modules` | id, nom, description, duree_minutes, note_max, actif |
-| `questions` | id, module_id, texte, type (qcm/vrai_faux/texte_libre/multiple), points, ordre |
+| `parties` | id, module_id, nom, ordre (sections d'un module : ex. M205 → "Renforcer VM", "Azure Firewall") |
+| `questions` | id, module_id, **partie_id** (nullable, FK parties), texte, type (qcm/vrai_faux/texte_libre/multiple), points, ordre |
 | `choix_reponses` | id, question_id, texte, is_correct, ordre |
 | `sessions_eval` | id, token, **stagiaire_id**, nom, prenom, groupe_id, module_id, statut, score, pourcentage |
 | `reponses_stagiaires` | id, session_id, question_id, choix_id, reponse_texte, is_correct, points_obtenus |
@@ -140,7 +141,11 @@ Eval-Projet/
 | Fonction | Rôle |
 |---|---|
 | `getModulesActifs()` | Modules avec actif=1 |
-| `getQuestionsModule($id)` | Questions + choix d'un module |
+| `getQuestionsModule($id)` | Questions + choix d'un module (ordonnées par partie_id puis ordre) |
+| `getPartiesModule($id)` | Parties d'un module + nb_questions |
+| `creerPartie($moduleId, $nom, $ordre)` | Crée une partie |
+| `supprimerPartie($id)` | Détache les questions (partie_id=NULL) puis supprime la partie |
+| `getQuestionsGroupeesParPartie($id)` | Questions groupées par partie (sans partie en tête si présent) |
 | `creerSession(...)` | Démarre une session d'évaluation |
 | `sauvegarderReponse(...)` | Upsert réponse stagiaire |
 | `terminerSession($id)` | Calcule score, passe statut à 'termine' |

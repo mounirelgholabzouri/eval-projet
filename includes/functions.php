@@ -69,7 +69,7 @@ function getGroupes(): array {
 
 function getQuestionsModule(int $moduleId): array {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
+    $stmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY partie_id, ordre, id");
     $stmt->execute([$moduleId]);
     $questions = $stmt->fetchAll();
 
@@ -79,6 +79,56 @@ function getQuestionsModule(int $moduleId): array {
         $q['choix'] = $stmt2->fetchAll();
     }
     return $questions;
+}
+
+// ============================================================
+// Fonctions parties
+// ============================================================
+
+function getPartiesModule(int $moduleId): array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        SELECT p.*, COUNT(q.id) AS nb_questions
+        FROM parties p
+        LEFT JOIN questions q ON q.partie_id = p.id
+        WHERE p.module_id = ?
+        GROUP BY p.id
+        ORDER BY p.ordre, p.id
+    ");
+    $stmt->execute([$moduleId]);
+    return $stmt->fetchAll();
+}
+
+function creerPartie(int $moduleId, string $nom, int $ordre = 0): int {
+    $pdo = getDB();
+    $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?,?,?)")
+        ->execute([$moduleId, $nom, $ordre]);
+    return (int)$pdo->lastInsertId();
+}
+
+function supprimerPartie(int $partieId): void {
+    $pdo = getDB();
+    // Détacher les questions (pas supprimer)
+    $pdo->prepare("UPDATE questions SET partie_id = NULL WHERE partie_id = ?")->execute([$partieId]);
+    $pdo->prepare("DELETE FROM parties WHERE id = ?")->execute([$partieId]);
+}
+
+function getQuestionsGroupeesParPartie(int $moduleId): array {
+    $parties = getPartiesModule($moduleId);
+    $allQ    = getQuestionsModule($moduleId);
+
+    $result = [];
+    // Questions sans partie
+    $sansPartie = array_filter($allQ, fn($q) => $q['partie_id'] === null);
+    if (!empty($sansPartie)) {
+        $result[] = ['partie' => null, 'questions' => array_values($sansPartie)];
+    }
+    // Questions par partie
+    foreach ($parties as $p) {
+        $qs = array_filter($allQ, fn($q) => (int)$q['partie_id'] === (int)$p['id']);
+        $result[] = ['partie' => $p, 'questions' => array_values($qs)];
+    }
+    return $result;
 }
 
 function getTotalPoints(int $moduleId): float {

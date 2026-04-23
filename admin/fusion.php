@@ -32,30 +32,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$nom, $desc, $duree, $noteMax, $actif]);
             $newModuleId = (int)$pdo->lastInsertId();
 
-            // 2. Copier les questions + choix de chaque module sélectionné
-            $ordre = 1;
+            // 2. Copier les questions + choix — chaque module source devient une partie
+            $partieOrdre = 1;
+            $qOrdre = 1;
             foreach ($ids as $srcModuleId) {
                 // Vérifier que le module existe
-                $mCheck = $pdo->prepare("SELECT id FROM modules WHERE id = ?");
+                $mCheck = $pdo->prepare("SELECT id, nom FROM modules WHERE id = ?");
                 $mCheck->execute([$srcModuleId]);
-                if (!$mCheck->fetch()) continue;
+                $srcModule = $mCheck->fetch();
+                if (!$srcModule) continue;
 
-                $qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
+                // Créer une partie portant le nom du module source
+                $insPartie = $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?,?,?)");
+                $insPartie->execute([$newModuleId, $srcModule['nom'], $partieOrdre++]);
+                $newPartieId = (int)$pdo->lastInsertId();
+
+                // Récupérer les questions du module source (avec leur partie d'origine)
+                $qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY partie_id, ordre, id");
                 $qStmt->execute([$srcModuleId]);
                 $questions = $qStmt->fetchAll();
 
+                // Construire un mapping des sous-parties du module source
+                $partieMapping = []; // ancien partie_id → nouveau partie_id
+
                 foreach ($questions as $q) {
+                    $srcPartieId = $q['partie_id'] ? (int)$q['partie_id'] : null;
+                    $targetPartieId = $newPartieId; // par défaut : la partie = nom du module
+
+                    // Si la question avait une sous-partie, créer une sous-partie dans la nouvelle partie
+                    if ($srcPartieId !== null) {
+                        if (!isset($partieMapping[$srcPartieId])) {
+                            // Récupérer le nom de la sous-partie source
+                            $pNom = $pdo->prepare("SELECT nom FROM parties WHERE id = ?");
+                            $pNom->execute([$srcPartieId]);
+                            $pRow = $pNom->fetch();
+                            $nomSousPartie = $pRow ? $srcModule['nom'] . ' — ' . $pRow['nom'] : $srcModule['nom'];
+                            $insSP = $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?,?,?)");
+                            $insSP->execute([$newModuleId, $nomSousPartie, $partieOrdre++]);
+                            $partieMapping[$srcPartieId] = (int)$pdo->lastInsertId();
+                        }
+                        $targetPartieId = $partieMapping[$srcPartieId];
+                    }
+
                     // Insérer la question copiée
                     $insQ = $pdo->prepare(
-                        "INSERT INTO questions (module_id, texte, type, points, ordre, image_path)
-                         VALUES (?, ?, ?, ?, ?, ?)"
+                        "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)"
                     );
                     $insQ->execute([
                         $newModuleId,
+                        $targetPartieId,
                         $q['texte'],
                         $q['type'],
                         $q['points'],
-                        $ordre++,
+                        $qOrdre++,
                         $q['image_path'] ?? null,
                     ]);
                     $newQId = (int)$pdo->lastInsertId();
@@ -66,10 +96,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $choix = $cStmt->fetchAll();
 
                     foreach ($choix as $c) {
-                        $insC = $pdo->prepare(
-                            "INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?,?,?,?)"
-                        );
-                        $insC->execute([$newQId, $c['texte'], $c['is_correct'], $c['ordre']]);
+                        $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?,?,?,?)")
+                            ->execute([$newQId, $c['texte'], $c['is_correct'], $c['ordre']]);
                     }
                 }
             }

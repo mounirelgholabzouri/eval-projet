@@ -5,9 +5,10 @@ require_once __DIR__ . '/../includes/functions.php';
 $pdo = getDB();
 $msg    = '';
 $erreur = '';
-$action    = $_GET['action'] ?? 'list';
-$moduleId  = (int)($_GET['module_id'] ?? 0);
+$action     = $_GET['action'] ?? 'list';
+$moduleId   = (int)($_GET['module_id'] ?? 0);
 $questionId = (int)($_GET['id'] ?? 0);
+$partieId   = (int)($_GET['partie_id'] ?? 0);
 
 if (($_GET['msg'] ?? '') === 'fusion_ok') {
     $msg = "Module synthèse créé avec succès. Vous pouvez vérifier et modifier les questions ci-dessous.";
@@ -19,12 +20,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_module'])) {
     header("Location: questions.php?module_id=$moduleId"); exit;
 }
 
+// ── Gestion des parties ──────────────────────────────────────
+
+// Ajouter une partie
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_partie'])) {
+    $nomPartie = trim($_POST['partie_nom'] ?? '');
+    if (strlen($nomPartie) >= 2 && $moduleId > 0) {
+        $parties = getPartiesModule($moduleId);
+        creerPartie($moduleId, $nomPartie, count($parties) + 1);
+        $msg = "Partie « $nomPartie » créée.";
+    } else {
+        $erreur = "Nom de partie trop court (2 caractères minimum).";
+    }
+    header("Location: questions.php?module_id=$moduleId" . ($msg ? "&ok=1" : "")); exit;
+}
+
+// Supprimer une partie
+if ($action === 'delete_partie' && $partieId > 0) {
+    supprimerPartie($partieId);
+    $msg = "Partie supprimée (questions déplacées hors partie).";
+    header("Location: questions.php?module_id=$moduleId"); exit;
+}
+
 // ── Ajout / Modification question ────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
-    $texte  = trim($_POST['texte'] ?? '');
-    $type   = $_POST['type'] ?? 'qcm';
-    $points = (float)($_POST['points'] ?? 1);
-    $ordre  = (int)($_POST['ordre'] ?? 0);
+    $texte       = trim($_POST['texte'] ?? '');
+    $type        = $_POST['type'] ?? 'qcm';
+    $points      = (float)($_POST['points'] ?? 1);
+    $ordre       = (int)($_POST['ordre'] ?? 0);
+    $qPartieId   = (int)($_POST['partie_id'] ?? 0) ?: null;
     $choixTextes  = $_POST['choix_texte'] ?? [];
     $choixCorrects = $_POST['choix_correct'] ?? [];
 
@@ -34,17 +58,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
         $erreur = "Module non sélectionné.";
     } else {
         if ($questionId > 0) {
-            $pdo->prepare("UPDATE questions SET texte=?, type=?, points=?, ordre=? WHERE id=?")
-                ->execute([$texte, $type, $points, $ordre, $questionId]);
-            // Supprimer anciens choix
+            $pdo->prepare("UPDATE questions SET texte=?, type=?, points=?, ordre=?, partie_id=? WHERE id=?")
+                ->execute([$texte, $type, $points, $ordre, $qPartieId, $questionId]);
             $pdo->prepare("DELETE FROM choix_reponses WHERE question_id=?")->execute([$questionId]);
         } else {
-            $pdo->prepare("INSERT INTO questions (module_id, texte, type, points, ordre) VALUES (?,?,?,?,?)")
-                ->execute([$moduleId, $texte, $type, $points, $ordre]);
+            $pdo->prepare("INSERT INTO questions (module_id, partie_id, texte, type, points, ordre) VALUES (?,?,?,?,?,?)")
+                ->execute([$moduleId, $qPartieId, $texte, $type, $points, $ordre]);
             $questionId = (int)$pdo->lastInsertId();
         }
 
-        // Insérer choix
         if (in_array($type, ['qcm', 'vrai_faux', 'multiple'])) {
             foreach ($choixTextes as $i => $ct) {
                 $ct = trim($ct);
@@ -73,7 +95,9 @@ if ($action === 'delete' && $questionId > 0) {
 
 $allModules = getAllModules();
 $questions  = $moduleId > 0 ? getQuestionsModule($moduleId) : [];
+$parties    = $moduleId > 0 ? getPartiesModule($moduleId) : [];
 $module     = $moduleId > 0 ? getModule($moduleId) : null;
+$grouped    = $moduleId > 0 ? getQuestionsGroupeesParPartie($moduleId) : [];
 
 $editQuestion = null;
 if ($action === 'edit' && $questionId > 0) {
@@ -81,6 +105,8 @@ if ($action === 'edit' && $questionId > 0) {
         if ((int)$q['id'] === $questionId) { $editQuestion = $q; break; }
     }
 }
+
+if (($_GET['ok'] ?? '') === '1') $msg = "Partie créée.";
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -128,9 +154,12 @@ if ($action === 'edit' && $questionId > 0) {
 
     <?php if ($moduleId > 0 && $module): ?>
     <div class="row g-4">
-        <!-- Formulaire ajout/édition question -->
+
+        <!-- ── Colonne gauche : formulaire question + gestion parties ── -->
         <div class="col-lg-5">
-            <div class="card border-0 shadow-sm rounded-4">
+
+            <!-- Formulaire question -->
+            <div class="card border-0 shadow-sm rounded-4 mb-3">
                 <div class="card-header bg-white border-0 py-3 px-4">
                     <h5 class="mb-0 fw-bold">
                         <i class="bi bi-<?= $editQuestion ? 'pencil' : 'plus-circle' ?> me-2 text-primary"></i>
@@ -139,6 +168,20 @@ if ($action === 'edit' && $questionId > 0) {
                 </div>
                 <div class="card-body p-4">
                     <form method="POST" action="questions.php?module_id=<?= $moduleId ?><?= $editQuestion ? '&action=edit&id='.$questionId : '' ?>" id="questionForm">
+
+                        <!-- Partie -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Partie</label>
+                            <select name="partie_id" class="form-select form-select-sm">
+                                <option value="">— Sans partie —</option>
+                                <?php foreach ($parties as $p): ?>
+                                <option value="<?= $p['id'] ?>" <?= (int)($editQuestion['partie_id'] ?? 0) === (int)$p['id'] ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($p['nom']) ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Question <span class="text-danger">*</span></label>
                             <textarea name="texte" class="form-control" rows="3" required><?= htmlspecialchars($editQuestion['texte'] ?? '') ?></textarea>
@@ -206,12 +249,51 @@ if ($action === 'edit' && $questionId > 0) {
                     </form>
                 </div>
             </div>
+
+            <!-- Gestion des parties -->
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h5 class="mb-0 fw-bold"><i class="bi bi-layers me-2 text-secondary"></i>Parties du module</h5>
+                    <div class="text-muted small mt-1">Organisez vos questions en sections thématiques</div>
+                </div>
+                <div class="card-body p-3">
+                    <?php if (empty($parties)): ?>
+                        <p class="text-muted small text-center py-2">Aucune partie définie.</p>
+                    <?php else: ?>
+                        <ul class="list-group list-group-flush mb-3">
+                        <?php foreach ($parties as $p): ?>
+                            <li class="list-group-item d-flex align-items-center justify-content-between px-2 py-2 rounded-3">
+                                <div>
+                                    <i class="bi bi-bookmark-fill text-primary me-2 small"></i>
+                                    <span class="fw-semibold"><?= htmlspecialchars($p['nom']) ?></span>
+                                    <span class="badge bg-primary-subtle text-primary ms-2 small"><?= (int)$p['nb_questions'] ?> Q</span>
+                                </div>
+                                <a href="questions.php?module_id=<?= $moduleId ?>&action=delete_partie&partie_id=<?= $p['id'] ?>"
+                                   class="btn btn-sm btn-outline-danger rounded-3"
+                                   onclick="return confirm('Supprimer la partie « <?= htmlspecialchars(addslashes($p['nom'])) ?> » ? Les questions ne seront pas supprimées.')">
+                                    <i class="bi bi-trash"></i>
+                                </a>
+                            </li>
+                        <?php endforeach; ?>
+                        </ul>
+                    <?php endif; ?>
+
+                    <!-- Ajouter une partie -->
+                    <form method="POST" action="questions.php?module_id=<?= $moduleId ?>" class="d-flex gap-2">
+                        <input type="text" name="partie_nom" class="form-control form-control-sm"
+                               placeholder="Nom de la nouvelle partie…" required minlength="2">
+                        <button type="submit" name="add_partie" class="btn btn-sm btn-outline-primary text-nowrap">
+                            <i class="bi bi-plus me-1"></i>Ajouter
+                        </button>
+                    </form>
+                </div>
+            </div>
         </div>
 
-        <!-- Liste des questions -->
+        <!-- ── Colonne droite : questions groupées par partie ── -->
         <div class="col-lg-7">
             <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
                     <h5 class="mb-0 fw-bold">
                         Questions — <?= htmlspecialchars($module['nom']) ?>
                     </h5>
@@ -221,11 +303,31 @@ if ($action === 'edit' && $questionId > 0) {
                     <?php if (empty($questions)): ?>
                         <p class="text-center text-muted py-4">Aucune question. Utilisez le formulaire pour en ajouter.</p>
                     <?php endif; ?>
-                    <?php foreach ($questions as $idx => $q): ?>
+
+                    <?php
+                    $globalIdx = 1;
+                    foreach ($grouped as $group):
+                        if (empty($group['questions'])) continue;
+                    ?>
+                    <!-- En-tête de partie -->
+                    <?php if ($group['partie']): ?>
+                    <div class="d-flex align-items-center gap-2 px-3 py-2 bg-primary-subtle border-bottom">
+                        <i class="bi bi-bookmark-fill text-primary"></i>
+                        <span class="fw-bold text-primary"><?= htmlspecialchars($group['partie']['nom']) ?></span>
+                        <span class="badge bg-primary ms-1"><?= count($group['questions']) ?> Q</span>
+                    </div>
+                    <?php else: ?>
+                    <div class="d-flex align-items-center gap-2 px-3 py-2 bg-light border-bottom">
+                        <i class="bi bi-dash-circle text-muted"></i>
+                        <span class="text-muted fw-semibold small">Sans partie</span>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php foreach ($group['questions'] as $q): ?>
                     <div class="p-3 border-bottom d-flex align-items-start gap-3">
-                        <div class="question-number small"><?= $idx + 1 ?></div>
+                        <div class="question-number small"><?= $globalIdx++ ?></div>
                         <div class="flex-grow-1">
-                            <div class="fw-semibold small"><?= htmlspecialchars(mb_substr($q['texte'], 0, 100)) ?><?= strlen($q['texte']) > 100 ? '…' : '' ?></div>
+                            <div class="fw-semibold small"><?= htmlspecialchars(mb_substr($q['texte'], 0, 100)) ?><?= mb_strlen($q['texte']) > 100 ? '…' : '' ?></div>
                             <div class="mt-1 d-flex gap-2 flex-wrap">
                                 <span class="badge bg-light text-muted border small">
                                     <?php $types = ['qcm'=>'QCM','vrai_faux'=>'V/F','texte_libre'=>'Libre','multiple'=>'Multiple'];
@@ -247,6 +349,7 @@ if ($action === 'edit' && $questionId > 0) {
                             </a>
                         </div>
                     </div>
+                    <?php endforeach; ?>
                     <?php endforeach; ?>
                 </div>
             </div>
