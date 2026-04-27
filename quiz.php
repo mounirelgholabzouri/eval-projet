@@ -73,8 +73,47 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="assets/css/style.css" rel="stylesheet">
+    <style>
+        /* Mode verrouillage : empêche la sélection de texte et la copie */
+        body.lockdown, body.lockdown * {
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        /* On autorise la saisie dans les zones de réponse */
+        body.lockdown textarea,
+        body.lockdown input[type="text"] {
+            -webkit-user-select: text;
+            -moz-user-select: text;
+            -ms-user-select: text;
+            user-select: text;
+        }
+        /* Overlay quand l'onglet perd le focus */
+        #lockOverlay {
+            position: fixed; inset: 0;
+            background: rgba(13, 17, 38, 0.97);
+            color: #fff;
+            z-index: 99999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 2rem;
+        }
+        #lockOverlay.show { display: flex; }
+        #lockOverlay .icon { font-size: 4rem; color: #ff5252; }
+        #violationBadge {
+            position: fixed; top: 70px; right: 12px;
+            background: #dc3545; color: #fff;
+            padding: 6px 12px; border-radius: 20px;
+            font-size: 0.85rem; font-weight: 600;
+            z-index: 1080; display: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,.2);
+        }
+    </style>
 </head>
-<body class="bg-light">
+<body class="bg-light lockdown" oncontextmenu="return false;" oncopy="return false;" oncut="return false;" onpaste="return false;" ondragstart="return false;" onselectstart="return false;">
 
 <!-- Barre supérieure fixe -->
 <nav class="navbar navbar-dark bg-primary fixed-top shadow-sm">
@@ -250,8 +289,124 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
     </div>
 </div>
 
+<!-- Badge de violations -->
+<div id="violationBadge"><i class="bi bi-shield-exclamation me-1"></i><span id="violationCount">0</span> sortie(s) détectée(s)</div>
+
+<!-- Overlay verrouillage (perte de focus) -->
+<div id="lockOverlay">
+    <div>
+        <div class="icon mb-3"><i class="bi bi-shield-lock-fill"></i></div>
+        <h2 class="fw-bold mb-3">Évaluation verrouillée</h2>
+        <p class="lead mb-4">Vous avez quitté la page de l'examen.<br>Toute sortie est enregistrée et signalée au formateur.</p>
+        <button id="resumeBtn" class="btn btn-warning btn-lg fw-semibold">
+            <i class="bi bi-arrow-clockwise me-2"></i>Reprendre l'évaluation (plein écran)
+        </button>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+// ── Mode verrouillage : plein écran + anti-triche ────────────
+const MAX_VIOLATIONS = 3;
+let violations = 0;
+let quizSubmitted = false;
+
+function enterFullscreen() {
+    const el = document.documentElement;
+    if (el.requestFullscreen)        el.requestFullscreen().catch(() => {});
+    else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    else if (el.msRequestFullscreen)     el.msRequestFullscreen();
+}
+
+function showOverlay() {
+    document.getElementById('lockOverlay').classList.add('show');
+}
+function hideOverlay() {
+    document.getElementById('lockOverlay').classList.remove('show');
+}
+
+function registerViolation(reason) {
+    if (quizSubmitted) return;
+    violations++;
+    const badge = document.getElementById('violationBadge');
+    document.getElementById('violationCount').textContent = violations;
+    badge.style.display = 'block';
+    console.warn('[Quiz Lockdown]', reason, '— total:', violations);
+
+    if (violations >= MAX_VIOLATIONS) {
+        // Soumission automatique
+        quizSubmitted = true;
+        alert('Trop de sorties détectées (' + violations + '). L\'évaluation va être soumise automatiquement.');
+        const f = document.getElementById('quiz-form');
+        const h = document.createElement('input');
+        h.type = 'hidden'; h.name = 'submit_final'; h.value = '1';
+        f.appendChild(h);
+        f.submit();
+    }
+}
+
+// Lancement du plein écran au premier clic / touche
+function startLockdown() {
+    enterFullscreen();
+    document.removeEventListener('click', startLockdown);
+    document.removeEventListener('keydown', startLockdown);
+}
+document.addEventListener('click', startLockdown);
+document.addEventListener('keydown', startLockdown);
+
+// Bouton "Reprendre"
+document.getElementById('resumeBtn').addEventListener('click', () => {
+    enterFullscreen();
+    hideOverlay();
+});
+
+// Détection sortie plein écran
+document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && !quizSubmitted) {
+        registerViolation('exit-fullscreen');
+        showOverlay();
+    }
+});
+
+// Détection changement d'onglet / perte de focus
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden && !quizSubmitted) {
+        registerViolation('tab-hidden');
+        showOverlay();
+    }
+});
+window.addEventListener('blur', () => {
+    if (!quizSubmitted) {
+        registerViolation('window-blur');
+        showOverlay();
+    }
+});
+
+// Blocage des raccourcis dangereux
+document.addEventListener('keydown', (e) => {
+    const k = e.key;
+    // F12, F5, F11
+    if (['F12', 'F5', 'F11'].includes(k)) { e.preventDefault(); return false; }
+    // Ctrl+...
+    if (e.ctrlKey || e.metaKey) {
+        const blocked = ['c','v','x','u','s','p','a','f','r','w','t','n','j','i','h'];
+        if (blocked.includes(k.toLowerCase())) { e.preventDefault(); return false; }
+    }
+    // Ctrl+Shift+I/J/C, Alt+Tab
+    if ((e.ctrlKey && e.shiftKey && ['I','J','C'].includes(k.toUpperCase())) ||
+        (e.altKey && k === 'Tab')) {
+        e.preventDefault(); return false;
+    }
+});
+
+// Empêche la fermeture / rechargement
+window.addEventListener('beforeunload', (e) => {
+    if (quizSubmitted) return;
+    e.preventDefault();
+    e.returnValue = 'Êtes-vous sûr de quitter ? Votre évaluation est en cours.';
+    return e.returnValue;
+});
+
 // ── Minuteur ─────────────────────────────────────────────────
 let restant = <?= $restant ?>;
 const timerEl = document.getElementById('timer-display');
@@ -262,7 +417,7 @@ function updateTimer() {
         timerEl.textContent = '00:00';
         const modal = new bootstrap.Modal(document.getElementById('timeoutModal'));
         modal.show();
-        setTimeout(() => { const f = document.getElementById('quiz-form'); const h = document.createElement('input'); h.type='hidden'; h.name='submit_final'; h.value='1'; f.appendChild(h); f.submit(); }, 3000);
+        setTimeout(() => { quizSubmitted = true; const f = document.getElementById('quiz-form'); const h = document.createElement('input'); h.type='hidden'; h.name='submit_final'; h.value='1'; f.appendChild(h); f.submit(); }, 3000);
         return;
     }
     const m = Math.floor(restant / 60).toString().padStart(2, '0');
@@ -333,6 +488,7 @@ function confirmerSoumission() {
 
     document.getElementById('confirmBtn').onclick = function() {
         submitConfirmed = true;
+        quizSubmitted = true;
         modal.hide();
         const f = document.getElementById('quiz-form');
         const h = document.createElement('input');
