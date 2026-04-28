@@ -31,6 +31,10 @@ $groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
         <h2 class="h4 fw-bold mb-0">
             Résultat de <?= htmlspecialchars($session['prenom'] . ' ' . $session['nom']) ?>
         </h2>
+        <a href="print_exams.php?session_id=<?= $id ?>" target="_blank"
+           class="btn btn-sm btn-dark ms-auto rounded-3">
+            <i class="bi bi-printer me-1"></i>Imprimer le test
+        </a>
     </div>
 
     <!-- Carte résumé -->

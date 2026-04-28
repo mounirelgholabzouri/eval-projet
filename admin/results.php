@@ -223,9 +223,17 @@ $stats = getStatsGlobales();
                             <?php endif; ?>
                         </td>
                         <td class="text-center">
-                            <a href="detail.php?id=<?= $s['id'] ?>" class="btn btn-sm btn-outline-primary rounded-3">
-                                <i class="bi bi-eye"></i>
-                            </a>
+                            <div class="d-flex gap-1 justify-content-center">
+                                <a href="detail.php?id=<?= $s['id'] ?>" class="btn btn-sm btn-outline-primary rounded-3" title="Détail">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <?php if ($s['statut'] === 'termine'): ?>
+                                <a href="print_exams.php?session_id=<?= $s['id'] ?>" target="_blank"
+                                   class="btn btn-sm btn-outline-dark rounded-3" title="Imprimer ce test">
+                                    <i class="bi bi-printer"></i>
+                                </a>
+                                <?php endif; ?>
+                            </div>
                         </td>
                     </tr>
                     <?php endforeach; ?>

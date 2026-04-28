@@ -4,8 +4,16 @@ require_once __DIR__ . '/../includes/functions.php';
 
 $pdo = getDB();
 
-$filterModule = (int)($_GET['module_id'] ?? 0);
-$filterGroupe = trim($_GET['groupe'] ?? '');
+$filterModule  = (int)($_GET['module_id'] ?? 0);
+$filterGroupe  = trim($_GET['groupe'] ?? '');
+$filterSession = (int)($_GET['session_id'] ?? 0); // impression d'un seul stagiaire
+
+// Mode session unique : on déduit le module depuis la session
+if ($filterSession && !$filterModule) {
+    $row = $pdo->prepare("SELECT module_id FROM sessions_eval WHERE id = ?");
+    $row->execute([$filterSession]);
+    $filterModule = (int)($row->fetchColumn() ?: 0);
+}
 
 if (!$filterModule) {
     header('Location: results.php');
@@ -18,20 +26,24 @@ $stmtMod->execute([$filterModule]);
 $module = $stmtMod->fetch();
 if (!$module) { header('Location: results.php'); exit; }
 
-// Récupérer toutes les sessions terminées pour ce module
-$where  = ['s.module_id = ?', "s.statut = 'termine'"];
-$params = [$filterModule];
-if ($filterGroupe) {
-    $where[]  = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)";
-    $params[] = "%$filterGroupe%";
-    $params[] = "%$filterGroupe%";
+// Récupérer les sessions (une seule ou toutes)
+if ($filterSession) {
+    $where  = ['s.id = ?', "s.statut = 'termine'"];
+    $params = [$filterSession];
+} else {
+    $where  = ['s.module_id = ?', "s.statut = 'termine'"];
+    $params = [$filterModule];
+    if ($filterGroupe) {
+        $where[]  = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)";
+        $params[] = "%$filterGroupe%";
+        $params[] = "%$filterGroupe%";
+    }
 }
-$whereStr = implode(' AND ', $where);
 $stmtSes = $pdo->prepare("
     SELECT s.*, COALESCE(g.nom, s.groupe_libre) AS groupe_nom
     FROM sessions_eval s
     LEFT JOIN groupes g ON g.id = s.groupe_id
-    WHERE $whereStr
+    WHERE " . implode(' AND ', $where) . "
     ORDER BY s.nom, s.prenom
 ");
 $stmtSes->execute($params);
