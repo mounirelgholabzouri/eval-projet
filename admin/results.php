@@ -78,7 +78,13 @@ $stats = getStatsGlobales();
 <div class="container-fluid py-4 px-4">
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h2 class="h4 fw-bold mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Résultats des évaluations</h2>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
+            <?php if ($filterModule): ?>
+            <a href="print_exams.php?module_id=<?= $filterModule ?><?= $filterGroupe ? '&groupe='.urlencode($filterGroupe) : '' ?>"
+               target="_blank" class="btn btn-dark">
+                <i class="bi bi-printer me-2"></i>Imprimer les tests
+            </a>
+            <?php endif; ?>
             <a href="export_excel.php?<?= $filterModule ? "module_id=$filterModule" : '' ?><?= $filterGroupe ? "&groupe_id=".urlencode($filterGroupe) : '' ?>"
                class="btn btn-success">
                 <i class="bi bi-file-earmark-excel me-2"></i>Exporter Excel
