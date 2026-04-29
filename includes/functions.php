@@ -190,14 +190,21 @@ function getTotalPoints(int $moduleId): float {
     return (float)$stmt->fetchColumn();
 }
 
+function getTotalPointsPartie(int $partieId): float {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(points), 0) AS total FROM questions WHERE partie_id = ?");
+    $stmt->execute([$partieId]);
+    return (float)$stmt->fetchColumn();
+}
+
 // ============================================================
 // Fonctions sessions d'évaluation
 // ============================================================
 
-function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId, ?int $stagiaireId = null): array {
+function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId, ?int $stagiaireId = null, ?int $partieId = null): array {
     $pdo = getDB();
     $token = generateToken();
-    $totalPoints = getTotalPoints($moduleId);
+    $totalPoints = $partieId ? getTotalPointsPartie($partieId) : getTotalPoints($moduleId);
 
     $stmt = $pdo->prepare("INSERT INTO sessions_eval (token, nom, prenom, groupe_id, groupe_libre, module_id, total_points, stagiaire_id)
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");

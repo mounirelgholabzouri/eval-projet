@@ -15,9 +15,16 @@ if (!$session || $session['statut'] === 'termine') {
     redirect('result.php');
 }
 
+$partieId  = isset($_SESSION['eval_partie_id']) ? (int)$_SESSION['eval_partie_id'] : 0;
 $questions = getQuestionsModule((int)$session['module_id']);
 $grouped   = getQuestionsGroupeesParPartie((int)$session['module_id']);
-$nbQ       = count($questions);
+
+if ($partieId > 0) {
+    $questions = array_values(array_filter($questions, fn($q) => (int)$q['partie_id'] === $partieId));
+    $grouped   = array_values(array_filter($grouped,   fn($g) => (int)$g['partie']['id'] === $partieId));
+}
+
+$nbQ = count($questions);
 
 // ── Traitement de la soumission finale ──────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_final'])) {
@@ -120,6 +127,9 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
     <div class="container-fluid">
         <span class="navbar-brand fw-bold">
             <i class="bi bi-journal-check me-2"></i><?= sanitize($session['module_nom']) ?>
+            <?php if ($partieId > 0 && !empty($grouped[0]['partie'])): ?>
+            <span class="badge bg-white text-primary ms-2 fw-normal fs-6"><?= sanitize($grouped[0]['partie']['nom']) ?></span>
+            <?php endif; ?>
         </span>
         <div class="d-flex align-items-center gap-3">
             <span class="text-white-75 small d-none d-sm-inline">
