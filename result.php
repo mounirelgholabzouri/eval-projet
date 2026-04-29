@@ -23,6 +23,10 @@ if ($session['statut'] !== 'termine') {
 $reponses  = getReponsesSession($sessionId);
 $mention   = getMention((float)$session['pourcentage']);
 $groupe    = $session['groupe_nom'] ?: $session['groupe_libre'];
+$isEfm     = ($session['module_type'] ?? '') === 'efm';
+
+// Conserver l'ID avant nettoyage pour le lien EFM
+$sessionIdForPrint = $sessionId;
 
 // Nettoyage session
 unset($_SESSION['eval_session_id'], $_SESSION['eval_session_token'], $_SESSION['eval_result']);
@@ -168,6 +172,12 @@ unset($_SESSION['eval_session_id'], $_SESSION['eval_session_token'], $_SESSION['
         <a href="index.php" class="btn btn-primary btn-lg">
             <i class="bi bi-arrow-clockwise me-2"></i>Nouvelle évaluation
         </a>
+        <?php if ($isEfm): ?>
+        <a href="efm_fiche_resultat.php?sid=<?= $sessionIdForPrint ?>"
+           class="btn btn-danger btn-lg" target="_blank">
+            <i class="bi bi-file-earmark-ruled me-2"></i>Fiche résultat EFM
+        </a>
+        <?php else: ?>
         <a href="admin/export_excel.php?module_id=<?= (int)$session['module_id'] ?>"
            class="btn btn-success btn-lg">
             <i class="bi bi-file-earmark-excel me-2"></i>Télécharger Excel (récap module)
@@ -175,6 +185,7 @@ unset($_SESSION['eval_session_id'], $_SESSION['eval_session_token'], $_SESSION['
         <button onclick="window.print()" class="btn btn-outline-secondary btn-lg">
             <i class="bi bi-printer me-2"></i>Imprimer
         </button>
+        <?php endif; ?>
     </div>
 
 </div>
