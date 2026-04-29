@@ -216,11 +216,10 @@ if (isset($flash['last_partie']))    $erreur = "Impossible : c'est la dernière 
                     <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#renamePartieModal">
                         <i class="bi bi-pencil me-1"></i>Renommer
                     </button>
-                    <a href="questions.php?module_id=<?= $moduleId ?>&action=delete_partie&partie_id=<?= $currentPartie['id'] ?>"
-                       class="btn btn-sm btn-outline-danger"
-                       onclick="return confirm('Supprimer la partie « <?= htmlspecialchars(addslashes($currentPartie['nom'])) ?> » ? Ses questions seront déplacées vers une autre partie.')">
+                    <button type="button" class="btn btn-sm btn-outline-danger"
+                            data-bs-toggle="modal" data-bs-target="#deletePartieModal">
                         <i class="bi bi-trash me-1"></i>Supprimer
-                    </a>
+                    </button>
                 </div>
                 <?php endif; ?>
             </div>
@@ -469,5 +468,34 @@ function addChoix() {
 
 if (document.getElementById('typeSelect')) toggleChoix();
 </script>
+
+<?php if ($currentPartie && count($parties) > 1): ?>
+<!-- Modal suppression partie -->
+<div class="modal fade" id="deletePartieModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Supprimer la partie</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Vous allez supprimer la partie :</p>
+                <p class="fw-bold fs-5 mb-2">« <?= sanitize($currentPartie['nom']) ?> »</p>
+                <p class="text-muted mb-3">
+                    <?= (int)$currentPartie['nb_questions'] ?> question(s) seront déplacées vers une autre partie du module.
+                </p>
+                <p class="text-danger fw-semibold mb-0">Cette action est irréversible.</p>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <a href="questions.php?module_id=<?= $moduleId ?>&action=delete_partie&partie_id=<?= $currentPartie['id'] ?>"
+                   class="btn btn-danger">
+                    <i class="bi bi-trash me-1"></i>Supprimer définitivement
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
 </body>
 </html>

@@ -197,6 +197,34 @@ function getTotalPointsPartie(int $partieId): float {
     return (float)$stmt->fetchColumn();
 }
 
+function supprimerSession(int $sessionId): void {
+    $pdo = getDB();
+    $pdo->prepare("DELETE FROM reponses_stagiaires WHERE session_id = ?")->execute([$sessionId]);
+    $pdo->prepare("DELETE FROM sessions_eval WHERE id = ?")->execute([$sessionId]);
+}
+
+function supprimerModule(int $moduleId): void {
+    $pdo = getDB();
+    // 1. Réponses des sessions liées au module
+    $sids = $pdo->prepare("SELECT id FROM sessions_eval WHERE module_id = ?");
+    $sids->execute([$moduleId]);
+    foreach ($sids->fetchAll(PDO::FETCH_COLUMN) as $sid) {
+        $pdo->prepare("DELETE FROM reponses_stagiaires WHERE session_id = ?")->execute([$sid]);
+    }
+    // 2. Sessions
+    $pdo->prepare("DELETE FROM sessions_eval WHERE module_id = ?")->execute([$moduleId]);
+    // 3. Choix des questions
+    $qids = $pdo->prepare("SELECT id FROM questions WHERE module_id = ?");
+    $qids->execute([$moduleId]);
+    foreach ($qids->fetchAll(PDO::FETCH_COLUMN) as $qid) {
+        $pdo->prepare("DELETE FROM choix_reponses WHERE question_id = ?")->execute([$qid]);
+    }
+    // 4. Questions + parties + module
+    $pdo->prepare("DELETE FROM questions WHERE module_id = ?")->execute([$moduleId]);
+    $pdo->prepare("DELETE FROM parties WHERE module_id = ?")->execute([$moduleId]);
+    $pdo->prepare("DELETE FROM modules WHERE id = ?")->execute([$moduleId]);
+}
+
 // ============================================================
 // Fonctions sessions d'évaluation
 // ============================================================
@@ -217,6 +245,7 @@ function getSession(int $id): ?array {
     $pdo = getDB();
     $stmt = $pdo->prepare("
         SELECT s.*, m.nom AS module_nom, m.duree_minutes,
+               m.type AS module_type, m.meta_json,
                g.nom AS groupe_nom
         FROM sessions_eval s
         JOIN modules m ON m.id = s.module_id
@@ -231,6 +260,7 @@ function getSessionByToken(string $token): ?array {
     $pdo = getDB();
     $stmt = $pdo->prepare("
         SELECT s.*, m.nom AS module_nom, m.duree_minutes,
+               m.type AS module_type, m.meta_json,
                g.nom AS groupe_nom
         FROM sessions_eval s
         JOIN modules m ON m.id = s.module_id

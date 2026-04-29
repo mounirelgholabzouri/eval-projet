@@ -45,9 +45,9 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'fusion.php' ? 'active' : '' ?>"
+                    <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['fusion.php','print_efm_result.php']) ? 'active' : '' ?>"
                        href="fusion.php">
-                        <i class="bi bi-intersect me-1"></i>Fusion QCM
+                        <i class="bi bi-intersect me-1"></i>Fusion / EFM
                     </a>
                 </li>
                 <li class="nav-item">

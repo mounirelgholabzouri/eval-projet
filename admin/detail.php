@@ -31,10 +31,18 @@ $groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
         <h2 class="h4 fw-bold mb-0">
             Résultat de <?= htmlspecialchars($session['prenom'] . ' ' . $session['nom']) ?>
         </h2>
-        <a href="print_exams.php?session_id=<?= $id ?>" target="_blank"
-           class="btn btn-sm btn-dark ms-auto rounded-3">
-            <i class="bi bi-printer me-1"></i>Imprimer le test
-        </a>
+        <div class="ms-auto d-flex gap-2">
+            <a href="print_exams.php?session_id=<?= $id ?>" target="_blank"
+               class="btn btn-sm btn-dark rounded-3">
+                <i class="bi bi-printer me-1"></i>Imprimer le test
+            </a>
+            <?php if (($session['module_type'] ?? '') === 'efm'): ?>
+            <a href="print_efm_result.php?session_id=<?= $id ?>" target="_blank"
+               class="btn btn-sm btn-danger rounded-3">
+                <i class="bi bi-file-earmark-ruled me-1"></i>Impression EFM
+            </a>
+            <?php endif; ?>
+        </div>
     </div>
 
     <!-- Carte résumé -->

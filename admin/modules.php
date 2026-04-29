@@ -32,11 +32,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// ── Suppression ──────────────────────────────────────────────
-if ($action === 'delete' && $id > 0) {
-    $stmt = $pdo->prepare("DELETE FROM modules WHERE id = ?");
-    $stmt->execute([$id]);
-    $msg = "Module supprimé.";
+// ── Suppression (POST obligatoire) ──────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_module'])) {
+    $delId = (int)($_POST['delete_id'] ?? 0);
+    if ($delId > 0) {
+        supprimerModule($delId);
+        $msg = "Module et toutes ses données supprimés.";
+    }
     $action = 'list';
 }
 
@@ -202,12 +204,12 @@ if ($action === 'edit' && $id > 0) {
                                            class="btn btn-sm btn-outline-success rounded-3" title="Questions">
                                             <i class="bi bi-list-check"></i>
                                         </a>
-                                        <a href="modules.php?action=delete&id=<?= $m['id'] ?>"
-                                           class="btn btn-sm btn-outline-danger rounded-3"
-                                           title="Supprimer"
-                                           onclick="return confirm('Supprimer ce module et toutes ses questions ?')">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger rounded-3"
+                                                title="Supprimer"
+                                                onclick='confirmDeleteModule(<?= $m['id'] ?>, <?= json_encode($m['nom']) ?>, <?= (int)$m['nb_questions'] ?>, <?= (int)$m['nb_parties'] ?>)'>
                                             <i class="bi bi-trash"></i>
-                                        </a>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -258,6 +260,47 @@ document.querySelectorAll('.toggle-actif').forEach(function(toggle) {
             });
     });
 });
+</script>
+
+<!-- Modal suppression module -->
+<div class="modal fade" id="deleteModuleModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Supprimer le module</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Vous allez supprimer définitivement :</p>
+                <ul class="mb-2">
+                    <li>Le module <strong id="delModNom"></strong></li>
+                    <li id="delModStats" class="text-muted small"></li>
+                    <li class="text-danger fw-semibold">Tous les résultats des stagiaires pour ce module</li>
+                </ul>
+                <p class="text-danger fw-semibold mb-0">Cette action est irréversible.</p>
+            </div>
+            <div class="modal-footer border-0">
+                <form method="POST" action="modules.php">
+                    <input type="hidden" name="confirm_delete_module" value="1">
+                    <input type="hidden" name="delete_id" id="delModId">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Supprimer définitivement
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDeleteModule(id, nom, nbQ, nbP) {
+    document.getElementById('delModId').value  = id;
+    document.getElementById('delModNom').textContent = nom;
+    document.getElementById('delModStats').textContent =
+        nbQ + ' question(s), ' + nbP + ' partie(s)';
+    new bootstrap.Modal(document.getElementById('deleteModuleModal')).show();
+}
 </script>
 </body>
 </html>

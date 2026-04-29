@@ -3,6 +3,17 @@ require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 $pdo = getDB();
+$msg    = '';
+$erreur = '';
+
+// ── Suppression d'un résultat ─────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_session'])) {
+    $delId = (int)($_POST['delete_id'] ?? 0);
+    if ($delId > 0) {
+        supprimerSession($delId);
+        $msg = "Résultat supprimé.";
+    }
+}
 
 // Filtres
 $filterModule = (int)($_GET['module_id'] ?? 0);
@@ -76,6 +87,13 @@ $stats = getStatsGlobales();
 <body class="bg-light">
 <?php include __DIR__ . '/partials/navbar.php'; ?>
 <div class="container-fluid py-4 px-4">
+    <?php if ($msg): ?>
+    <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4">
+        <i class="bi bi-check-circle me-2"></i><?= htmlspecialchars($msg) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php endif; ?>
+
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
         <h2 class="h4 fw-bold mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Résultats des évaluations</h2>
         <div class="d-flex gap-2 flex-wrap">
@@ -185,11 +203,12 @@ $stats = getStatsGlobales();
                         <th class="text-center">Mention</th>
                         <th class="text-center">Statut</th>
                         <th class="text-center">Détail</th>
+                        <th class="text-center">Suppr.</th>
                     </tr>
                 </thead>
                 <tbody>
                     <?php if (empty($sessions)): ?>
-                    <tr><td colspan="9" class="text-center text-muted py-4">Aucun résultat trouvé</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-4">Aucun résultat trouvé</td></tr>
                     <?php endif; ?>
                     <?php foreach ($sessions as $s): ?>
                     <?php $mention = getMention((float)$s['pourcentage']); ?>
@@ -235,6 +254,13 @@ $stats = getStatsGlobales();
                                 <?php endif; ?>
                             </div>
                         </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-sm btn-outline-danger rounded-3"
+                                    title="Supprimer ce résultat"
+                                    onclick='confirmDeleteSession(<?= $s['id'] ?>, <?= json_encode($s['prenom'] . ' ' . $s['nom']) ?>, <?= json_encode($s['module_nom']) ?>)'>
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>
@@ -244,5 +270,42 @@ $stats = getStatsGlobales();
 
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Modal suppression résultat -->
+<div class="modal fade" id="deleteSessionModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content border-0 shadow">
+            <div class="modal-header bg-danger text-white border-0">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Supprimer ce résultat</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Supprimer définitivement le résultat de :</p>
+                <p class="fw-bold fs-5 mb-1" id="delSessNom"></p>
+                <p class="text-muted mb-3" id="delSessModule"></p>
+                <p class="text-danger fw-semibold mb-0">Toutes les réponses associées seront effacées. Cette action est irréversible.</p>
+            </div>
+            <div class="modal-footer border-0">
+                <form method="POST" action="results.php?<?= http_build_query(array_filter(['module_id'=>$filterModule,'groupe'=>$filterGroupe,'statut'=>$filterStatut])) ?>">
+                    <input type="hidden" name="confirm_delete_session" value="1">
+                    <input type="hidden" name="delete_id" id="delSessId">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Supprimer définitivement
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDeleteSession(id, nom, module) {
+    document.getElementById('delSessId').value = id;
+    document.getElementById('delSessNom').textContent    = nom;
+    document.getElementById('delSessModule').textContent = module;
+    new bootstrap.Modal(document.getElementById('deleteSessionModal')).show();
+}
+</script>
 </body>
 </html>
