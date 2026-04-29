@@ -341,21 +341,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                             <div class="text-muted small mt-1">Cochez les modules puis sélectionnez les parties à inclure</div>
                         </div>
                         <div class="card-body p-3">
+                            <div class="d-flex gap-2 mb-3">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="efmExpandAll">
+                                    <i class="bi bi-arrows-expand me-1"></i>Tout développer
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" id="efmCollapseAll">
+                                    <i class="bi bi-arrows-collapse me-1"></i>Tout réduire
+                                </button>
+                            </div>
                             <?php foreach ($modules as $m): ?>
                             <?php $parties = $allParties[(int)$m['id']] ?? []; if (empty($parties)) continue; ?>
                             <div class="efm-module-block mb-3 border rounded-3 overflow-hidden">
-                                <!-- En-tête module -->
-                                <div class="d-flex align-items-center gap-2 px-3 py-2 bg-light border-bottom">
+                                <!-- En-tête module : clic = expand/collapse ; case = tout sélectionner -->
+                                <div class="d-flex align-items-center gap-2 px-3 py-2 bg-light border-bottom efm-module-header"
+                                     style="cursor:pointer" data-module="<?= $m['id'] ?>">
                                     <input class="form-check-input efm-module-check flex-shrink-0"
                                            type="checkbox"
                                            data-module="<?= $m['id'] ?>"
-                                           id="efmm<?= $m['id'] ?>">
-                                    <label class="fw-semibold mb-0 flex-grow-1" for="efmm<?= $m['id'] ?>">
+                                           id="efmm<?= $m['id'] ?>"
+                                           onclick="event.stopPropagation()">
+                                    <label class="fw-semibold mb-0 flex-grow-1" for="efmm<?= $m['id'] ?>"
+                                           onclick="event.stopPropagation()" style="cursor:pointer">
                                         <?= sanitize($m['nom']) ?>
-                                        <span class="badge bg-secondary-subtle text-secondary ms-1"><?= count($parties) ?> partie<?= count($parties) > 1 ? 's' : '' ?></span>
+                                        <span class="badge bg-secondary-subtle text-secondary ms-1">
+                                            <?= count($parties) ?> partie<?= count($parties) > 1 ? 's' : '' ?>
+                                        </span>
+                                        <span class="badge bg-success-subtle text-success ms-1 efm-selected-count"
+                                              data-module="<?= $m['id'] ?>" style="display:none"></span>
                                     </label>
+                                    <i class="bi bi-chevron-down efm-chevron text-muted flex-shrink-0"></i>
                                 </div>
-                                <!-- Parties du module (masquées par défaut) -->
+                                <!-- Parties du module (masquées par défaut, toujours sélectionnables) -->
                                 <div class="efm-parties-list" data-module="<?= $m['id'] ?>" style="display:none">
                                     <?php foreach ($parties as $p): ?>
                                     <div class="px-3 py-2 border-bottom d-flex align-items-center gap-3">
@@ -364,8 +380,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                                name="efm_p_<?= $p['id'] ?>"
                                                value="1"
                                                id="efmp<?= $p['id'] ?>"
-                                               data-total="<?= (int)$p['nb_questions'] ?>"
-                                               checked>
+                                               data-module="<?= $m['id'] ?>"
+                                               data-total="<?= (int)$p['nb_questions'] ?>">
                                         <label class="mb-0 flex-grow-1" for="efmp<?= $p['id'] ?>">
                                             <?= sanitize($p['nom']) ?>
                                             <span class="text-muted small">(<?= $p['nb_questions'] ?> q)</span>
@@ -552,19 +568,40 @@ updateFusionUI();
 // ══════════════════════════════════════════════
 // Onglet EFM
 // ══════════════════════════════════════════════
-const efmModuleChecks = document.querySelectorAll('.efm-module-check');
-const btnEfm          = document.getElementById('btnEfm');
-const btnEfmHint      = document.getElementById('btnEfmHint');
-const efmSummaryText  = document.getElementById('efmSummaryText');
+const btnEfm         = document.getElementById('btnEfm');
+const btnEfmHint     = document.getElementById('btnEfmHint');
+const efmSummaryText = document.getElementById('efmSummaryText');
 
 function updateEfmUI() {
     let totalParties = 0, totalQ = 0;
+
     document.querySelectorAll('.efm-partie-check:checked').forEach(cb => {
         const total   = parseInt(cb.dataset.total);
         const nbInput = cb.closest('[data-total]')?.parentElement?.querySelector('.efm-nb-input');
         const nb      = nbInput ? (parseInt(nbInput.value) || 0) : 0;
         totalParties++;
         totalQ += (nb === 0) ? total : Math.min(nb, total);
+    });
+
+    // Badge de comptage par module + état indéterminé
+    document.querySelectorAll('.efm-module-block').forEach(block => {
+        const mid       = block.querySelector('.efm-module-check')?.dataset.module;
+        const allParts  = block.querySelectorAll('.efm-partie-check');
+        const selParts  = block.querySelectorAll('.efm-partie-check:checked');
+        const badge     = block.querySelector('.efm-selected-count');
+        const modCheck  = block.querySelector('.efm-module-check');
+        if (badge) {
+            if (selParts.length > 0) {
+                badge.style.display = 'inline-flex';
+                badge.textContent   = selParts.length + '/' + allParts.length + ' partie(s)';
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+        if (modCheck && allParts.length > 0) {
+            modCheck.indeterminate = selParts.length > 0 && selParts.length < allParts.length;
+            if (!modCheck.indeterminate) modCheck.checked = selParts.length === allParts.length;
+        }
     });
 
     if (totalParties > 0) {
@@ -580,20 +617,51 @@ function updateEfmUI() {
     }
 }
 
-// Afficher/masquer les parties quand on coche un module
-efmModuleChecks.forEach(cb => {
+// Clic sur l'en-tête du module = expand / collapse (indépendant de la case)
+document.querySelectorAll('.efm-module-header').forEach(header => {
+    header.addEventListener('click', () => {
+        const mid     = header.dataset.module;
+        const list    = document.querySelector(`.efm-parties-list[data-module="${mid}"]`);
+        const chevron = header.querySelector('.efm-chevron');
+        if (!list) return;
+        const visible = list.style.display !== 'none';
+        list.style.display = visible ? 'none' : 'block';
+        if (chevron) {
+            chevron.classList.toggle('bi-chevron-down', visible);
+            chevron.classList.toggle('bi-chevron-up', !visible);
+        }
+    });
+});
+
+// Case module = tout sélectionner / désélectionner + auto-expand
+document.querySelectorAll('.efm-module-check').forEach(cb => {
     cb.addEventListener('change', () => {
-        const mid   = cb.dataset.module;
-        const list  = document.querySelector(`.efm-parties-list[data-module="${mid}"]`);
-        if (list) {
-            list.style.display = cb.checked ? 'block' : 'none';
-            // (dé)cocher toutes les parties du module
-            list.querySelectorAll('.efm-partie-check').forEach(pc => {
-                pc.checked = cb.checked;
-                pc.disabled = !cb.checked;
-            });
+        const mid     = cb.dataset.module;
+        const list    = document.querySelector(`.efm-parties-list[data-module="${mid}"]`);
+        const chevron = document.querySelector(`.efm-module-header[data-module="${mid}"] .efm-chevron`);
+        if (!list) return;
+        list.querySelectorAll('.efm-partie-check').forEach(pc => { pc.checked = cb.checked; });
+        if (cb.checked && list.style.display === 'none') {
+            list.style.display = 'block';
+            if (chevron) { chevron.classList.replace('bi-chevron-down', 'bi-chevron-up'); }
         }
         updateEfmUI();
+    });
+});
+
+// Tout développer
+document.getElementById('efmExpandAll')?.addEventListener('click', () => {
+    document.querySelectorAll('.efm-parties-list').forEach(l => { l.style.display = 'block'; });
+    document.querySelectorAll('.efm-chevron').forEach(c => {
+        c.classList.remove('bi-chevron-down'); c.classList.add('bi-chevron-up');
+    });
+});
+
+// Tout réduire
+document.getElementById('efmCollapseAll')?.addEventListener('click', () => {
+    document.querySelectorAll('.efm-parties-list').forEach(l => { l.style.display = 'none'; });
+    document.querySelectorAll('.efm-chevron').forEach(c => {
+        c.classList.remove('bi-chevron-up'); c.classList.add('bi-chevron-down');
     });
 });
 
