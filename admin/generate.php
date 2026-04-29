@@ -122,7 +122,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
             try {
                 // Contenu du document (null si prompt seul)
                 $docContent = $hasFile
-                    ? extractDocumentContent($_FILES['document']['tmp_name'], $_FILES['document']['type'])
+                    ? extractDocumentContent($_FILES['document']['tmp_name'], $_FILES['document']['type'], $_FILES['document']['name'])
                     : ['text' => null, 'is_pdf' => false, 'pdf_base64' => null];
 
                 // Appel Claude
@@ -339,13 +339,16 @@ $apiKeySaved = getApiKey();
                                 <i class="bi bi-123 me-1 text-primary"></i>Nombre de questions
                             </label>
                             <div class="d-flex align-items-center gap-2">
-                                <input type="range" name="nb_questions" id="nbSlider" class="form-range flex-grow-1"
+                                <input type="range" id="nbSlider" class="form-range flex-grow-1"
                                        min="3" max="30" step="1"
                                        value="<?= (int)($_POST['nb_questions'] ?? 10) ?>"
-                                       oninput="document.getElementById('nbVal').textContent=this.value">
-                                <span class="badge bg-primary fs-6 px-3" id="nbVal">
-                                    <?= (int)($_POST['nb_questions'] ?? 10) ?>
-                                </span>
+                                       oninput="syncNb(this.value)" onchange="syncNb(this.value)">
+                                <input type="number" name="nb_questions" id="nbInput"
+                                       class="form-control form-control-sm text-center fw-bold"
+                                       style="width:60px"
+                                       min="3" max="30" step="1"
+                                       value="<?= (int)($_POST['nb_questions'] ?? 10) ?>"
+                                       oninput="syncNb(this.value,true)">
                             </div>
                         </div>
 
@@ -636,6 +639,13 @@ function updateFileLabel(input) {
                            <strong>${f.name}</strong> (${size} Mo)`;
         dropZone.classList.add('border-success');
     }
+}
+
+// ── Synchronisation slider ↔ input nombre de questions ───────
+function syncNb(val, fromInput) {
+    val = Math.max(3, Math.min(30, parseInt(val) || 3));
+    document.getElementById('nbSlider').value = val;
+    document.getElementById('nbInput').value  = val;
 }
 
 // ── Loading state du bouton générer ─────────────────────────

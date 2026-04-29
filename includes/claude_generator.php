@@ -10,8 +10,8 @@
  * Extrait le texte brut d'un fichier uploadé.
  * Retourne ['text' => string, 'is_pdf' => bool, 'pdf_base64' => string|null]
  */
-function extractDocumentContent(string $filePath, string $mimeType): array {
-    $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
+function extractDocumentContent(string $filePath, string $mimeType, string $originalName = ''): array {
+    $ext = strtolower(pathinfo($originalName ?: $filePath, PATHINFO_EXTENSION));
 
     // PDF → envoi natif à Claude (document block)
     if ($ext === 'pdf' || $mimeType === 'application/pdf') {
@@ -24,13 +24,21 @@ function extractDocumentContent(string $filePath, string $mimeType): array {
 
     // DOCX → extraction XML interne
     if ($ext === 'docx') {
-        return ['text' => extractDocxText($filePath), 'is_pdf' => false, 'pdf_base64' => null];
+        $text = extractDocxText($filePath);
+        if (trim($text) === '') {
+            throw new RuntimeException("Le fichier DOCX ne contient pas de texte extractible (document avec images uniquement ou format non standard). Exportez-le en .txt ou .pdf.");
+        }
+        return ['text' => $text, 'is_pdf' => false, 'pdf_base64' => null];
     }
 
     // TXT / MD / autres texte
     $text = file_get_contents($filePath);
     if ($text === false) throw new RuntimeException("Impossible de lire le fichier.");
-    return ['text' => mb_substr($text, 0, 80000), 'is_pdf' => false, 'pdf_base64' => null];
+    $text = trim(mb_substr($text, 0, 80000));
+    if ($text === '') {
+        throw new RuntimeException("Le fichier est vide.");
+    }
+    return ['text' => $text, 'is_pdf' => false, 'pdf_base64' => null];
 }
 
 /**
@@ -48,10 +56,19 @@ function extractDocxText(string $filePath): string {
     $zip->close();
     if ($xml === false) throw new RuntimeException("Structure DOCX invalide.");
 
-    // Supprimer les balises XML et décoder les entités
-    $text = strip_tags(str_replace(['</w:p>', '</w:tr>'], "\n", $xml));
+    // Extraire le texte depuis les balises <w:t> (contenu textuel DOCX)
+    // On insère des sauts de ligne sur </w:p> et </w:tr> avant l'extraction
+    $xml = str_replace(['</w:p>', '</w:tr>'], ['</w:p>'."\n", '</w:tr>'."\n"], $xml);
+    preg_match_all('/<w:t(?:\s[^>]*)?>([^<]*)<\/w:t>/s', $xml, $matches);
+    if (!empty($matches[1])) {
+        $text = implode(' ', array_filter(array_map('trim', $matches[1]), 'strlen'));
+    } else {
+        // Fallback : strip_tags sur le XML complet
+        $text = strip_tags($xml);
+    }
     $text = html_entity_decode($text, ENT_QUOTES | ENT_XML1, 'UTF-8');
-    return mb_substr(preg_replace('/\s{3,}/', "\n\n", $text), 0, 80000);
+    $text = trim(preg_replace('/[ \t]{2,}/', ' ', preg_replace('/\n{3,}/', "\n\n", $text)));
+    return mb_substr($text, 0, 80000);
 }
 
 // ── Appel API Claude ─────────────────────────────────────────
@@ -144,9 +161,13 @@ SYSTEM;
         ];
     } elseif ($docContent['text'] !== null) {
         // Mode document texte (DOCX / TXT)
+        $contenu = trim($docContent['text']);
+        if ($contenu === '') {
+            throw new RuntimeException("Le contenu extrait du document est vide. Vérifiez votre fichier ou utilisez le champ Prompt pour décrire le sujet.");
+        }
         $messages[] = [
             'role'    => 'user',
-            'content' => "Voici le contenu du cours :\n\n---\n{$docContent['text']}\n---\n\nGénère {$nbQuestions} questions d'évaluation ({$typesStr}) sur ce cours, notées sur {$noteMax} points au total.{$promptExtra}",
+            'content' => "Voici le contenu du cours :\n\n---\n{$contenu}\n---\n\nGénère {$nbQuestions} questions d'évaluation ({$typesStr}) sur ce cours, notées sur {$noteMax} points au total.{$promptExtra}",
         ];
     } else {
         // Mode prompt seul (sans document)
