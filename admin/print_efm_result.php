@@ -107,58 +107,58 @@ $logoB64  = file_exists($logoPath)
             border-collapse: collapse;
             margin-bottom: 0;
         }
-        .efm-header td {
+        .efm-header td { vertical-align: top; }
+
+        /* Ligne 1 : Logo + Direction Régionale */
+        .h-logo {
+            width: 55%;
             border: 1px solid #000;
-            padding: 0;
+            padding: 4px 8px;
+            vertical-align: middle;
+        }
+        .logo-row { display: flex; align-items: center; gap: 8px; }
+        .efm-logo { height: 38px; }
+        .direction-text { font-size: 9.5pt; line-height: 1.4; }
+
+        /* Ligne 2 : Titre EFM */
+        .h-efm {
+            border: 1px solid #000;
+            border-top: none;
+            text-align: center;
+            padding: 6px 8px;
+            font-size: 13pt;
+            font-style: italic;
             vertical-align: middle;
         }
 
-        /* Ligne 1 : logo | vide — pas de bordure extérieure haut/côtés */
-        .td-logo {
-            border-top: none !important;
-            border-left: none !important;
-            border-right: none !important;
-            border-bottom: 1px solid #000;
-            padding: 5px 10px;
-            width: 50%;
+        /* Colonne droite : Identité stagiaire (rowspan=2) */
+        .h-identity {
+            width: 45%;
+            border: 1px solid #000;
+            padding: 5px 8px;
+            vertical-align: top;
+            font-size: 10.5pt;
         }
-        .td-vide {
-            border: none !important;
-            width: 50%;
-        }
-        .logo-row { display: flex; align-items: center; gap: 9px; }
-        .efm-logo { height: 40px; }
-        .direction-text { font-size: 9pt; font-style: italic; line-height: 1.4; }
-        .direction-text strong { font-style: normal; }
+        .h-identity .id-line { margin-bottom: 4px; font-weight: bold; }
+        .h-identity .id-line:last-child { margin-bottom: 0; }
+        .h-identity .id-lbl { font-weight: bold; }
 
-        /* Ligne 2 : titre — pas de bordure bas/côtés */
-        .td-title {
-            border-left: none !important;
-            border-right: none !important;
-            border-bottom: none !important;
-            border-top: 1px solid #000;
+        /* Ligne 3 : Code module + Intitulé (pleine largeur) */
+        .h-code {
+            border: 1px solid #000;
+            border-top: none;
             text-align: center;
-            padding: 9px 8px 5px;
-            font-size: 14pt;
-        }
-
-        /* Ligne 3 : code + intitulé — bordure complète, 2 lignes centrées */
-        .td-module {
-            border: 1px solid #000 !important;
-            text-align: center;
-            padding: 5px 10px;
+            padding: 4px 8px;
             font-size: 10.5pt;
             line-height: 1.7;
         }
-        .td-module .code-line    { font-weight: bold; }
-        .td-module .intitule-line { font-weight: normal; }
 
         /* ── Tableau Filière / Durée / Année / Note ── */
         .info-table {
             width: 100%;
             border-collapse: collapse;
-            border: 1px solid #000;
-            border-top: none;
+            margin-top: -1px;
+            margin-bottom: 8px;
         }
         .info-table td {
             border: 1px solid #000;
@@ -169,20 +169,6 @@ $logoB64  = file_exists($logoPath)
         .info-table .lbl  { font-weight: bold; white-space: nowrap; }
         .info-table .sep  { text-align: center; width: 14px; }
         .info-table .note { font-weight: bold; }
-
-        /* ── Identité stagiaire ── */
-        .identite-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid #000;
-            border-top: none;
-            margin-bottom: 10px;
-        }
-        .identite-table td {
-            border: 1px solid #000;
-            padding: 4px 7px;
-            font-size: 10.5pt;
-        }
 
         /* ── Questions ── */
         .questions-table {
@@ -226,22 +212,6 @@ $logoB64  = file_exists($logoPath)
         }
         .q-reponse.vide { color: #bbb; }
 
-        /* ── Signatures ── */
-        .sign-table {
-            width: 100%;
-            border-collapse: collapse;
-            border: 1px solid #000;
-            margin-top: 18px;
-        }
-        .sign-table td {
-            border: 1px solid #000;
-            text-align: center;
-            padding: 6px 8px;
-            height: 50px;
-            vertical-align: top;
-            font-size: 10pt;
-            font-weight: bold;
-        }
 
         /* ── Impression ── */
         @media print {
@@ -270,69 +240,57 @@ $logoB64  = file_exists($logoPath)
          EN-TÊTE OFFICIEL OFPPT
          ═══════════════════════════════════════════ -->
     <table class="efm-header">
-        <!-- Ligne 1 : logo gauche | vide droite -->
-        <tr>
-            <td class="td-logo">
-                <div class="logo-row">
-                    <?php if ($logoB64): ?>
-                        <img src="<?= $logoB64 ?>" class="efm-logo" alt="OFPPT">
-                    <?php endif; ?>
-                    <div class="direction-text">
-                        Direction Régionale
-                        <?php if ($etablissement): ?>
-                            <br><strong><?= htmlspecialchars($etablissement, ENT_QUOTES, 'UTF-8') ?></strong>
+        <colgroup>
+            <col style="width:55%">
+            <col style="width:45%">
+        </colgroup>
+        <tbody>
+            <!-- Ligne 1 : Logo + Direction | Identité (rowspan=2) -->
+            <tr>
+                <td class="h-logo">
+                    <div class="logo-row">
+                        <?php if ($logoB64): ?>
+                            <img src="<?= $logoB64 ?>" class="efm-logo" alt="OFPPT">
                         <?php endif; ?>
+                        <div class="direction-text">Direction Régionale RABAT-SALÉ-KENITRA</div>
                     </div>
-                </div>
-            </td>
-            <td class="td-vide"></td>
-        </tr>
-        <!-- Ligne 2 : titre EFM -->
-        <tr>
-            <td colspan="2" class="td-title">
-                <strong>É</strong>valuation de <strong>F</strong>in de <strong>M</strong>odule
-            </td>
-        </tr>
-        <!-- Ligne 3 : code + intitulé — 2 lignes distinctes centrées -->
-        <tr>
-            <td colspan="2" class="td-module">
-                <div class="code-line">Code module&nbsp;: <?= htmlspecialchars($codeModule, ENT_QUOTES, 'UTF-8') ?></div>
-                <div class="intitule-line"><?= htmlspecialchars($intitule, ENT_QUOTES, 'UTF-8') ?></div>
-            </td>
-        </tr>
+                </td>
+                <td rowspan="2" class="h-identity">
+                    <div class="id-line"><span class="id-lbl">Nom :</span> <?= htmlspecialchars(strtoupper($nom), ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="id-line"><span class="id-lbl">Prénom :</span> <?= htmlspecialchars($prenom, ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="id-line"><span class="id-lbl">Groupe :</span> <?= htmlspecialchars($groupe, ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="id-line"><span class="id-lbl">Etablissement :</span> <?= htmlspecialchars($etablissement, ENT_QUOTES, 'UTF-8') ?></div>
+                </td>
+            </tr>
+            <!-- Ligne 2 : Titre EFM -->
+            <tr>
+                <td class="h-efm">Évaluation de Fin de Module</td>
+            </tr>
+            <!-- Ligne 3 : Code module + Intitulé (pleine largeur) -->
+            <tr>
+                <td colspan="2" class="h-code">
+                    <div>Code module : <?= htmlspecialchars($codeModule, ENT_QUOTES, 'UTF-8') ?></div>
+                    <div><?= htmlspecialchars($intitule, ENT_QUOTES, 'UTF-8') ?></div>
+                </td>
+            </tr>
+        </tbody>
     </table>
 
     <!-- ── Filière / Durée / Année / Note ── -->
     <table class="info-table">
         <tr>
-            <td class="lbl">Filière</td>
+            <td class="lbl" style="width:13%">Filière</td>
             <td class="sep">:</td>
-            <td><?= htmlspecialchars($filiere, ENT_QUOTES, 'UTF-8') ?></td>
-            <td class="lbl">Durée</td>
-            <td class="sep">:</td>
-            <td><?= htmlspecialchars($duree, ENT_QUOTES, 'UTF-8') ?></td>
+            <td style="width:47%"><?= htmlspecialchars($filiere, ENT_QUOTES, 'UTF-8') ?></td>
+            <td class="lbl" style="width:18%">Durée</td>
+            <td style="width:17%; text-align:center">: <?= htmlspecialchars($duree, ENT_QUOTES, 'UTF-8') ?></td>
         </tr>
         <tr>
             <td class="lbl">Année</td>
             <td class="sep">:</td>
             <td><?= htmlspecialchars($annee, ENT_QUOTES, 'UTF-8') ?></td>
             <td class="lbl">Note finale</td>
-            <td class="sep">:</td>
-            <td class="note"><?= number_format($noteFinale, 2) ?> / <?= $noteMax ?></td>
-        </tr>
-    </table>
-
-    <!-- ── Identité du stagiaire ── -->
-    <table class="identite-table">
-        <tr>
-            <td class="lbl" style="width:120px">Nom et Prénom</td>
-            <td class="sep" style="width:14px">:</td>
-            <td style="font-weight:bold">
-                <?= htmlspecialchars(strtoupper($nom) . ' ' . $prenom, ENT_QUOTES, 'UTF-8') ?>
-            </td>
-            <td class="lbl" style="width:55px">Groupe</td>
-            <td style="width:14px; text-align:center">:</td>
-            <td style="width:110px"><?= htmlspecialchars($groupe, ENT_QUOTES, 'UTF-8') ?></td>
+            <td class="note" style="text-align:center">: <?= number_format($noteFinale, 2) ?> / <?= $noteMax ?></td>
         </tr>
     </table>
 
@@ -376,14 +334,6 @@ $logoB64  = file_exists($logoPath)
     </table>
     <?php endif; ?>
 
-    <!-- ── Signatures ── -->
-    <table class="sign-table">
-        <tr>
-            <td>Signature du stagiaire</td>
-            <td>Signature du formateur</td>
-            <td>Cachet de l'établissement</td>
-        </tr>
-    </table>
 
 </div>
 </body>

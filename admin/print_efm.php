@@ -102,69 +102,78 @@ $qNum = 1;
             box-shadow: 0 4px 20px rgba(0,0,0,.2);
         }
 
-        /* ── En-tête ── */
-        .header-table {
+        /* ── En-tête principal (table unique) ── */
+        .efm-header {
             width: 100%;
             border-collapse: collapse;
-            margin-bottom: 4mm;
-        }
-        .header-table td { vertical-align: middle; }
-        .header-left { width: 40%; font-size: 9.5pt; }
-        .header-logo-text {
-            font-size: 9pt;
-            font-style: italic;
-            line-height: 1.4;
-        }
-        .header-center {
-            width: 60%;
-            text-align: center;
-        }
-        .efm-title {
-            font-size: 15pt;
-            font-weight: bold;
-            letter-spacing: 0.5px;
-        }
-        .efm-title span { font-style: normal; }
-
-        /* ── Zone identité ── */
-        .identite-box {
-            border: 1.5px solid #000;
-            padding: 4mm 5mm;
-            margin-bottom: 3mm;
-        }
-        .identite-line {
-            display: flex;
-            gap: 8mm;
-            margin-bottom: 2.5mm;
-        }
-        .identite-line:last-child { margin-bottom: 0; }
-        .id-field {
-            flex: 1;
+            margin-bottom: 0;
             font-size: 10pt;
-            font-weight: bold;
-            white-space: nowrap;
         }
-        .id-dots { color: #000; }
+        .efm-header td { vertical-align: top; }
+
+        /* Cellule logo + Direction Régionale */
+        .h-logo {
+            width: 55%;
+            border: 1px solid #000;
+            padding: 2mm 3mm;
+            vertical-align: middle;
+        }
+        .h-logo-inner {
+            display: flex;
+            align-items: center;
+            gap: 3mm;
+        }
+        .h-logo-inner img { height: 16mm; }
+        .h-org { font-size: 9.5pt; line-height: 1.4; }
+
+        /* Cellule titre EFM */
+        .h-efm {
+            border: 1px solid #000;
+            border-top: none;
+            padding: 3mm;
+            text-align: center;
+            font-size: 13pt;
+            font-style: italic;
+            vertical-align: middle;
+        }
+
+        /* Cellule identité stagiaire (colonne droite, rowspan=2) */
+        .h-identity {
+            width: 45%;
+            border: 1px solid #000;
+            padding: 4mm 5mm;
+            vertical-align: top;
+            font-weight: bold;
+        }
+        .h-identity div { margin-bottom: 3mm; }
+        .h-identity div:last-child { margin-bottom: 0; }
+
+        /* Cellule Code module + Intitulé (pleine largeur) */
+        .h-code {
+            border: 1px solid #000;
+            border-top: none;
+            text-align: center;
+            padding: 2mm 3mm;
+            font-size: 10.5pt;
+        }
+        .h-code div { line-height: 1.6; }
 
         /* ── Tableau infos module ── */
         .info-table {
             width: 100%;
             border-collapse: collapse;
+            margin-top: -1px;
             margin-bottom: 3mm;
             font-size: 10pt;
         }
         .info-table td {
             border: 1px solid #000;
-            padding: 2mm 3mm;
+            padding: 1.5mm 2.5mm;
             vertical-align: middle;
         }
         .info-table .label { font-weight: bold; white-space: nowrap; }
-        .info-table .value { }
-        .info-table .note-cell {
-            text-align: center;
-            font-size: 13pt;
-            font-weight: bold;
-        }
+        .info-table .sep   { text-align: center; width: 8mm; }
+        .info-table .val-r { text-align: center; }
 
         /* ── Séparateur ── */
         hr.section-sep {
@@ -317,63 +326,65 @@ $qNum = 1;
 <div class="page">
 
     <!-- EN-TÊTE -->
-    <table class="header-table">
-        <tr>
-            <td class="header-left">
-                <div class="header-logo-text">
-                    Direction Régionale<br>
-                    <strong>RABAT-SALÉ-KÉNITRA</strong>
-                    <?php if ($etablissement): ?>
-                    <br><br><?= $etablissement ?>
-                    <?php endif; ?>
-                </div>
-            </td>
-            <td class="header-center">
-                <div class="efm-title">
+    <?php
+    $logoPath = __DIR__ . '/../assets/img/logo_efm.png';
+    $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
+    ?>
+    <table class="efm-header">
+        <colgroup>
+            <col style="width:55%">
+            <col style="width:45%">
+        </colgroup>
+        <tbody>
+            <!-- Ligne 1 : Logo + Direction | Zone identité (rowspan=2) -->
+            <tr>
+                <td class="h-logo">
+                    <div class="h-logo-inner">
+                        <?php if ($logoB64): ?>
+                        <img src="<?= $logoB64 ?>" alt="OFPPT">
+                        <?php endif; ?>
+                        <div class="h-org">Direction Régionale RABAT-SALÉ-KENITRA</div>
+                    </div>
+                </td>
+                <td rowspan="2" class="h-identity">
+                    <div>Nom : ………………………………………………………………</div>
+                    <div>Prénom : ……………………………………………………………</div>
+                    <div>Groupe : ……………………………………………………………</div>
+                    <div>Etablissement : …………………………………………………</div>
+                </td>
+            </tr>
+            <!-- Ligne 2 : Titre EFM -->
+            <tr>
+                <td class="h-efm">
                     Évaluation de Fin de Module
-                    <?php if ($corrige): ?>
-                        <span class="badge-corrige">CORRIGÉ</span>
-                    <?php endif; ?>
-                </div>
-            </td>
-        </tr>
+                    <?php if ($corrige): ?><span class="badge-corrige">CORRIGÉ</span><?php endif; ?>
+                </td>
+            </tr>
+            <!-- Ligne 3 : Code module + Intitulé (pleine largeur) -->
+            <tr>
+                <td colspan="2" class="h-code">
+                    <?php if ($codeModule): ?><div>Code module : <?= $codeModule ?></div><?php endif; ?>
+                    <?php if ($intitule): ?><div>Intitulé du module : <?= $intitule ?></div><?php endif; ?>
+                </td>
+            </tr>
+        </tbody>
     </table>
-
-    <hr class="section-sep">
-
-    <!-- ZONE IDENTITÉ STAGIAIRE -->
-    <div class="identite-box">
-        <div class="identite-line">
-            <span class="id-field">Nom : <span class="id-dots">………………………………………………………</span></span>
-            <span class="id-field">Prénom : <span class="id-dots">…………………………………………………</span></span>
-        </div>
-        <div class="identite-line">
-            <span class="id-field">Groupe : <span class="id-dots">…………………………………………………</span></span>
-            <span class="id-field">Établissement : <span class="id-dots">……………………………………</span></span>
-        </div>
-    </div>
 
     <!-- TABLEAU INFOS MODULE -->
     <table class="info-table">
         <tr>
-            <?php if ($codeModule || $intitule): ?>
-            <td class="label" style="width:80px">Code module</td>
-            <td class="value" style="width:100px"><?= $codeModule ?></td>
-            <td class="label" style="width:90px">Intitulé</td>
-            <td class="value"><?= $intitule ?></td>
-            <?php endif; ?>
-        </tr>
-        <tr>
-            <td class="label">Filière</td>
-            <td class="value"><?= $filiere ?></td>
-            <td class="label">Durée</td>
-            <td class="value"><?= $duree ?></td>
+            <td class="label" style="width:13%">Filière</td>
+            <td class="sep">:</td>
+            <td style="width:47%"><?= $filiere ?></td>
+            <td class="label" style="width:18%">Durée</td>
+            <td class="val-r" style="width:17%">: <?= $duree ?></td>
         </tr>
         <tr>
             <td class="label">Année</td>
-            <td class="value"><?= $annee ?></td>
+            <td class="sep">:</td>
+            <td><?= $annee ?></td>
             <td class="label">Note finale</td>
-            <td class="note-cell">: &nbsp;/ <?= $noteMax ?></td>
+            <td class="val-r">: / <?= $noteMax ?></td>
         </tr>
     </table>
 
