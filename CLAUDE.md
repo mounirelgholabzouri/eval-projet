@@ -68,7 +68,8 @@ Eval-Projet/
 ├── logout_stagiaire.php       # Déconnexion stagiaire
 ├── changer_password.php       # Changement mot de passe stagiaire (forcé si must_change_password)
 ├── quiz.php                   # Page d'évaluation (requiert eval_session_id en SESSION)
-├── result.php                 # Résultats après évaluation + bouton export Excel module
+├── result.php                 # Résultats après évaluation ; bouton "Fiche EFM" si module type=efm, sinon Excel
+├── efm_fiche_resultat.php     # Fiche résultat EFM imprimable (accès stagiaire ou admin via ?sid=X)
 ├── config/
 │   └── database.php           # Config DB + constantes + getDB()
 ├── includes/
@@ -86,11 +87,16 @@ Eval-Projet/
 │   ├── groupes.php            # Gestion des groupes (modals, nb stagiaires, protection FK)
 │   ├── generate.php           # Génération QCM par IA
 │   ├── correct_texte.php      # Correction questions texte libre
-│   ├── fusion.php             # Fusion modules QCM : chaque module source → une partie du module synthèse
+│   ├── fusion.php             # Fusion QCM + création EFM (onglets) — stocke type='efm' + meta_json
+│   ├── print_efm_result.php   # Impression fiche résultat EFM format OFPPT (?session_id=X, admin only)
+│   ├── print_efm.php          # Impression sujet EFM vierge (?module_id=X)
+│   ├── print_exams.php        # Impression sujets QCM classiques
 │   ├── login.php              # Connexion admin
 │   ├── logout.php             # Déconnexion admin
 │   └── partials/navbar.php    # Barre de navigation admin
-├── assets/css/style.css       # Styles personnalisés
+├── assets/
+│   ├── css/style.css          # Styles personnalisés
+│   └── img/logo_efm.png       # Logo OFPPT (extrait du modèle DOCX, intégré en base64 dans print_efm_result.php)
 ├── db/
 │   ├── schema.sql                 # Schéma complet + données de démo (source de vérité)
 │   ├── migration_v2.sql           # Migration historique (déjà intégrée dans schema.sql)
@@ -117,7 +123,7 @@ Eval-Projet/
 | `admins` | id, username, password_hash, nom |
 | `groupes` | id, nom |
 | `stagiaires` | id, nom, prenom, groupe_id, annee_scolaire, login, password_hash, **must_change_password** |
-| `modules` | id, nom, description, duree_minutes, note_max, actif |
+| `modules` | id, nom, description, duree_minutes, note_max, actif, **type** ('qcm'/'efm'), **meta_json** (JSON: code_module, filiere, etablissement, annee) |
 | `parties` | id, module_id, nom, ordre — sections d'un module (ex. M205 → "Renforcer VM", "Azure Firewall") |
 | `questions` | id, module_id, **partie_id NOT NULL** (FK parties, ON DELETE RESTRICT), texte, type, points, ordre |
 | `choix_reponses` | id, question_id, texte, is_correct, ordre |
@@ -136,7 +142,9 @@ Eval-Projet/
 
 1. `index.php` (POST `module_id`) → `creerSession()` → `$_SESSION['eval_session_id']` → redirect `quiz.php`
 2. `quiz.php` → lit `eval_session_id` → affiche les questions → POST `submit_final` → `terminerSession()`
-3. `result.php` → affiche le score + bouton **Télécharger Excel** filtré sur le module
+3. `result.php` → affiche le score
+   - Module type=**efm** → bouton **Fiche résultat EFM** → `efm_fiche_resultat.php?sid=X`
+   - Module type=**qcm** → bouton **Télécharger Excel** + Imprimer
 
 ## Fonctions métier clés (`includes/functions.php`)
 
@@ -207,3 +215,5 @@ Génère un `.xls` SpreadsheetML **sans bibliothèque externe** (aucun Composer 
 10. **VirtualHost Apache** : `C:\laragon\etc\apache2\sites-enabled\00-default.conf`
 11. **Clé API Anthropic** : stockée en table `config` (clé `anthropic_api_key`). Crédits à gérer sur **console.anthropic.com** (≠ claude.ai qui est l'interface web). En cas d'erreur "credit balance too low", recharger sur console.anthropic.com → Billing → Add credits.
 12. **Génération IA** : `admin/generate.php` accepte un document (PDF/DOCX/TXT) **et/ou** un prompt texte libre — les deux sont optionnels séparément mais au moins un est requis.
+13. **EFM (Examen de Fin de Module)** : modules avec `type='efm'` et métadonnées dans `meta_json` (code_module, filiere, etablissement, annee). Impression officielle via `admin/print_efm_result.php?session_id=X` — logo OFPPT intégré en base64 pour garantir la visibilité à l'impression.
+14. **Logo impression** : toujours intégrer les images critiques en base64 dans le PHP (`base64_encode(file_get_contents($path))`) — les chemins relatifs sont ignorés par les navigateurs en mode impression.
