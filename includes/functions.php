@@ -39,7 +39,27 @@ function getMention(float $pourcentage): array {
 
 function getModulesActifs(): array {
     $pdo = getDB();
-    return $pdo->query("SELECT * FROM modules WHERE actif = 1 ORDER BY nom")->fetchAll();
+    // Retourne les modules actifs qui ont au moins une partie active
+    return $pdo->query("
+        SELECT DISTINCT m.* FROM modules m
+        JOIN parties p ON p.module_id = m.id AND p.actif = 1
+        WHERE m.actif = 1
+        ORDER BY m.nom
+    ")->fetchAll();
+}
+
+function getPartiesActives(int $moduleId): array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        SELECT p.*, COUNT(q.id) AS nb_questions
+        FROM parties p
+        LEFT JOIN questions q ON q.partie_id = p.id
+        WHERE p.module_id = ? AND p.actif = 1
+        GROUP BY p.id
+        ORDER BY p.ordre, p.id
+    ");
+    $stmt->execute([$moduleId]);
+    return $stmt->fetchAll();
 }
 
 function getModule(int $id): ?array {
@@ -162,6 +182,14 @@ function supprimerPartie(int $partieId): bool {
 function renommerPartie(int $partieId, string $nom): void {
     $pdo = getDB();
     $pdo->prepare("UPDATE parties SET nom = ? WHERE id = ?")->execute([$nom, $partieId]);
+}
+
+function togglePartieActif(int $partieId): bool {
+    $pdo = getDB();
+    $pdo->prepare("UPDATE parties SET actif = NOT actif WHERE id = ?")->execute([$partieId]);
+    $stmt = $pdo->prepare("SELECT actif FROM parties WHERE id = ?");
+    $stmt->execute([$partieId]);
+    return (bool)$stmt->fetchColumn();
 }
 
 function getPartie(int $partieId): ?array {

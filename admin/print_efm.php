@@ -29,7 +29,7 @@ $sections = [];
 $totalPoints = 0;
 
 foreach ($partieIds as $pid) {
-    $pStmt = $pdo->prepare("SELECT * FROM parties WHERE id = ? AND module_id = ?");
+    $pStmt = $pdo->prepare("SELECT * FROM parties WHERE id = ? AND module_id = ? AND actif = 1");
     $pStmt->execute([$pid, $moduleId]);
     $partie = $pStmt->fetch();
     if (!$partie) continue;

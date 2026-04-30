@@ -24,7 +24,7 @@ $intitule    = htmlspecialchars($module['nom'], ENT_QUOTES, 'UTF-8');
 // Charger toutes les parties + questions
 $sections    = [];
 $totalPoints = 0;
-$parties     = getPartiesModule($moduleId);
+$parties     = getPartiesActives($moduleId);
 
 foreach ($parties as $partie) {
     $qStmt = $pdo->prepare("SELECT * FROM questions WHERE partie_id = ? AND module_id = ? ORDER BY ordre, id");

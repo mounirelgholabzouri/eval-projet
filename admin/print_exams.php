@@ -55,7 +55,7 @@ if (empty($sessions)) {
 }
 
 // Récupérer les parties du module
-$parties = getPartiesModule($filterModule);
+$parties = getPartiesActives($filterModule);
 $partiesMap = [];
 foreach ($parties as $p) {
     $partiesMap[$p['id']] = $p['nom'];

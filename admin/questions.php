@@ -30,6 +30,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_partie'])) {
     $erreur = "Nom de partie trop court (2 caractères minimum).";
 }
 
+// ── Parties : toggle actif ───────────────────────────────────
+if ($action === 'toggle_partie' && $partieId > 0) {
+    togglePartieActif($partieId);
+    if (isset($_GET['ajax'])) {
+        $p = getPartie($partieId);
+        header('Content-Type: application/json');
+        echo json_encode(['success' => true, 'actif' => (int)$p['actif']]);
+        exit;
+    }
+    header("Location: questions.php?module_id=$moduleId&partie_id=$partieId"); exit;
+}
+
 // ── Parties : renommer ───────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['rename_partie'])) {
     $pid = (int)$_POST['partie_id'];
@@ -201,12 +213,21 @@ if (isset($flash['last_partie']))    $erreur = "Impossible : c'est la dernière 
             <div class="d-flex gap-2 flex-wrap align-items-center">
                 <span class="fw-semibold text-muted me-2"><i class="bi bi-layers me-1"></i>Parties :</span>
                 <?php foreach ($parties as $p): ?>
-                <a href="questions.php?module_id=<?= $moduleId ?>&partie_id=<?= $p['id'] ?>"
-                   class="partie-tab <?= $currentPartie && (int)$currentPartie['id'] === (int)$p['id'] ? 'active' : '' ?>">
-                    <i class="bi bi-bookmark-fill"></i>
-                    <span><?= htmlspecialchars($p['nom']) ?></span>
-                    <span class="badge bg-primary-subtle text-primary"><?= (int)$p['nb_questions'] ?></span>
-                </a>
+                <div class="d-flex align-items-center gap-1">
+                    <a href="questions.php?module_id=<?= $moduleId ?>&partie_id=<?= $p['id'] ?>"
+                       class="partie-tab <?= $currentPartie && (int)$currentPartie['id'] === (int)$p['id'] ? 'active' : '' ?> <?= !$p['actif'] ? 'opacity-50' : '' ?>">
+                        <i class="bi bi-bookmark-fill"></i>
+                        <span><?= htmlspecialchars($p['nom']) ?></span>
+                        <span class="badge bg-primary-subtle text-primary"><?= (int)$p['nb_questions'] ?></span>
+                    </a>
+                    <div class="form-check form-switch mb-0" title="<?= $p['actif'] ? 'Activée — visible aux stagiaires' : 'Désactivée — cachée aux stagiaires' ?>">
+                        <input class="form-check-input toggle-partie" type="checkbox"
+                               data-partie-id="<?= $p['id'] ?>"
+                               data-module-id="<?= $moduleId ?>"
+                               <?= $p['actif'] ? 'checked' : '' ?>
+                               style="cursor:pointer">
+                    </div>
+                </div>
                 <?php endforeach; ?>
                 <button type="button" class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#addPartieModal">
                     <i class="bi bi-plus-lg me-1"></i>Nouvelle partie
@@ -467,6 +488,31 @@ function addChoix() {
 }
 
 if (document.getElementById('typeSelect')) toggleChoix();
+
+// Toggle actif par partie (AJAX)
+document.querySelectorAll('.toggle-partie').forEach(function(toggle) {
+    toggle.addEventListener('change', function() {
+        const partieId = this.dataset.partieId;
+        const moduleId = this.dataset.moduleId;
+        const checked  = this.checked;
+        this.disabled  = true;
+
+        fetch('questions.php?action=toggle_partie&partie_id=' + partieId + '&module_id=' + moduleId + '&ajax=1')
+            .then(r => r.json())
+            .then(data => {
+                this.disabled = false;
+                if (!data.success) {
+                    this.checked = !checked;
+                } else {
+                    // Met à jour l'opacité de l'onglet adjacent
+                    const tab = this.closest('.d-flex').querySelector('.partie-tab');
+                    if (tab) tab.classList.toggle('opacity-50', !data.actif);
+                    this.title = data.actif ? 'Activée — visible aux stagiaires' : 'Désactivée — cachée aux stagiaires';
+                }
+            })
+            .catch(() => { this.disabled = false; this.checked = !checked; });
+    });
+});
 </script>
 
 <?php if ($currentPartie && count($parties) > 1): ?>

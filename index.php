@@ -19,10 +19,10 @@ $stagAnnee    = $_SESSION['stagiaire_annee'];
 $erreurs = [];
 $modules = getModulesActifs();
 
-// Précharge les parties des modules actifs pour le sélecteur JS
+// Précharge les parties actives des modules actifs pour le sélecteur JS
 $allParties = [];
 foreach ($modules as $m) {
-    $parties = getPartiesModule((int)$m['id']);
+    $parties = getPartiesActives((int)$m['id']);
     if (count($parties) > 1) {
         $allParties[(int)$m['id']] = array_map(fn($p) => [
             'id'          => (int)$p['id'],
@@ -42,17 +42,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$module) {
             $erreurs[] = "Module invalide.";
         } else {
-            // Si une partie est choisie, vérifier qu'elle appartient bien au module
+            // Si une partie est choisie, vérifier qu'elle appartient au module et est active
             if ($partieId > 0) {
                 $partie = getPartie($partieId);
-                if (!$partie || (int)$partie['module_id'] !== $moduleId) {
+                if (!$partie || (int)$partie['module_id'] !== $moduleId || !(int)$partie['actif']) {
                     $partieId = 0;
                 }
             }
 
-            $questions = $partieId > 0
-                ? array_filter(getQuestionsModule($moduleId), fn($q) => (int)$q['partie_id'] === $partieId)
-                : getQuestionsModule($moduleId);
+            // Si aucune partie choisie, filtrer sur les parties actives uniquement
+            if ($partieId > 0) {
+                $questions = array_filter(getQuestionsModule($moduleId), fn($q) => (int)$q['partie_id'] === $partieId);
+            } else {
+                $partiesActives = array_column(getPartiesActives($moduleId), 'id');
+                $questions = array_filter(getQuestionsModule($moduleId), fn($q) => in_array((int)$q['partie_id'], array_map('intval', $partiesActives)));
+            }
 
             if (empty($questions)) {
                 $erreurs[] = "Cette sélection ne contient pas encore de questions. Contactez votre formateur.";

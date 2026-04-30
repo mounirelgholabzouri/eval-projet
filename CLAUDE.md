@@ -112,9 +112,9 @@ Eval-Projet/
 └── CLAUDE.md                  # Ce fichier
 ```
 
-> **Migrations appliquées hors schema.sql** : table `stagiaires` + colonne `stagiaire_id` dans `sessions_eval` + table `parties` + colonne `partie_id NOT NULL` dans `questions` (via `migrate_parties.php` puis `migrate_parties_v2.php`).
+> **Migrations appliquées hors schema.sql** : table `stagiaires` + colonne `stagiaire_id` dans `sessions_eval` + table `parties` + colonne `partie_id NOT NULL` dans `questions` (via `migrate_parties.php` puis `migrate_parties_v2.php`) + colonne `actif TINYINT(1) DEFAULT 1` dans `parties` (via `migrate_parties_actif.php`).
 >
-> **Invariants** : chaque module possède au moins une partie (« Général » par défaut) ; chaque question appartient à une partie ; on ne peut pas supprimer la dernière partie d'un module.
+> **Invariants** : chaque module possède au moins une partie (« Général » par défaut) ; chaque question appartient à une partie ; on ne peut pas supprimer la dernière partie d'un module ; une partie désactivée (`actif=0`) est invisible aux stagiaires et exclue de toutes les impressions.
 
 ## Schéma de base de données
 
@@ -124,7 +124,7 @@ Eval-Projet/
 | `groupes` | id, nom |
 | `stagiaires` | id, nom, prenom, groupe_id, annee_scolaire, login, password_hash, **must_change_password** |
 | `modules` | id, nom, description, duree_minutes, note_max, actif, **type** ('qcm'/'efm'), **meta_json** (JSON: code_module, filiere, etablissement, annee) |
-| `parties` | id, module_id, nom, ordre — sections d'un module (ex. M205 → "Renforcer VM", "Azure Firewall") |
+| `parties` | id, module_id, nom, ordre, **actif** — sections d'un module ; actif=0 → invisible stagiaires + hors impression |
 | `questions` | id, module_id, **partie_id NOT NULL** (FK parties, ON DELETE RESTRICT), texte, type, points, ordre |
 | `choix_reponses` | id, question_id, texte, is_correct, ordre |
 | `sessions_eval` | id, token, **stagiaire_id**, nom, prenom, groupe_id, module_id, statut, score, pourcentage |
@@ -150,9 +150,11 @@ Eval-Projet/
 
 | Fonction | Rôle |
 |---|---|
-| `getModulesActifs()` | Modules avec actif=1 |
+| `getModulesActifs()` | Modules actif=1 ayant ≥1 partie active |
 | `getQuestionsModule($id)` | Questions + choix d'un module (ordonnées par partie_id puis ordre) |
-| `getPartiesModule($id)` | Parties d'un module + nb_questions |
+| `getPartiesModule($id)` | Toutes les parties d'un module (admin) + nb_questions |
+| `getPartiesActives($id)` | Parties actif=1 uniquement (stagiaires + impressions) |
+| `togglePartieActif($id)` | Bascule actif/inactif d'une partie, retourne le nouvel état |
 | `creerPartie($moduleId, $nom, $ordre)` | Crée une partie (ordre auto si 0) |
 | `ensurePartieDefault($moduleId)` | Retourne la 1re partie, crée « Général » si aucune — garantit l'invariant |
 | `supprimerPartie($id)` | Réassigne les questions à une autre partie ; refuse si dernière partie du module |
@@ -217,3 +219,4 @@ Génère un `.xls` SpreadsheetML **sans bibliothèque externe** (aucun Composer 
 12. **Génération IA** : `admin/generate.php` accepte un document (PDF/DOCX/TXT) **et/ou** un prompt texte libre — les deux sont optionnels séparément mais au moins un est requis.
 13. **EFM (Examen de Fin de Module)** : modules avec `type='efm'` et métadonnées dans `meta_json` (code_module, filiere, etablissement, annee). Impression officielle via `admin/print_efm_result.php?session_id=X` — logo OFPPT intégré en base64 pour garantir la visibilité à l'impression.
 14. **Logo impression** : toujours intégrer les images critiques en base64 dans le PHP (`base64_encode(file_get_contents($path))`) — les chemins relatifs sont ignorés par les navigateurs en mode impression.
+15. **Parties actif=0** : une partie désactivée est **totalement exclue** — invisible dans `index.php` (sélecteur), dans `quiz.php` (questions filtrées), et dans toutes les impressions (`print_blank.php`, `print_efm.php`, `print_exams.php`). Utiliser `getPartiesActives()` (pas `getPartiesModule()`) partout sauf l'interface admin.
