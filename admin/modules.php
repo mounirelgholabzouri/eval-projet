@@ -204,6 +204,12 @@ if ($action === 'edit' && $id > 0) {
                                            class="btn btn-sm btn-outline-success rounded-3" title="Questions">
                                             <i class="bi bi-list-check"></i>
                                         </a>
+                                        <a href="print_blank.php?module_id=<?= $m['id'] ?>"
+                                           target="_blank"
+                                           class="btn btn-sm btn-outline-secondary rounded-3"
+                                           title="Imprimer sujet vierge">
+                                            <i class="bi bi-printer"></i>
+                                        </a>
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-danger rounded-3"
                                                 title="Supprimer"
