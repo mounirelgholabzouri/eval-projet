@@ -29,10 +29,14 @@ if (isset($_GET['export'])) {
     fputcsv($out, ['Nom', 'Prénom', 'Groupe', 'Module', 'Date', 'Score', 'Total', 'Pourcentage', 'Statut'], ';');
 
     $stmt = $pdo->prepare("
-        SELECT s.nom, s.prenom, COALESCE(g.nom, s.groupe_libre) AS groupe, m.nom AS module,
+        SELECT COALESCE(st.nom,    s.nom)    AS nom,
+               COALESCE(st.prenom, s.prenom) AS prenom,
+               COALESCE(g.nom, s.groupe_libre) AS groupe,
+               m.nom AS module,
                s.date_debut, s.score, s.total_points, s.pourcentage, s.statut
         FROM sessions_eval s
         JOIN modules m ON m.id = s.module_id
+        LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
         LEFT JOIN groupes g ON g.id = s.groupe_id
         ORDER BY s.date_debut DESC
     ");
@@ -60,10 +64,14 @@ if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
 
 $whereStr = implode(' AND ', $where);
 $stmt = $pdo->prepare("
-    SELECT s.*, m.nom AS module_nom, m.type AS module_type,
+    SELECT s.*,
+           COALESCE(st.nom,    s.nom)    AS nom,
+           COALESCE(st.prenom, s.prenom) AS prenom,
+           m.nom AS module_nom, m.type AS module_type,
            COALESCE(g.nom, s.groupe_libre) AS groupe_nom
     FROM sessions_eval s
     JOIN modules m ON m.id = s.module_id
+    LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
     LEFT JOIN groupes g ON g.id = s.groupe_id
     WHERE $whereStr
     ORDER BY s.date_debut DESC
@@ -81,7 +89,6 @@ if ($filterModule) {
     foreach ($allModules as $m) {
         if ((int)$m['id'] === $filterModule && ($m['type'] ?? '') === 'efm') {
             $filteredModuleIsEfm = true;
-            $meta = json_decode($m['meta_json'] ?? '{}', true) ?? [];
             $partiesStmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND actif = 1 ORDER BY ordre, id");
             $partiesStmt->execute([$filterModule]);
             $partieIds = array_column($partiesStmt->fetchAll(), 'id');
@@ -95,11 +102,11 @@ if ($filterModule) {
                 'shuffle'       => 0,
                 'shuffle_choix' => 0,
                 'corrige'       => 0,
-                'code_module'   => $meta['code_module']   ?? '',
-                'filiere'       => $meta['filiere']        ?? '',
-                'etablissement' => $meta['etablissement']  ?? '',
-                'annee'         => $meta['annee']          ?? '',
-                'note_max'      => (int)($m['note_max']    ?? 40),
+                'code_module'   => $m['efm_code_module']   ?? '',
+                'filiere'       => $m['efm_filiere']        ?? '',
+                'etablissement' => $m['efm_etablissement']  ?? '',
+                'annee'         => $m['efm_annee']          ?? '',
+                'note_max'      => (int)($m['note_max']     ?? 40),
                 'intitule'      => $m['nom'],
                 'duree'         => $dureeStr,
             ]);
@@ -201,7 +208,8 @@ $stats = getStatsGlobales();
             <form method="GET" class="d-flex gap-3 flex-wrap align-items-end">
                 <div>
                     <label class="form-label small fw-semibold mb-1">Module</label>
-                    <select name="module_id" class="form-select form-select-sm" style="min-width:200px">
+                    <select name="module_id" class="form-select form-select-sm" style="min-width:200px"
+                            onchange="this.form.submit()">
                         <option value="">Tous les modules</option>
                         <?php foreach ($allModules as $m): ?>
                         <option value="<?= $m['id'] ?>" <?= $m['id'] == $filterModule ? 'selected' : '' ?>>
@@ -217,7 +225,7 @@ $stats = getStatsGlobales();
                 </div>
                 <div>
                     <label class="form-label small fw-semibold mb-1">Statut</label>
-                    <select name="statut" class="form-select form-select-sm">
+                    <select name="statut" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="">Tous</option>
                         <option value="termine" <?= $filterStatut === 'termine' ? 'selected' : '' ?>>Terminé</option>
                         <option value="en_cours" <?= $filterStatut === 'en_cours' ? 'selected' : '' ?>>En cours</option>

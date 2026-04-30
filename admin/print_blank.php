@@ -11,12 +11,11 @@ if (!$module) {
 }
 
 $isEfm = ($module['type'] ?? 'qcm') === 'efm';
-$meta  = json_decode($module['meta_json'] ?? '{}', true) ?: [];
 
-$codeModule  = htmlspecialchars($meta['code_module'] ?? '', ENT_QUOTES, 'UTF-8');
-$filiere     = htmlspecialchars($meta['filiere']     ?? '', ENT_QUOTES, 'UTF-8');
-$etabl       = htmlspecialchars($meta['etablissement'] ?? 'Direction Régionale RABAT-SALÉ-KENITRA', ENT_QUOTES, 'UTF-8');
-$annee       = htmlspecialchars($meta['annee']       ?? date('Y') . '/' . (date('Y') + 1), ENT_QUOTES, 'UTF-8');
+$codeModule  = htmlspecialchars($module['efm_code_module']   ?? '', ENT_QUOTES, 'UTF-8');
+$filiere     = htmlspecialchars($module['efm_filiere']       ?? '', ENT_QUOTES, 'UTF-8');
+$etabl       = htmlspecialchars($module['efm_etablissement'] ?: 'Direction Régionale RABAT-SALÉ-KENITRA', ENT_QUOTES, 'UTF-8');
+$annee       = htmlspecialchars($module['efm_annee']         ?: date('Y') . '/' . (date('Y') + 1), ENT_QUOTES, 'UTF-8');
 $noteMax     = (int)($module['note_max'] ?? 20);
 $duree       = (int)($module['duree_minutes'] ?? 0);
 $intitule    = htmlspecialchars($module['nom'], ENT_QUOTES, 'UTF-8');

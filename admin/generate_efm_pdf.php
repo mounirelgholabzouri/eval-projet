@@ -28,12 +28,21 @@ if ($sessionId > 0) {
     $moduleNom    = $sess['module_nom'];
 } elseif ($moduleId > 0) {
     $stmt = $pdo->prepare("
-        SELECT s.*, m.nom AS module_nom, m.type AS module_type, m.meta_json,
+        SELECT s.*,
+               COALESCE(st.nom,    s.nom)    AS nom,
+               COALESCE(st.prenom, s.prenom) AS prenom,
+               m.nom AS module_nom, m.type AS module_type,
                m.note_max, m.duree_minutes,
-               COALESCE(g.nom, s.groupe_libre) AS groupe_nom
+               COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
+               COALESCE(em.code_module,   '') AS efm_code_module,
+               COALESCE(em.filiere,       '') AS efm_filiere,
+               COALESCE(em.etablissement, '') AS efm_etablissement,
+               COALESCE(em.annee,         '') AS efm_annee
         FROM sessions_eval s
         JOIN modules m ON m.id = s.module_id
-        LEFT JOIN groupes g ON g.id = s.groupe_id
+        LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
+        LEFT JOIN groupes    g  ON g.id  = s.groupe_id
+        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
         WHERE s.module_id = ? AND s.statut = 'termine' AND m.type = 'efm'
         ORDER BY s.nom, s.prenom
     ");
@@ -104,7 +113,6 @@ body { font-family: Arial, sans-serif; font-size: 10.5pt; color: #000; }
 // ── Fonction : HTML d'une fiche EFM ──────────────────────────
 function buildEfmHtml(array $session, array $questions, string $logoB64): string
 {
-    $meta     = json_decode($session['meta_json'] ?? '{}', true) ?? [];
     $noteMax  = (int)($session['note_max'] ?? 40);
     $total    = (float)$session['total_points'];
     $scoreRaw = (float)$session['score'];
@@ -118,10 +126,10 @@ function buildEfmHtml(array $session, array $questions, string $logoB64): string
     $nom           = htmlspecialchars(strtoupper(trim($session['nom']    ?? '')), ENT_QUOTES, 'UTF-8');
     $prenom        = htmlspecialchars(trim($session['prenom'] ?? ''),              ENT_QUOTES, 'UTF-8');
     $groupe        = htmlspecialchars(trim($session['groupe_nom'] ?? ''),          ENT_QUOTES, 'UTF-8');
-    $etablissement = htmlspecialchars($meta['etablissement'] ?? '',                ENT_QUOTES, 'UTF-8');
-    $codeModule    = htmlspecialchars($meta['code_module']   ?? '',                ENT_QUOTES, 'UTF-8');
-    $filiere       = htmlspecialchars($meta['filiere']       ?? '',                ENT_QUOTES, 'UTF-8');
-    $annee         = htmlspecialchars($meta['annee']         ?? '',                ENT_QUOTES, 'UTF-8');
+    $etablissement = htmlspecialchars($session['efm_etablissement'] ?? '',         ENT_QUOTES, 'UTF-8');
+    $codeModule    = htmlspecialchars($session['efm_code_module']   ?? '',         ENT_QUOTES, 'UTF-8');
+    $filiere       = htmlspecialchars($session['efm_filiere']       ?? '',         ENT_QUOTES, 'UTF-8');
+    $annee         = htmlspecialchars($session['efm_annee']         ?? '',         ENT_QUOTES, 'UTF-8');
     $intitule      = htmlspecialchars($session['module_nom'] ?? '',                ENT_QUOTES, 'UTF-8');
     $dureeHtml     = htmlspecialchars($duree,                                      ENT_QUOTES, 'UTF-8');
 

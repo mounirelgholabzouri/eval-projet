@@ -19,18 +19,17 @@ if (!$session) { header('Location: results.php'); exit; }
 $module = getModule((int)$session['module_id']);
 if (!$module) { header('Location: results.php'); exit; }
 
-$meta          = json_decode($module['meta_json'] ?? '{}', true) ?? [];
-$codeModule    = $meta['code_module']    ?? '';
-$filiere       = $meta['filiere']        ?? '';
-$etablissement = $meta['etablissement']  ?? '';
-$annee         = $meta['annee']          ?? '';
+$codeModule    = $module['efm_code_module']   ?? '';
+$filiere       = $module['efm_filiere']       ?? '';
+$etablissement = $module['efm_etablissement'] ?? '';
+$annee         = $module['efm_annee']         ?? '';
 $noteMax       = (int)($module['note_max'] ?? 20);
 $duree         = $module['duree_minutes'] ? formatDuration((int)$module['duree_minutes']) : '';
 $intitule      = $module['nom'];
 
 $nom    = $session['nom']    ?? '';
 $prenom = $session['prenom'] ?? '';
-$groupe = $session['groupe_nom'] ?? $session['groupe_libre'] ?? '';
+$groupe = $session['groupe_nom'] ?? '';
 
 $score      = (float)$session['score'];
 $totalPts   = (float)$session['total_points'];

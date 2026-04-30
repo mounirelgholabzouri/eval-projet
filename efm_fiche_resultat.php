@@ -44,11 +44,10 @@ if (($session['module_type'] ?? '') !== 'efm') {
 }
 
 // ── Métadonnées EFM ───────────────────────────────────────────────────────
-$meta          = json_decode($session['meta_json'] ?? '{}', true);
-$codeModule    = $meta['code_module']    ?? '';
-$filiere       = $meta['filiere']        ?? '';
-$etablissement = $meta['etablissement']  ?? '';
-$annee         = $meta['annee']          ?? '';
+$codeModule    = $session['efm_code_module']   ?? '';
+$filiere       = $session['efm_filiere']       ?? '';
+$etablissement = $session['efm_etablissement'] ?? '';
+$annee         = $session['efm_annee']         ?? '';
 
 // ── Note / durée ──────────────────────────────────────────────────────────
 $module   = getModule((int)$session['module_id']);

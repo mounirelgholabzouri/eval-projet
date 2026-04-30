@@ -64,7 +64,16 @@ function getPartiesActives(int $moduleId): array {
 
 function getModule(int $id): ?array {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT * FROM modules WHERE id = ?");
+    $stmt = $pdo->prepare("
+        SELECT m.*,
+               COALESCE(em.code_module,   '') AS efm_code_module,
+               COALESCE(em.filiere,       '') AS efm_filiere,
+               COALESCE(em.etablissement, '') AS efm_etablissement,
+               COALESCE(em.annee,         '') AS efm_annee
+        FROM modules m
+        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
+        WHERE m.id = ?
+    ");
     $stmt->execute([$id]);
     return $stmt->fetch() ?: null;
 }
@@ -75,8 +84,13 @@ function getAllModules(): array {
         SELECT m.*,
                COALESCE(m.note_max, 20) AS note_max,
                (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS nb_questions,
-               (SELECT COUNT(*) FROM parties p WHERE p.module_id = m.id) AS nb_parties
+               (SELECT COUNT(*) FROM parties p WHERE p.module_id = m.id) AS nb_parties,
+               COALESCE(em.code_module,   '') AS efm_code_module,
+               COALESCE(em.filiere,       '') AS efm_filiere,
+               COALESCE(em.etablissement, '') AS efm_etablissement,
+               COALESCE(em.annee,         '') AS efm_annee
         FROM modules m
+        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
         ORDER BY m.nom
     ")->fetchAll();
 }
@@ -272,12 +286,21 @@ function creerSession(string $nom, string $prenom, ?int $groupeId, string $group
 function getSession(int $id): ?array {
     $pdo = getDB();
     $stmt = $pdo->prepare("
-        SELECT s.*, m.nom AS module_nom, m.duree_minutes,
-               m.type AS module_type, m.meta_json,
-               g.nom AS groupe_nom
+        SELECT s.*,
+               COALESCE(st.nom,    s.nom)    AS nom,
+               COALESCE(st.prenom, s.prenom) AS prenom,
+               m.nom AS module_nom, m.duree_minutes,
+               m.type AS module_type,
+               COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
+               COALESCE(em.code_module,   '') AS efm_code_module,
+               COALESCE(em.filiere,       '') AS efm_filiere,
+               COALESCE(em.etablissement, '') AS efm_etablissement,
+               COALESCE(em.annee,         '') AS efm_annee
         FROM sessions_eval s
         JOIN modules m ON m.id = s.module_id
+        LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
         LEFT JOIN groupes g ON g.id = s.groupe_id
+        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
         WHERE s.id = ?
     ");
     $stmt->execute([$id]);
@@ -287,12 +310,21 @@ function getSession(int $id): ?array {
 function getSessionByToken(string $token): ?array {
     $pdo = getDB();
     $stmt = $pdo->prepare("
-        SELECT s.*, m.nom AS module_nom, m.duree_minutes,
-               m.type AS module_type, m.meta_json,
-               g.nom AS groupe_nom
+        SELECT s.*,
+               COALESCE(st.nom,    s.nom)    AS nom,
+               COALESCE(st.prenom, s.prenom) AS prenom,
+               m.nom AS module_nom, m.duree_minutes,
+               m.type AS module_type,
+               COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
+               COALESCE(em.code_module,   '') AS efm_code_module,
+               COALESCE(em.filiere,       '') AS efm_filiere,
+               COALESCE(em.etablissement, '') AS efm_etablissement,
+               COALESCE(em.annee,         '') AS efm_annee
         FROM sessions_eval s
         JOIN modules m ON m.id = s.module_id
+        LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
         LEFT JOIN groupes g ON g.id = s.groupe_id
+        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
         WHERE s.token = ?
     ");
     $stmt->execute([$token]);

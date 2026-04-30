@@ -116,19 +116,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
         try {
             $pdo->beginTransaction();
 
-            $meta = json_encode([
-                'code_module'   => $codeModule,
-                'filiere'       => $filiere,
-                'etablissement' => $etablissement,
-                'annee'         => $annee,
-            ], JSON_UNESCAPED_UNICODE);
-
             $stmt = $pdo->prepare(
-                "INSERT INTO modules (nom, description, duree_minutes, note_max, actif, type, meta_json)
-                 VALUES (?, ?, ?, ?, ?, 'efm', ?)"
+                "INSERT INTO modules (nom, description, duree_minutes, note_max, actif, type)
+                 VALUES (?, ?, ?, ?, ?, 'efm')"
             );
-            $stmt->execute([$nom, "EFM — $codeModule", $duree, $noteMax, $actif, $meta]);
+            $stmt->execute([$nom, "EFM — $codeModule", $duree, $noteMax, $actif]);
             $newModuleId = (int)$pdo->lastInsertId();
+
+            $pdo->prepare(
+                "INSERT INTO modules_efm_meta (module_id, code_module, filiere, etablissement, annee)
+                 VALUES (?, ?, ?, ?, ?)"
+            )->execute([$newModuleId, $codeModule, $filiere, $etablissement, $annee]);
 
             $qOrdre = 1;
             foreach ($selectedParties as $srcPartieId => $nbDemande) {

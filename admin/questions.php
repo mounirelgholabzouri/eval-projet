@@ -190,7 +190,8 @@ if (isset($flash['last_partie']))    $erreur = "Impossible : c'est la dernière 
         <div class="card-body p-3">
             <form method="POST" class="d-flex gap-3 align-items-center flex-wrap">
                 <label class="fw-semibold text-nowrap"><i class="bi bi-journal me-1"></i>Module :</label>
-                <select name="module_id" class="form-select" style="max-width:350px">
+                <select name="module_id" class="form-select" style="max-width:350px"
+                        onchange="this.form.querySelector('[name=select_module]').click()">
                     <option value="">— Choisir un module —</option>
                     <?php foreach ($allModules as $m): ?>
                     <option value="<?= $m['id'] ?>" <?= $m['id'] == $moduleId ? 'selected' : '' ?>>
@@ -198,7 +199,7 @@ if (isset($flash['last_partie']))    $erreur = "Impossible : c'est la dernière 
                     </option>
                     <?php endforeach; ?>
                 </select>
-                <button type="submit" name="select_module" class="btn btn-outline-primary">
+                <button type="submit" name="select_module" class="btn btn-outline-primary d-none">
                     <i class="bi bi-arrow-right me-1"></i>Sélectionner
                 </button>
             </form>
