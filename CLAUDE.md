@@ -11,6 +11,13 @@
 - **Worktree** : modifications dans `.claude\worktrees\<nom>\` → **copier manuellement** vers la racine pour activer sur Apache
 - **VirtualHost** : `C:\laragon\etc\apache2\sites-enabled\00-default.conf`
 
+## Docker (optionnel)
+
+- **Lancer** : `docker compose up --build` — URL : `http://localhost:8080`
+- **DB** : `mysql:8.4`, password root `root`, init auto via `db/schema.sql`
+- **Env** : `DB_HOST=db` / `DB_NAME=eval_online` / `DB_USER=root` / `DB_PASS=root`
+- **php.ini Docker** : upload 10M, post 12M, memory 256M, exec 120s, UTF-8
+
 ## Base de données
 
 - `eval_online` — host `127.0.0.1` — user `root` — password *(vide)* — charset `utf8mb4`
