@@ -299,7 +299,7 @@ $tamponB64  = file_exists($tamponPath)
         }
 
         .tampon-ofppt {
-            position: absolute;
+            position: fixed;
             bottom: 14mm;
             right: 14mm;
             width: 38mm;
@@ -476,9 +476,10 @@ $tamponB64  = file_exists($tamponPath)
         <?= $totalPoints > 0 ? ' — Barème total : ' . $totalPoints . ' pts' : '' ?>
     </div>
 
-    <?php if ($tamponB64): ?>
-    <img class="tampon-ofppt" src="<?= $tamponB64 ?>" alt="Tampon OFPPT">
-    <?php endif; ?>
 </div><!-- .page -->
+
+<?php if ($tamponB64): ?>
+<img class="tampon-ofppt" src="<?= $tamponB64 ?>" alt="Tampon OFPPT">
+<?php endif; ?>
 </body>
 </html>

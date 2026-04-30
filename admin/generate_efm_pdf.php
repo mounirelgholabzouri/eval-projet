@@ -72,6 +72,12 @@ $logoB64  = file_exists($logoPath)
     ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
     : '';
 
+// ── Tampon OFPPT base64 ───────────────────────────────────────
+$tamponPath = __DIR__ . '/../assets/img/tampon_ofppt.png';
+$tamponB64  = file_exists($tamponPath)
+    ? 'data:image/png;base64,' . base64_encode(file_get_contents($tamponPath))
+    : '';
+
 // ── CSS partagé (identique à print_efm_result.php) ───────────
 $css = '
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -111,7 +117,7 @@ body { font-family: Arial, sans-serif; font-size: 10.5pt; color: #000; }
 ';
 
 // ── Fonction : HTML d'une fiche EFM ──────────────────────────
-function buildEfmHtml(array $session, array $questions, string $logoB64): string
+function buildEfmHtml(array $session, array $questions, string $logoB64, string $tamponB64 = ''): string
 {
     $noteMax  = (int)($session['note_max'] ?? 40);
     $total    = (float)$session['total_points'];
@@ -259,7 +265,7 @@ foreach ($sessions as $session) {
         $stmtQ->execute([$session['id'], (int)$session['module_id']]);
         $questions = $stmtQ->fetchAll();
 
-        $bodyHtml = buildEfmHtml($session, $questions, $logoB64);
+        $bodyHtml = buildEfmHtml($session, $questions, $logoB64, $tamponB64);
 
         $fullHtml = '<!DOCTYPE html><html lang="fr"><head>
             <meta charset="UTF-8">
@@ -277,12 +283,23 @@ foreach ($sessions as $session) {
             'mode'          => 'utf-8',
             'format'        => 'A4',
             'margin_top'    => 10,
-            'margin_bottom' => 12,
+            'margin_bottom' => 48,
             'margin_left'   => 13,
             'margin_right'  => 13,
+            'margin_footer' => 8,
             'tempDir'       => sys_get_temp_dir(),
         ]);
         $mpdf->SetTitle('EFM — ' . ($session['prenom'] ?? '') . ' ' . ($session['nom'] ?? ''));
+
+        if ($tamponB64) {
+            $mpdf->SetHTMLFooter(
+                '<table width="100%" style="border-collapse:collapse"><tr>' .
+                '<td style="text-align:right;padding-right:1mm;">' .
+                '<img src="' . $tamponB64 . '" style="width:38mm;" />' .
+                '</td></tr></table>'
+            );
+        }
+
         $mpdf->WriteHTML($fullHtml);
         $mpdf->Output($pdfFile, \Mpdf\Output\Destination::FILE);
 

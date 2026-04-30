@@ -295,7 +295,7 @@ $tamponB64  = file_exists($tamponPath)
         }
 
         .tampon-ofppt {
-            position: absolute;
+            position: fixed;
             bottom: 14mm;
             right: 14mm;
             width: 38mm;
@@ -454,9 +454,10 @@ $tamponB64  = file_exists($tamponPath)
     </table>
     <?php endif; ?>
 
-    <?php if ($tamponB64): ?>
-    <img class="tampon-ofppt" src="<?= $tamponB64 ?>" alt="Tampon OFPPT">
-    <?php endif; ?>
 </div>
+
+<?php if ($tamponB64): ?>
+<img class="tampon-ofppt" src="<?= $tamponB64 ?>" alt="Tampon OFPPT">
+<?php endif; ?>
 </body>
 </html>
