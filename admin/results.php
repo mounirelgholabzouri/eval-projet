@@ -60,7 +60,7 @@ if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
 
 $whereStr = implode(' AND ', $where);
 $stmt = $pdo->prepare("
-    SELECT s.*, m.nom AS module_nom,
+    SELECT s.*, m.nom AS module_nom, m.type AS module_type,
            COALESCE(g.nom, s.groupe_libre) AS groupe_nom
     FROM sessions_eval s
     JOIN modules m ON m.id = s.module_id
@@ -73,6 +73,40 @@ $stmt->execute($params);
 $sessions = $stmt->fetchAll();
 
 $allModules = getAllModules();
+
+// Déterminer si le module filtré est un EFM et construire l'URL d'impression
+$filteredModuleIsEfm = false;
+$printEfmUrl = '';
+if ($filterModule) {
+    foreach ($allModules as $m) {
+        if ((int)$m['id'] === $filterModule && ($m['type'] ?? '') === 'efm') {
+            $filteredModuleIsEfm = true;
+            $meta = json_decode($m['meta_json'] ?? '{}', true) ?? [];
+            $partiesStmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND actif = 1 ORDER BY ordre, id");
+            $partiesStmt->execute([$filterModule]);
+            $partieIds = array_column($partiesStmt->fetchAll(), 'id');
+            $dureeMin = (int)($m['duree_minutes'] ?? 0);
+            $dureeStr = $dureeMin >= 60
+                ? floor($dureeMin/60).'h'.($dureeMin%60>0 ? sprintf('%02d',$dureeMin%60) : '')
+                : ($dureeMin > 0 ? $dureeMin.' min' : '');
+            $printEfmUrl = 'print_efm.php?' . http_build_query([
+                'module_id'     => $filterModule,
+                'partie_ids'    => implode(',', $partieIds),
+                'shuffle'       => 0,
+                'shuffle_choix' => 0,
+                'corrige'       => 0,
+                'code_module'   => $meta['code_module']   ?? '',
+                'filiere'       => $meta['filiere']        ?? '',
+                'etablissement' => $meta['etablissement']  ?? '',
+                'annee'         => $meta['annee']          ?? '',
+                'note_max'      => (int)($m['note_max']    ?? 40),
+                'intitule'      => $m['nom'],
+                'duree'         => $dureeStr,
+            ]);
+            break;
+        }
+    }
+}
 $stats = getStatsGlobales();
 ?>
 <!DOCTYPE html>
@@ -98,10 +132,21 @@ $stats = getStatsGlobales();
         <h2 class="h4 fw-bold mb-0"><i class="bi bi-bar-chart me-2 text-primary"></i>Résultats des évaluations</h2>
         <div class="d-flex gap-2 flex-wrap">
             <?php if ($filterModule): ?>
+            <?php if ($filteredModuleIsEfm): ?>
+            <a href="<?= htmlspecialchars($printEfmUrl) ?>"
+               target="_blank" class="btn btn-dark">
+                <i class="bi bi-printer me-2"></i>Imprimer sujet EFM
+            </a>
+            <a href="generate_efm_pdf.php?module_id=<?= $filterModule ?>"
+               class="btn btn-danger">
+                <i class="bi bi-file-earmark-pdf me-2"></i>Générer tous les PDFs EFM
+            </a>
+            <?php else: ?>
             <a href="print_exams.php?module_id=<?= $filterModule ?><?= $filterGroupe ? '&groupe='.urlencode($filterGroupe) : '' ?>"
                target="_blank" class="btn btn-dark">
                 <i class="bi bi-printer me-2"></i>Imprimer les tests
             </a>
+            <?php endif; ?>
             <?php endif; ?>
             <a href="export_excel.php?<?= $filterModule ? "module_id=$filterModule" : '' ?><?= $filterGroupe ? "&groupe_id=".urlencode($filterGroupe) : '' ?>"
                class="btn btn-success">
@@ -247,10 +292,21 @@ $stats = getStatsGlobales();
                                     <i class="bi bi-eye"></i>
                                 </a>
                                 <?php if ($s['statut'] === 'termine'): ?>
+                                <?php if (($s['module_type'] ?? '') === 'efm'): ?>
+                                <a href="print_efm_result.php?session_id=<?= $s['id'] ?>" target="_blank"
+                                   class="btn btn-sm btn-outline-dark rounded-3" title="Voir fiche EFM">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="generate_efm_pdf.php?session_id=<?= $s['id'] ?>"
+                                   class="btn btn-sm btn-danger rounded-3" title="Télécharger PDF EFM">
+                                    <i class="bi bi-file-earmark-pdf"></i>
+                                </a>
+                                <?php else: ?>
                                 <a href="print_exams.php?session_id=<?= $s['id'] ?>" target="_blank"
                                    class="btn btn-sm btn-outline-dark rounded-3" title="Imprimer ce test">
                                     <i class="bi bi-printer"></i>
                                 </a>
+                                <?php endif; ?>
                                 <?php endif; ?>
                             </div>
                         </td>

@@ -173,10 +173,10 @@ unset($_SESSION['eval_session_id'], $_SESSION['eval_session_token'], $_SESSION['
             <i class="bi bi-arrow-clockwise me-2"></i>Nouvelle évaluation
         </a>
         <?php if ($isEfm): ?>
-        <a href="efm_fiche_resultat.php?sid=<?= $sessionIdForPrint ?>"
-           class="btn btn-danger btn-lg" target="_blank">
-            <i class="bi bi-file-earmark-ruled me-2"></i>Fiche résultat EFM
-        </a>
+        <button onclick="window.open('efm_fiche_resultat.php?sid=<?= $sessionIdForPrint ?>&autoprint=1','_blank')"
+                class="btn btn-danger btn-lg">
+            <i class="bi bi-printer me-2"></i>Imprimer
+        </button>
         <?php else: ?>
         <a href="admin/export_excel.php?module_id=<?= (int)$session['module_id'] ?>"
            class="btn btn-success btn-lg">

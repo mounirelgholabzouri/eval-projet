@@ -305,6 +305,9 @@ $logoB64  = file_exists($logoPath)
     </style>
 </head>
 <body>
+<?php if (!empty($_GET['autoprint'])): ?>
+<script>window.addEventListener('load', function(){ window.print(); });</script>
+<?php endif; ?>
 
 <div class="screen-bar">
     <?php if ($isAdmin): ?>
@@ -322,20 +325,22 @@ $logoB64  = file_exists($logoPath)
          EN-TÊTE OFFICIEL
          ═══════════════════════════════════ -->
     <table class="efm-header">
-        <!-- Ligne 1 : Logo gauche | vide droite -->
+        <!-- Ligne 1 : Logo + texte centré | vide droite -->
         <tr>
             <td class="td-logo">
-                <div class="logo-row">
-                    <?php if ($logoB64): ?>
-                        <img src="<?= $logoB64 ?>" class="efm-logo" alt="OFPPT">
-                    <?php endif; ?>
-                    <div class="direction-text">
-                        Direction Régionale
-                        <?php if ($etablissement): ?>
-                            <br><strong><?= sanitize($etablissement) ?></strong>
+                <table style="width:100%;border-collapse:collapse">
+                    <tr>
+                        <?php if ($logoB64): ?>
+                        <td style="width:52px;vertical-align:middle;padding-right:10px">
+                            <img src="<?= $logoB64 ?>" class="efm-logo" alt="OFPPT">
+                        </td>
                         <?php endif; ?>
-                    </div>
-                </div>
+                        <td style="vertical-align:middle;text-align:center">
+                            <div style="font-weight:bold;font-size:10.5pt;line-height:1.6">Direction Régionale</div>
+                            <div style="font-weight:bold;font-size:10.5pt;line-height:1.6">ISTA HAY RIAD RABAT</div>
+                        </td>
+                    </tr>
+                </table>
             </td>
             <td class="td-empty"></td>
         </tr>
@@ -433,20 +438,6 @@ $logoB64  = file_exists($logoPath)
     </table>
     <?php endif; ?>
 
-    <!-- ── Zone signatures ── -->
-    <table style="width:100%;border-collapse:collapse;border:1px solid #000;margin-top:20px">
-        <tr>
-            <td style="border:1px solid #000;width:34%;text-align:center;padding:8px;height:55px;vertical-align:top;font-size:10pt">
-                <strong>Signature du stagiaire</strong>
-            </td>
-            <td style="border:1px solid #000;width:33%;text-align:center;padding:8px;height:55px;vertical-align:top;font-size:10pt">
-                <strong>Signature du formateur</strong>
-            </td>
-            <td style="border:1px solid #000;width:33%;text-align:center;padding:8px;height:55px;vertical-align:top;font-size:10pt">
-                <strong>Cachet de l'établissement</strong>
-            </td>
-        </tr>
-    </table>
 
 </div>
 </body>

@@ -245,15 +245,22 @@ $logoB64  = file_exists($logoPath)
             <col style="width:45%">
         </colgroup>
         <tbody>
-            <!-- Ligne 1 : Logo + Direction | Identité (rowspan=2) -->
+            <!-- Ligne 1 : Logo + texte centré | Identité (rowspan=2) -->
             <tr>
                 <td class="h-logo">
-                    <div class="logo-row">
-                        <?php if ($logoB64): ?>
-                            <img src="<?= $logoB64 ?>" class="efm-logo" alt="OFPPT">
-                        <?php endif; ?>
-                        <div class="direction-text">Direction Régionale RABAT-SALÉ-KENITRA</div>
-                    </div>
+                    <table style="width:100%;border-collapse:collapse">
+                        <tr>
+                            <?php if ($logoB64): ?>
+                            <td style="width:52px;vertical-align:middle;padding-right:8px">
+                                <img src="<?= $logoB64 ?>" class="efm-logo" alt="OFPPT">
+                            </td>
+                            <?php endif; ?>
+                            <td style="vertical-align:middle;text-align:center">
+                                <div style="font-weight:bold;font-size:10pt;line-height:1.5">Direction Régionale</div>
+                                <div style="font-weight:bold;font-size:10pt;line-height:1.5">ISTA HAY RIAD RABAT</div>
+                            </td>
+                        </tr>
+                    </table>
                 </td>
                 <td rowspan="2" class="h-identity">
                     <div class="id-line"><span class="id-lbl">Nom :</span> <?= htmlspecialchars(strtoupper($nom), ENT_QUOTES, 'UTF-8') ?></div>
