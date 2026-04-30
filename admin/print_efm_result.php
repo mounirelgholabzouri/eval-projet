@@ -58,6 +58,12 @@ $logoPath = __DIR__ . '/../assets/img/logo_efm.png';
 $logoB64  = file_exists($logoPath)
     ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
     : '';
+
+// ── Tampon OFPPT base64 ────────────────────────────────────────────────────
+$tamponPath = __DIR__ . '/../assets/img/tampon_ofppt.png';
+$tamponB64  = file_exists($tamponPath)
+    ? 'data:image/png;base64,' . base64_encode(file_get_contents($tamponPath))
+    : '';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -91,6 +97,7 @@ $logoB64  = file_exists($logoPath)
 
         /* ── Page A4 ── */
         .page {
+            position: relative;
             width: 210mm;
             min-height: 297mm;
             margin: 20px auto;
@@ -214,6 +221,16 @@ $logoB64  = file_exists($logoPath)
 
 
         /* ── Impression ── */
+        .tampon-ofppt {
+            position: absolute;
+            bottom: 14mm;
+            right: 14mm;
+            width: 38mm;
+            opacity: 0.88;
+            pointer-events: none;
+            z-index: 100;
+        }
+
         @media print {
             * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body { background: #fff; }
@@ -341,7 +358,9 @@ $logoB64  = file_exists($logoPath)
     </table>
     <?php endif; ?>
 
-
+    <?php if ($tamponB64): ?>
+    <img class="tampon-ofppt" src="<?= $tamponB64 ?>" alt="Tampon OFPPT">
+    <?php endif; ?>
 </div>
 </body>
 </html>

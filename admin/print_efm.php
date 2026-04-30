@@ -58,6 +58,12 @@ foreach ($partieIds as $pid) {
 
 // Numérotation globale des questions
 $qNum = 1;
+
+// ── Tampon OFPPT base64 ────────────────────────────────────────────────────
+$tamponPath = __DIR__ . '/../assets/img/tampon_ofppt.png';
+$tamponB64  = file_exists($tamponPath)
+    ? 'data:image/png;base64,' . base64_encode(file_get_contents($tamponPath))
+    : '';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -94,6 +100,7 @@ $qNum = 1;
 
         /* ── Page A4 ── */
         .page {
+            position: relative;
             width: 210mm;
             min-height: 297mm;
             margin: 20px auto;
@@ -291,6 +298,16 @@ $qNum = 1;
             margin-left: 4mm;
         }
 
+        .tampon-ofppt {
+            position: absolute;
+            bottom: 14mm;
+            right: 14mm;
+            width: 38mm;
+            opacity: 0.88;
+            pointer-events: none;
+            z-index: 100;
+        }
+
         /* ── Impression ── */
         @media print {
             body { background: #fff; }
@@ -459,7 +476,9 @@ $qNum = 1;
         <?= $totalPoints > 0 ? ' — Barème total : ' . $totalPoints . ' pts' : '' ?>
     </div>
 
+    <?php if ($tamponB64): ?>
+    <img class="tampon-ofppt" src="<?= $tamponB64 ?>" alt="Tampon OFPPT">
+    <?php endif; ?>
 </div><!-- .page -->
-
 </body>
 </html>

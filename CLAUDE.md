@@ -7,8 +7,10 @@
 - **Serveur web** : Apache via **Laragon** (multi-thread, port 80) — NE PAS utiliser le serveur PHP built-in
 - **PHP** : `C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe`
 - **MySQL** : `C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe`
-- **Racine projet** : `C:\Users\Administrateur\Eval-Projet\`
+- **Racine projet** : `C:\Users\Administrateur\Desktop\Eval-Projet\` (répertoire réel)
+- **Lien Apache** : `C:\laragon\www\eval-projet\` est un **lien symbolique** → `C:\Users\Administrateur\Desktop\Eval-Projet\`
 - **URL locale** : `http://localhost/` (Apache `_default_:80` pointe sur le projet)
+- **Worktree Claude** : `.claude\worktrees\<nom>\` — les modifications dans le worktree doivent être **copiées manuellement** dans `C:\Users\Administrateur\Desktop\Eval-Projet\` pour être actives sur Apache
 
 ### Docker (optionnel)
 - **Image** : `php:8.3-apache` + extensions `pdo_mysql`, `mbstring`, `opcache`
@@ -26,7 +28,7 @@
 
 ### Exécuter un script PHP
 ```bash
-powershell -Command "& 'C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe' 'C:\Users\Administrateur\Eval-Projet\script.php' 2>&1"
+powershell -Command "& 'C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe' 'C:\Users\Administrateur\Desktop\Eval-Projet\script.php' 2>&1"
 ```
 
 ## Conventions de code
@@ -96,7 +98,8 @@ Eval-Projet/
 │   └── partials/navbar.php    # Barre de navigation admin
 ├── assets/
 │   ├── css/style.css          # Styles personnalisés
-│   └── img/logo_efm.png       # Logo OFPPT (extrait du modèle DOCX, intégré en base64 dans print_efm_result.php)
+│   ├── img/logo_efm.png       # Logo OFPPT (intégré en base64 dans les pages d'impression EFM)
+│   └── img/tampon_ofppt.png   # Tampon officiel OFPPT transparent (intégré en base64, affiché bas-droite de toutes les impressions EFM)
 ├── db/
 │   ├── schema.sql                 # Schéma complet + données de démo (source de vérité)
 │   ├── migration_v2.sql           # Migration historique (déjà intégrée dans schema.sql)
@@ -177,7 +180,7 @@ Eval-Projet/
 
 ### Lint PHP
 ```bash
-powershell -Command "& 'C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe' -l 'C:\Users\Administrateur\Eval-Projet\fichier.php' 2>&1"
+powershell -Command "& 'C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe' -l 'C:\Users\Administrateur\Desktop\Eval-Projet\fichier.php' 2>&1"
 ```
 
 ### Vérifier la connexion DB
@@ -218,5 +221,6 @@ Génère un `.xls` SpreadsheetML **sans bibliothèque externe** (aucun Composer 
 11. **Clé API Anthropic** : stockée en table `config` (clé `anthropic_api_key`). Crédits à gérer sur **console.anthropic.com** (≠ claude.ai qui est l'interface web). En cas d'erreur "credit balance too low", recharger sur console.anthropic.com → Billing → Add credits.
 12. **Génération IA** : `admin/generate.php` accepte un document (PDF/DOCX/TXT) **et/ou** un prompt texte libre — les deux sont optionnels séparément mais au moins un est requis.
 13. **EFM (Examen de Fin de Module)** : modules avec `type='efm'` et métadonnées dans `meta_json` (code_module, filiere, etablissement, annee). Impression officielle via `admin/print_efm_result.php?session_id=X` — logo OFPPT intégré en base64 pour garantir la visibilité à l'impression.
-14. **Logo impression** : toujours intégrer les images critiques en base64 dans le PHP (`base64_encode(file_get_contents($path))`) — les chemins relatifs sont ignorés par les navigateurs en mode impression.
+14. **Logo + Tampon impression** : toujours intégrer les images critiques en base64 dans le PHP (`base64_encode(file_get_contents($path))`) — les chemins relatifs sont ignorés par les navigateurs en mode impression. Le tampon `assets/img/tampon_ofppt.png` est affiché `position: absolute; bottom: 14mm; right: 14mm` dans le div `.page` / `.page-wrapper` (qui doit avoir `position: relative`).
 15. **Parties actif=0** : une partie désactivée est **totalement exclue** — invisible dans `index.php` (sélecteur), dans `quiz.php` (questions filtrées), et dans toutes les impressions (`print_blank.php`, `print_efm.php`, `print_exams.php`). Utiliser `getPartiesActives()` (pas `getPartiesModule()`) partout sauf l'interface admin.
+16. **Encodage reponse_texte** : données historiques corrompues par import MySQL CLI (CP850) corrigées via `iconv('UTF-8','CP850//IGNORE', $str)`. Toutes nouvelles réponses via PHP/PDO sont correctement encodées UTF-8.
