@@ -137,7 +137,7 @@ $logoPath = '../assets/img/ofppt_logo.png';
         @page { size: A4; margin: 0; }
         @media print {
             .no-print { display: none !important; }
-            body { font-size: 10.5pt; }
+            body { font-size: 10.5pt; padding: 12mm 14mm; }
             .question { page-break-inside: avoid; }
         }
         .toolbar { background: #2c3e50; color: #fff; padding: 10px 20px; display: flex; gap: 12px; align-items: center; }
