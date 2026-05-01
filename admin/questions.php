@@ -158,8 +158,7 @@ if (isset($flash['deleted']))        $msg = "Question supprimée.";
                     </h5>
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST" action="questions.php?module_id=<?= $moduleId ?><?= $editQuestion ? '&action=edit&id='.$questionId : '' ?>"
-
+                    <form method="POST" action="questions.php?module_id=<?= $moduleId ?><?= $editQuestion ? '&action=edit&id='.$questionId : '' ?>">
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Question <span class="text-danger">*</span></label>
                             <textarea name="texte" class="form-control" rows="3" required><?= htmlspecialchars($editQuestion['texte'] ?? '') ?></textarea>
