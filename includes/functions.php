@@ -435,3 +435,66 @@ function resetPasswordStagiaire(int $id): void {
     $pdo->prepare("UPDATE stagiaires SET password_hash=?, must_change_password=1 WHERE id=?")
         ->execute([$hash, $id]);
 }
+
+// ============================================================
+// Fonctions formateurs
+// ============================================================
+
+function getAllFormateurs(): array {
+    $pdo = getDB();
+    return $pdo->query("SELECT * FROM admins ORDER BY nom")->fetchAll();
+}
+
+function getFormateur(int $id): ?array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT * FROM admins WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: null;
+}
+
+function adminUsernameUnique(string $username, int $excludeId = 0): bool {
+    $pdo = getDB();
+    $sql = "SELECT COUNT(*) FROM admins WHERE username = ?";
+    $params = [trim($username)];
+    if ($excludeId > 0) {
+        $sql .= " AND id != ?";
+        $params[] = $excludeId;
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return (int)$stmt->fetchColumn() === 0;
+}
+
+function creerFormateur(string $username, string $nom, string $password): int {
+    $pdo = getDB();
+    $hash = password_hash($password, PASSWORD_BCRYPT);
+    $stmt = $pdo->prepare("INSERT INTO admins (username, password_hash, nom, role) VALUES (?, ?, ?, 'formateur')");
+    $stmt->execute([trim($username), $hash, trim($nom)]);
+    return (int)$pdo->lastInsertId();
+}
+
+function modifierFormateur(int $id, string $username, string $nom, ?string $password = null): void {
+    $pdo = getDB();
+    if ($password) {
+        $hash = password_hash($password, PASSWORD_BCRYPT);
+        $stmt = $pdo->prepare("UPDATE admins SET username = ?, nom = ?, password_hash = ? WHERE id = ?");
+        $stmt->execute([trim($username), trim($nom), $hash, $id]);
+    } else {
+        $stmt = $pdo->prepare("UPDATE admins SET username = ?, nom = ? WHERE id = ?");
+        $stmt->execute([trim($username), trim($nom), $id]);
+    }
+}
+
+function supprimerFormateur(int $id): void {
+    $pdo = getDB();
+    $pdo->prepare("DELETE FROM admins WHERE id = ?")->execute([$id]);
+}
+
+function setGroupesFormateur(int $formateurId, array $groupeIds): void {
+    $pdo = getDB();
+    $pdo->prepare("DELETE FROM module_formateurs WHERE admin_id = ?")->execute([$formateurId]);
+    foreach ($groupeIds as $groupeId) {
+        $pdo->prepare("INSERT INTO module_formateurs (admin_id, groupe_id) VALUES (?, ?)")
+            ->execute([$formateurId, (int)$groupeId]);
+    }
+}
