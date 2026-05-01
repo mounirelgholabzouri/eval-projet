@@ -533,16 +533,70 @@ function parseExcelFile(string $filePath): array {
     $questions = [];
     if (!file_exists($filePath)) return [];
 
-    // Lecture simple du CSV (Excel en .csv)
+    // Lecture CSV/Excel
     if (($handle = fopen($filePath, 'r')) !== false) {
         $header = null;
+        $headerLower = null;
+
         while (($data = fgetcsv($handle, 0, ',')) !== false) {
             if ($header === null) {
                 $header = $data;
+                // Normalise les entêtes
+                $headerLower = array_map('strtolower', $data);
                 continue;
             }
+
             if (count($data) > 0 && !empty($data[0])) {
-                $questions[] = array_combine($header, $data);
+                $row = array_combine($header, $data);
+
+                // Cherche le texte de la question
+                $texteKey = null;
+                foreach ($headerLower as $idx => $key) {
+                    if (strpos($key, 'question') !== false || strpos($key, 'texte') !== false) {
+                        $texteKey = $header[$idx];
+                        break;
+                    }
+                }
+                if (!$texteKey) {
+                    $texteKey = $header[0]; // Première colonne par défaut
+                }
+
+                $question = [
+                    'texte' => trim($row[$texteKey] ?? ''),
+                    'type' => trim($row[array_search('type', $headerLower, true) ? $header[array_search('type', $headerLower, true)] : 'type'] ?? 'qcm'),
+                    'points' => (float)($row[array_search('points', $headerLower, true) ? $header[array_search('points', $headerLower, true)] : 'points'] ?? 1),
+                    'choix' => []
+                ];
+
+                // Cherche les colonnes de choix
+                foreach ($headerLower as $idx => $key) {
+                    if (preg_match('/^(choice|choix|reponse|answer)\s*(\d+)$/', $key, $m)) {
+                        $choixNum = $m[2];
+                        $choixTexte = trim($row[$header[$idx]] ?? '');
+                        if (!empty($choixTexte)) {
+                            $isCorrect = 0;
+                            // Détecte la réponse correcte par astérisque ou colonne dédiée
+                            if (strpos($choixTexte, '*') !== false) {
+                                $isCorrect = 1;
+                                $choixTexte = str_replace('*', '', $choixTexte);
+                            }
+
+                            $correctKey = array_search("correct_$choixNum", $headerLower, true);
+                            if ($correctKey !== false) {
+                                $isCorrect = (int)($row[$header[$correctKey]] ?? 0);
+                            }
+
+                            $question['choix'][] = [
+                                'texte' => trim($choixTexte),
+                                'is_correct' => $isCorrect
+                            ];
+                        }
+                    }
+                }
+
+                if (!empty($question['texte'])) {
+                    $questions[] = $question;
+                }
             }
         }
         fclose($handle);
@@ -573,12 +627,29 @@ function parseDocxFile(string $filePath): array {
         $dom = new DOMDocument();
         @$dom->loadXML($xml);
         $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
 
         $paragraphs = $xpath->query('//w:p');
         $currentQuestion = null;
 
         foreach ($paragraphs as $para) {
-            $text = trim($xpath->evaluate('string(.)', $para));
+            // Récupère le texte, y compris les runs (w:r)
+            $text = '';
+            $isBold = false;
+
+            foreach ($para->childNodes as $node) {
+                if ($node->nodeName === 'w:r') {
+                    $rPr = $xpath->query('w:rPr[w:b]', $node);
+                    if ($rPr->length > 0) {
+                        $isBold = true;
+                    }
+                    $text .= $xpath->evaluate('string(w:t)', $node);
+                } else {
+                    $text .= $xpath->evaluate('string(.)', $node);
+                }
+            }
+
+            $text = trim($text);
             if (empty($text)) continue;
 
             // Détecte les questions (commençant par un numéro)
@@ -586,15 +657,19 @@ function parseDocxFile(string $filePath): array {
                 if ($currentQuestion) {
                     $questions[] = $currentQuestion;
                 }
-                $currentQuestion = ['texte' => $m[1], 'type' => 'qcm', 'points' => 1];
+                $currentQuestion = ['texte' => trim($m[1]), 'type' => 'qcm', 'points' => 1];
             } elseif ($currentQuestion && preg_match('/^[a-dA-D\*]\)\s+(.+)/', $text, $m)) {
-                // Réponses possibles
+                // Réponses possibles : a) b) c) d) ou *a) *b) *c) *d)
                 if (!isset($currentQuestion['choix'])) {
                     $currentQuestion['choix'] = [];
                 }
-                $isCorrect = strpos($text, '*') !== false ? 1 : 0;
+
+                $isCorrect = (strpos($text, '*') !== false || $isBold) ? 1 : 0;
+                $choixTexte = preg_replace('/^\*?\s*[a-dA-D]\)\s*/', '', $text);
+                $choixTexte = trim(str_replace('*', '', $choixTexte));
+
                 $currentQuestion['choix'][] = [
-                    'texte' => preg_replace('/^\*?\s*[a-dA-D]\)\s*/', '', $m[1]),
+                    'texte' => $choixTexte,
                     'is_correct' => $isCorrect
                 ];
             }
@@ -616,27 +691,69 @@ function extractQuestionsFromMarkdown(string $content): array {
         $line = trim($line);
         if (empty($line)) continue;
 
-        // Questions (## Titre ou ### Titre)
+        // Questions (## Titre ou ### Titre ou - Titre avec liste)
         if (preg_match('/^#+\s+(.+)/', $line, $m)) {
+            // Titre Markdown
             if ($currentQuestion) {
                 $questions[] = $currentQuestion;
             }
-            $currentQuestion = ['texte' => $m[1], 'type' => 'qcm', 'points' => 1];
-        } elseif ($currentQuestion && preg_match('/^[-*]\s+\*?\*?(.+?)\*?\*?$/', $line, $m)) {
-            // Choix de réponse
+            $currentQuestion = ['texte' => trim($m[1]), 'type' => 'qcm', 'points' => 1];
+        } elseif (preg_match('/^\d+[\.\)]\s+(.+)/', $line, $m)) {
+            // Question numérotée (1. Question ou 1) Question)
+            if ($currentQuestion) {
+                $questions[] = $currentQuestion;
+            }
+            $currentQuestion = ['texte' => trim($m[1]), 'type' => 'qcm', 'points' => 1];
+        } elseif ($currentQuestion && preg_match('/^[-\*]\s+(.+)$/', $line, $m)) {
+            // Choix de réponse (- ou *)
             if (!isset($currentQuestion['choix'])) {
                 $currentQuestion['choix'] = [];
             }
-            $isCorrect = (strpos($line, '**') !== false || strpos($line, '*') !== false) ? 1 : 0;
+
+            $fullLine = $m[1];
+            $isCorrect = 0;
+            $choixTexte = $fullLine;
+
+            // Détecte la réponse correcte marquée par ** ou * ou ✓ ou [x]
+            if (preg_match('/^\*\*(.+?)\*\*/', $fullLine, $bold)) {
+                $isCorrect = 1;
+                $choixTexte = $bold[1];
+            } elseif (preg_match('/^✓\s*(.+)/', $fullLine, $check)) {
+                $isCorrect = 1;
+                $choixTexte = $check[1];
+            } elseif (preg_match('/^\[x\]\s*(.+)/', $fullLine, $checkbox)) {
+                $isCorrect = 1;
+                $choixTexte = $checkbox[1];
+            } else {
+                // Sinon c'est juste du texte
+                $choixTexte = $fullLine;
+            }
+
             $currentQuestion['choix'][] = [
-                'texte' => $m[1],
+                'texte' => trim($choixTexte),
+                'is_correct' => $isCorrect
+            ];
+        } elseif ($currentQuestion && preg_match('/^[a-dA-D\*]\)\s+(.+)/', $line, $m)) {
+            // Format a) b) c) d)
+            if (!isset($currentQuestion['choix'])) {
+                $currentQuestion['choix'] = [];
+            }
+
+            $isCorrect = (strpos($line, '*') !== false) ? 1 : 0;
+            $choixTexte = preg_replace('/^\*?\s*[a-dA-D]\)\s*/', '', $line);
+            $choixTexte = trim(str_replace('*', '', $choixTexte));
+
+            $currentQuestion['choix'][] = [
+                'texte' => $choixTexte,
                 'is_correct' => $isCorrect
             ];
         }
     }
+
     if ($currentQuestion) {
         $questions[] = $currentQuestion;
     }
+
     return $questions;
 }
 
