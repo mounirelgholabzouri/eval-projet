@@ -442,7 +442,14 @@ function resetPasswordStagiaire(int $id): void {
 
 function getAllFormateurs(): array {
     $pdo = getDB();
-    return $pdo->query("SELECT * FROM admins ORDER BY nom")->fetchAll();
+    return $pdo->query("
+        SELECT a.*,
+               COUNT(DISTINCT mf.module_id) AS nb_modules
+        FROM admins a
+        LEFT JOIN module_formateurs mf ON a.id = mf.formateur_id
+        GROUP BY a.id
+        ORDER BY a.nom
+    ")->fetchAll();
 }
 
 function getFormateur(int $id): ?array {
