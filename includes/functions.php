@@ -39,28 +39,9 @@ function getMention(float $pourcentage): array {
 
 function getModulesActifs(): array {
     $pdo = getDB();
-    // Retourne les modules actifs qui ont au moins une partie active
-    return $pdo->query("
-        SELECT DISTINCT m.* FROM modules m
-        JOIN parties p ON p.module_id = m.id AND p.actif = 1
-        WHERE m.actif = 1
-        ORDER BY m.nom
-    ")->fetchAll();
+    return $pdo->query("SELECT * FROM modules WHERE actif = 1 ORDER BY nom")->fetchAll();
 }
 
-function getPartiesActives(int $moduleId): array {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("
-        SELECT p.*, COUNT(q.id) AS nb_questions
-        FROM parties p
-        LEFT JOIN questions q ON q.partie_id = p.id
-        WHERE p.module_id = ? AND p.actif = 1
-        GROUP BY p.id
-        ORDER BY p.ordre, p.id
-    ");
-    $stmt->execute([$moduleId]);
-    return $stmt->fetchAll();
-}
 
 function getModule(int $id): ?array {
     $pdo = getDB();
@@ -84,7 +65,6 @@ function getAllModules(): array {
         SELECT m.*,
                COALESCE(m.note_max, 20) AS note_max,
                (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS nb_questions,
-               (SELECT COUNT(*) FROM parties p WHERE p.module_id = m.id) AS nb_parties,
                COALESCE(em.code_module,   '') AS efm_code_module,
                COALESCE(em.filiere,       '') AS efm_filiere,
                COALESCE(em.etablissement, '') AS efm_etablissement,
@@ -110,7 +90,12 @@ function getGroupes(): array {
 
 function getQuestionsModule(int $moduleId): array {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY partie_id, ordre, id");
+    $stmt = $pdo->prepare("
+        SELECT q.* FROM questions q
+        INNER JOIN parties p ON q.partie_id = p.id
+        WHERE q.module_id = ? AND p.actif = 1
+        ORDER BY p.ordre, q.ordre, q.id
+    ");
     $stmt->execute([$moduleId]);
     $questions = $stmt->fetchAll();
 
@@ -122,122 +107,18 @@ function getQuestionsModule(int $moduleId): array {
     return $questions;
 }
 
-// ============================================================
-// Fonctions parties
-// ============================================================
-
-function getPartiesModule(int $moduleId): array {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("
-        SELECT p.*, COUNT(q.id) AS nb_questions
-        FROM parties p
-        LEFT JOIN questions q ON q.partie_id = p.id
-        WHERE p.module_id = ?
-        GROUP BY p.id
-        ORDER BY p.ordre, p.id
-    ");
-    $stmt->execute([$moduleId]);
-    return $stmt->fetchAll();
-}
-
-function creerPartie(int $moduleId, string $nom, int $ordre = 0): int {
-    $pdo = getDB();
-    if ($ordre === 0) {
-        $stmt = $pdo->prepare("SELECT COALESCE(MAX(ordre), 0) + 1 FROM parties WHERE module_id = ?");
-        $stmt->execute([$moduleId]);
-        $ordre = (int)$stmt->fetchColumn();
-    }
-    $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?,?,?)")
-        ->execute([$moduleId, $nom, $ordre]);
-    return (int)$pdo->lastInsertId();
-}
-
-/**
- * Garantit qu'un module a au moins une partie. Retourne l'id de la première.
- */
-function ensurePartieDefault(int $moduleId): int {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre, id LIMIT 1");
-    $stmt->execute([$moduleId]);
-    $id = $stmt->fetchColumn();
-    if ($id) return (int)$id;
-    return creerPartie($moduleId, 'Général', 1);
-}
-
-/**
- * Supprime une partie. Ses questions sont d'abord réassignées à une autre partie
- * du même module. Si c'est la dernière partie, la suppression est refusée.
- * Retourne true si supprimée, false sinon.
- */
-function supprimerPartie(int $partieId): bool {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT module_id FROM parties WHERE id = ?");
-    $stmt->execute([$partieId]);
-    $moduleId = (int)$stmt->fetchColumn();
-    if (!$moduleId) return false;
-
-    // Trouver une autre partie du même module pour recevoir les questions
-    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND id <> ? ORDER BY ordre, id LIMIT 1");
-    $stmt->execute([$moduleId, $partieId]);
-    $autrePartieId = $stmt->fetchColumn();
-
-    if (!$autrePartieId) {
-        return false; // Dernière partie du module : suppression refusée
-    }
-
-    $pdo->beginTransaction();
-    $pdo->prepare("UPDATE questions SET partie_id = ? WHERE partie_id = ?")
-        ->execute([$autrePartieId, $partieId]);
-    $pdo->prepare("DELETE FROM parties WHERE id = ?")->execute([$partieId]);
-    $pdo->commit();
-    return true;
-}
-
-function renommerPartie(int $partieId, string $nom): void {
-    $pdo = getDB();
-    $pdo->prepare("UPDATE parties SET nom = ? WHERE id = ?")->execute([$nom, $partieId]);
-}
-
-function togglePartieActif(int $partieId): bool {
-    $pdo = getDB();
-    $pdo->prepare("UPDATE parties SET actif = NOT actif WHERE id = ?")->execute([$partieId]);
-    $stmt = $pdo->prepare("SELECT actif FROM parties WHERE id = ?");
-    $stmt->execute([$partieId]);
-    return (bool)$stmt->fetchColumn();
-}
-
-function getPartie(int $partieId): ?array {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT * FROM parties WHERE id = ?");
-    $stmt->execute([$partieId]);
-    return $stmt->fetch() ?: null;
-}
-
-function getQuestionsGroupeesParPartie(int $moduleId): array {
-    $parties = getPartiesModule($moduleId);
-    $allQ    = getQuestionsModule($moduleId);
-
-    $result = [];
-    foreach ($parties as $p) {
-        $qs = array_filter($allQ, fn($q) => (int)$q['partie_id'] === (int)$p['id']);
-        $result[] = ['partie' => $p, 'questions' => array_values($qs)];
-    }
-    return $result;
-}
 
 function getTotalPoints(int $moduleId): float {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(points), 0) AS total FROM questions WHERE module_id = ?");
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(q.points), 0) AS total FROM questions q
+        INNER JOIN parties p ON q.partie_id = p.id
+        WHERE q.module_id = ? AND p.actif = 1
+    ");
     $stmt->execute([$moduleId]);
     return (float)$stmt->fetchColumn();
 }
 
-function getTotalPointsPartie(int $partieId): float {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(points), 0) AS total FROM questions WHERE partie_id = ?");
-    $stmt->execute([$partieId]);
-    return (float)$stmt->fetchColumn();
-}
 
 function supprimerSession(int $sessionId): void {
     $pdo = getDB();
@@ -261,9 +142,8 @@ function supprimerModule(int $moduleId): void {
     foreach ($qids->fetchAll(PDO::FETCH_COLUMN) as $qid) {
         $pdo->prepare("DELETE FROM choix_reponses WHERE question_id = ?")->execute([$qid]);
     }
-    // 4. Questions + parties + module
+    // 4. Questions + module
     $pdo->prepare("DELETE FROM questions WHERE module_id = ?")->execute([$moduleId]);
-    $pdo->prepare("DELETE FROM parties WHERE module_id = ?")->execute([$moduleId]);
     $pdo->prepare("DELETE FROM modules WHERE id = ?")->execute([$moduleId]);
 }
 
@@ -271,10 +151,10 @@ function supprimerModule(int $moduleId): void {
 // Fonctions sessions d'évaluation
 // ============================================================
 
-function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId, ?int $stagiaireId = null, ?int $partieId = null): array {
+function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId, ?int $stagiaireId = null): array {
     $pdo = getDB();
     $token = generateToken();
-    $totalPoints = $partieId ? getTotalPointsPartie($partieId) : getTotalPoints($moduleId);
+    $totalPoints = getTotalPoints($moduleId);
 
     $stmt = $pdo->prepare("INSERT INTO sessions_eval (token, nom, prenom, groupe_id, groupe_libre, module_id, total_points, stagiaire_id)
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
@@ -563,4 +443,413 @@ function resetPasswordStagiaire(int $id): void {
     $hash = password_hash('123456', PASSWORD_BCRYPT);
     $pdo->prepare("UPDATE stagiaires SET password_hash=?, must_change_password=1 WHERE id=?")
         ->execute([$hash, $id]);
+}
+
+// ============================================================
+// Fonctions formateurs
+// ============================================================
+
+function getAllFormateurs(): array {
+    $pdo = getDB();
+    return $pdo->query("
+        SELECT a.*,
+               COUNT(DISTINCT mf.module_id) AS nb_modules
+        FROM admins a
+        LEFT JOIN module_formateurs mf ON a.id = mf.formateur_id
+        GROUP BY a.id
+        ORDER BY a.nom
+    ")->fetchAll();
+}
+
+function getFormateur(int $id): ?array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT * FROM admins WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: null;
+}
+
+function adminUsernameUnique(string $username, int $excludeId = 0): bool {
+    $pdo = getDB();
+    $sql = "SELECT COUNT(*) FROM admins WHERE username = ?";
+    $params = [trim($username)];
+    if ($excludeId > 0) {
+        $sql .= " AND id != ?";
+        $params[] = $excludeId;
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return (int)$stmt->fetchColumn() === 0;
+}
+
+function creerFormateur(string $username, string $nom, string $password): int {
+    $pdo = getDB();
+    $hash = password_hash($password, PASSWORD_BCRYPT);
+    $stmt = $pdo->prepare("INSERT INTO admins (username, password_hash, nom, role) VALUES (?, ?, ?, 'formateur')");
+    $stmt->execute([trim($username), $hash, trim($nom)]);
+    return (int)$pdo->lastInsertId();
+}
+
+function modifierFormateur(int $id, string $username, string $nom, ?string $password = null): void {
+    $pdo = getDB();
+    if ($password) {
+        $hash = password_hash($password, PASSWORD_BCRYPT);
+        $stmt = $pdo->prepare("UPDATE admins SET username = ?, nom = ?, password_hash = ? WHERE id = ?");
+        $stmt->execute([trim($username), trim($nom), $hash, $id]);
+    } else {
+        $stmt = $pdo->prepare("UPDATE admins SET username = ?, nom = ? WHERE id = ?");
+        $stmt->execute([trim($username), trim($nom), $id]);
+    }
+}
+
+function supprimerFormateur(int $id): void {
+    $pdo = getDB();
+    $pdo->prepare("DELETE FROM admins WHERE id = ?")->execute([$id]);
+}
+
+function getGroupesFormateur(int $formateurId): array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT groupe_id FROM formateur_groupes WHERE formateur_id = ?");
+    $stmt->execute([$formateurId]);
+    return array_column($stmt->fetchAll(), 'groupe_id');
+}
+
+function getGroupesFormateur_Details(int $formateurId): array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        SELECT g.* FROM groupes g
+        INNER JOIN formateur_groupes fg ON g.id = fg.groupe_id
+        WHERE fg.formateur_id = ?
+        ORDER BY g.nom
+    ");
+    $stmt->execute([$formateurId]);
+    return $stmt->fetchAll();
+}
+
+function setGroupesFormateur(int $formateurId, array $groupeIds): void {
+    $pdo = getDB();
+    $pdo->prepare("DELETE FROM formateur_groupes WHERE formateur_id = ?")->execute([$formateurId]);
+    foreach ($groupeIds as $groupeId) {
+        $pdo->prepare("INSERT INTO formateur_groupes (formateur_id, groupe_id) VALUES (?, ?)")
+            ->execute([$formateurId, (int)$groupeId]);
+    }
+}
+
+// ============================================================
+// Fonctions import questions
+// ============================================================
+
+function parseExcelFile(string $filePath): array {
+    $questions = [];
+    if (!file_exists($filePath)) return [];
+
+    // Lecture CSV/Excel
+    if (($handle = fopen($filePath, 'r')) !== false) {
+        $header = null;
+        $headerLower = null;
+
+        while (($data = fgetcsv($handle, 0, ',')) !== false) {
+            if ($header === null) {
+                $header = $data;
+                // Normalise les entêtes
+                $headerLower = array_map('strtolower', $data);
+                continue;
+            }
+
+            if (count($data) > 0 && !empty($data[0])) {
+                $row = array_combine($header, $data);
+
+                // Cherche le texte de la question
+                $texteKey = null;
+                foreach ($headerLower as $idx => $key) {
+                    if (strpos($key, 'question') !== false || strpos($key, 'texte') !== false) {
+                        $texteKey = $header[$idx];
+                        break;
+                    }
+                }
+                if (!$texteKey) {
+                    $texteKey = $header[0]; // Première colonne par défaut
+                }
+
+                $question = [
+                    'texte' => trim($row[$texteKey] ?? ''),
+                    'type' => trim($row[array_search('type', $headerLower, true) ? $header[array_search('type', $headerLower, true)] : 'type'] ?? 'qcm'),
+                    'points' => (float)($row[array_search('points', $headerLower, true) ? $header[array_search('points', $headerLower, true)] : 'points'] ?? 1),
+                    'choix' => []
+                ];
+
+                // Cherche les colonnes de choix
+                foreach ($headerLower as $idx => $key) {
+                    if (preg_match('/^(choice|choix|reponse|answer)\s*(\d+)$/', $key, $m)) {
+                        $choixNum = $m[2];
+                        $choixTexte = trim($row[$header[$idx]] ?? '');
+                        if (!empty($choixTexte)) {
+                            $isCorrect = 0;
+                            // Détecte la réponse correcte par astérisque ou colonne dédiée
+                            if (strpos($choixTexte, '*') !== false) {
+                                $isCorrect = 1;
+                                $choixTexte = str_replace('*', '', $choixTexte);
+                            }
+
+                            $correctKey = array_search("correct_$choixNum", $headerLower, true);
+                            if ($correctKey !== false) {
+                                $isCorrect = (int)($row[$header[$correctKey]] ?? 0);
+                            }
+
+                            $question['choix'][] = [
+                                'texte' => trim($choixTexte),
+                                'is_correct' => $isCorrect
+                            ];
+                        }
+                    }
+                }
+
+                if (!empty($question['texte'])) {
+                    $questions[] = $question;
+                }
+            }
+        }
+        fclose($handle);
+    }
+    return $questions;
+}
+
+function parsePdfFile(string $filePath): array {
+    // Simple extraction - assume PDF has text format
+    // For production, use a proper PDF library
+    $text = shell_exec("pdftotext \"$filePath\" -") ?? '';
+    return extractQuestionsFromText($text);
+}
+
+function parseMarkdownFile(string $filePath): array {
+    if (!file_exists($filePath)) return [];
+    $content = file_get_contents($filePath);
+    return extractQuestionsFromMarkdown($content);
+}
+
+function parseDocxFile(string $filePath): array {
+    // Extract from DOCX (which is a ZIP with XML)
+    $questions = [];
+    $zip = new ZipArchive();
+    if ($zip->open($filePath) !== true) return [];
+
+    if ($xml = $zip->getFromName('word/document.xml')) {
+        $dom = new DOMDocument();
+        @$dom->loadXML($xml);
+        $xpath = new DOMXPath($dom);
+        $xpath->registerNamespace('w', 'http://schemas.openxmlformats.org/wordprocessingml/2006/main');
+
+        $paragraphs = $xpath->query('//w:p');
+        $currentQuestion = null;
+
+        foreach ($paragraphs as $para) {
+            // Récupère le texte, y compris les runs (w:r)
+            $text = '';
+            $isBold = false;
+
+            foreach ($para->childNodes as $node) {
+                if ($node->nodeName === 'w:r') {
+                    $rPr = $xpath->query('w:rPr[w:b]', $node);
+                    if ($rPr->length > 0) {
+                        $isBold = true;
+                    }
+                    $text .= $xpath->evaluate('string(w:t)', $node);
+                } else {
+                    $text .= $xpath->evaluate('string(.)', $node);
+                }
+            }
+
+            $text = trim($text);
+            if (empty($text)) continue;
+
+            // Détecte les questions (commençant par un numéro)
+            if (preg_match('/^\d+[\.\)]\s+(.+)/', $text, $m)) {
+                if ($currentQuestion) {
+                    $questions[] = $currentQuestion;
+                }
+                $currentQuestion = ['texte' => trim($m[1]), 'type' => 'qcm', 'points' => 1];
+            } elseif ($currentQuestion && preg_match('/^[a-dA-D\*]\)\s+(.+)/', $text, $m)) {
+                // Réponses possibles : a) b) c) d) ou *a) *b) *c) *d)
+                if (!isset($currentQuestion['choix'])) {
+                    $currentQuestion['choix'] = [];
+                }
+
+                $isCorrect = (strpos($text, '*') !== false || $isBold) ? 1 : 0;
+                $choixTexte = preg_replace('/^\*?\s*[a-dA-D]\)\s*/', '', $text);
+                $choixTexte = trim(str_replace('*', '', $choixTexte));
+
+                $currentQuestion['choix'][] = [
+                    'texte' => $choixTexte,
+                    'is_correct' => $isCorrect
+                ];
+            }
+        }
+        if ($currentQuestion) {
+            $questions[] = $currentQuestion;
+        }
+    }
+    $zip->close();
+    return $questions;
+}
+
+function extractQuestionsFromMarkdown(string $content): array {
+    $questions = [];
+    $lines = explode("\n", $content);
+    $currentQuestion = null;
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line)) continue;
+
+        // Skip Markdown headers (##, ###, etc.)
+        if (preg_match('/^#+\s+/', $line)) {
+            continue;
+        }
+
+        // Question: numbered format (1. or 1))
+        if (preg_match('/^\d+[\.\)]\s+(.+)/', $line, $m)) {
+            if ($currentQuestion && !empty($currentQuestion['choix'] ?? [])) {
+                $questions[] = $currentQuestion;
+            }
+            $currentQuestion = ['texte' => trim($m[1]), 'type' => 'qcm', 'points' => 1];
+        }
+        // Answer choice: A. or A) format (uppercase or lowercase)
+        elseif ($currentQuestion && preg_match('/^[a-dA-D][\.\)]\s+(.+)/', $line, $m)) {
+            if (!isset($currentQuestion['choix'])) {
+                $currentQuestion['choix'] = [];
+            }
+
+            $fullLine = $m[1];
+            $isCorrect = 0;
+            $choixTexte = $fullLine;
+
+            // Check for correct answer markers: **bold**, ✓, [x]
+            if (preg_match('/^\*\*(.+?)\*\*/', $fullLine, $bold)) {
+                $isCorrect = 1;
+                $choixTexte = $bold[1];
+            } elseif (preg_match('/^✓\s*(.+)/', $fullLine, $check)) {
+                $isCorrect = 1;
+                $choixTexte = $check[1];
+            } elseif (preg_match('/^\[x\]\s*(.+)/', $fullLine, $checkbox)) {
+                $isCorrect = 1;
+                $choixTexte = $checkbox[1];
+            }
+
+            $currentQuestion['choix'][] = [
+                'texte' => trim($choixTexte),
+                'is_correct' => $isCorrect
+            ];
+        }
+        // Bullet-style answers (- or *)
+        elseif ($currentQuestion && preg_match('/^[-\*]\s+(.+)$/', $line, $m)) {
+            if (!isset($currentQuestion['choix'])) {
+                $currentQuestion['choix'] = [];
+            }
+
+            $fullLine = $m[1];
+            $isCorrect = 0;
+            $choixTexte = $fullLine;
+
+            // Check for correct answer markers
+            if (preg_match('/^\*\*(.+?)\*\*/', $fullLine, $bold)) {
+                $isCorrect = 1;
+                $choixTexte = $bold[1];
+            } elseif (preg_match('/^✓\s*(.+)/', $fullLine, $check)) {
+                $isCorrect = 1;
+                $choixTexte = $check[1];
+            } elseif (preg_match('/^\[x\]\s*(.+)/', $fullLine, $checkbox)) {
+                $isCorrect = 1;
+                $choixTexte = $checkbox[1];
+            }
+
+            $currentQuestion['choix'][] = [
+                'texte' => trim($choixTexte),
+                'is_correct' => $isCorrect
+            ];
+        }
+    }
+
+    if ($currentQuestion && !empty($currentQuestion['choix'] ?? [])) {
+        $questions[] = $currentQuestion;
+    }
+
+    return $questions;
+}
+
+function extractQuestionsFromText(string $text): array {
+    $questions = [];
+    // Pattern simple: numéro. Question
+    $pattern = '/(\d+)[\.\)]\s+([^\n]+)/';
+
+    if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
+        foreach ($matches as $match) {
+            $questions[] = [
+                'texte' => $match[2],
+                'type' => 'qcm',
+                'points' => 1,
+                'choix' => []
+            ];
+        }
+    }
+    return $questions;
+}
+
+function importQuestionsToModule(array $questions, int $moduleId): array {
+    $pdo = getDB();
+    $imported = 0;
+    $errors = [];
+
+    // Get or create default partie for this module
+    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND nom = 'Général' LIMIT 1");
+    $stmt->execute([$moduleId]);
+    $partie = $stmt->fetch();
+
+    if (!$partie) {
+        $stmt = $pdo->prepare("INSERT INTO parties (module_id, nom, actif, ordre) VALUES (?, ?, 1, 1)");
+        $stmt->execute([$moduleId, 'Général']);
+        $partieId = (int)$pdo->lastInsertId();
+    } else {
+        $partieId = (int)$partie['id'];
+    }
+
+    foreach ($questions as $q) {
+        try {
+            $texte = trim($q['texte'] ?? $q['question'] ?? '');
+            $type = $q['type'] ?? 'qcm';
+            $points = (float)($q['points'] ?? 1);
+
+            if (strlen($texte) < 3) {
+                $errors[] = "Question ignorée : texte trop court";
+                continue;
+            }
+
+            // Insert question
+            $stmt = $pdo->prepare("
+                INSERT INTO questions (module_id, partie_id, texte, type, points, ordre)
+                VALUES (?, ?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$moduleId, $partieId, $texte, $type, $points, $imported + 1]);
+            $questionId = (int)$pdo->lastInsertId();
+
+            // Insert choices if exists
+            $choix = $q['choix'] ?? [];
+            $ordre = 1;
+            foreach ($choix as $choice) {
+                $choixTexte = $choice['texte'] ?? $choice ?? '';
+                $isCorrect = isset($choice['is_correct']) ? (int)$choice['is_correct'] : 0;
+
+                $stmt = $pdo->prepare("
+                    INSERT INTO choix_reponses (question_id, texte, is_correct, ordre)
+                    VALUES (?, ?, ?, ?)
+                ");
+                $stmt->execute([$questionId, $choixTexte, $isCorrect, $ordre]);
+                $ordre++;
+            }
+
+            $imported++;
+        } catch (Exception $e) {
+            $errors[] = "Erreur : " . $e->getMessage();
+        }
+    }
+
+    return ['imported' => $imported, 'errors' => $errors];
 }
