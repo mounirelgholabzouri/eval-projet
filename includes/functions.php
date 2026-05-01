@@ -497,6 +497,25 @@ function supprimerFormateur(int $id): void {
     $pdo->prepare("DELETE FROM admins WHERE id = ?")->execute([$id]);
 }
 
+function getGroupesFormateur(int $formateurId): array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT groupe_id FROM formateur_groupes WHERE formateur_id = ?");
+    $stmt->execute([$formateurId]);
+    return array_column($stmt->fetchAll(), 'groupe_id');
+}
+
+function getGroupesFormateur_Details(int $formateurId): array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        SELECT g.* FROM groupes g
+        INNER JOIN formateur_groupes fg ON g.id = fg.groupe_id
+        WHERE fg.formateur_id = ?
+        ORDER BY g.nom
+    ");
+    $stmt->execute([$formateurId]);
+    return $stmt->fetchAll();
+}
+
 function setGroupesFormateur(int $formateurId, array $groupeIds): void {
     $pdo = getDB();
     $pdo->prepare("DELETE FROM formateur_groupes WHERE formateur_id = ?")->execute([$formateurId]);

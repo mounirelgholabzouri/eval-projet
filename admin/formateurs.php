@@ -71,7 +71,7 @@ $editFormateur      = null;
 $editGroupesAssignes = [];
 if ($action === 'edit' && $id > 0) {
     $editFormateur       = getFormateur($id);
-    $editGroupesAssignes = [];
+    $editGroupesAssignes = $editFormateur ? getGroupesFormateur($id) : [];
 }
 ?>
 <!DOCTYPE html>
@@ -127,7 +127,7 @@ if ($action === 'edit' && $id > 0) {
                     <tr><td colspan="5" class="text-center text-muted py-4">Aucun formateur. Créez-en un avec le bouton ci-dessus.</td></tr>
                     <?php endif; ?>
                     <?php foreach ($formateurs as $f): ?>
-                    <?php $grps = []; ?>
+                    <?php $grps = getGroupesFormateur_Details($f['id']); ?>
                     <tr>
                         <td class="ps-4 fw-semibold">
                             <i class="bi bi-person-circle me-2 text-primary"></i><?= sanitize($f['nom'] ?: $f['username']) ?>
