@@ -305,6 +305,7 @@ $tamponB64  = file_exists($tamponPath)
         }
 
         /* ── IMPRESSION ── */
+        @page { size: A4; margin: 0; }
         @media print {
             * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body { background: none; }

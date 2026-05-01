@@ -229,12 +229,12 @@ $tamponB64  = file_exists($tamponPath)
             z-index: 100;
         }
 
+        @page { size: A4; margin: 0; }
         @media print {
             * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
             body { background: #fff; }
             .print-controls { display: none !important; }
             .page { margin: 0; box-shadow: none; width: 100%; padding: 7mm 10mm 12mm; }
-            @page { size: A4; margin: 0; }
             .questions-table thead th {
                 background: #000 !important;
                 color: #fff !important;

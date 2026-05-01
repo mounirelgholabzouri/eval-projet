@@ -309,6 +309,7 @@ $tamponB64  = file_exists($tamponPath)
         }
 
         /* ── Impression ── */
+        @page { size: A4; margin: 0; }
         @media print {
             body { background: #fff; }
             .print-controls { display: none !important; }
@@ -318,7 +319,6 @@ $tamponB64  = file_exists($tamponPath)
                 box-shadow: none;
                 width: 100%;
             }
-            @page { size: A4; margin: 0; }
         }
     </style>
 </head>

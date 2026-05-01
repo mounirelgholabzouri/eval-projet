@@ -134,6 +134,7 @@ $logoPath = '../assets/img/ofppt_logo.png';
         .page-break { page-break-after: always; break-after: page; }
 
         /* ---- Barre d'outils (masquée à l'impression) ---- */
+        @page { size: A4; margin: 0; }
         @media print {
             .no-print { display: none !important; }
             body { font-size: 10.5pt; }
