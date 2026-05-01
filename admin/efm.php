@@ -5,8 +5,9 @@ require_once __DIR__ . '/../includes/functions.php';
 $pdo      = getDB();
 $moduleId = (int)($_GET['module_id'] ?? 0);
 $module   = $moduleId ? getModule($moduleId) : null;
+if ($module && !canAccessModule($moduleId, currentAdminId(), isAdmin())) { $module = null; $moduleId = 0; }
 $parties  = $moduleId ? getPartiesModule($moduleId) : [];
-$modules  = getAllModules();
+$modules  = getModulesAccessibles(currentAdminId(), isAdmin());
 $erreur   = '';
 
 // Sélection rapide de module via POST

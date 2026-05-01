@@ -6,10 +6,20 @@ require_once __DIR__ . '/../config/database.php';
 
 $pdo = getDB();
 
-// Récupérer la clé API stockée en DB (ou depuis la config)
+/**
+ * Retourne la clé API de l'utilisateur connecté.
+ * - Admin  → clé globale dans config
+ * - Formateur → clé personnelle dans admins.anthropic_api_key
+ */
 function getApiKey(): string {
     try {
-        $pdo  = getDB();
+        $pdo = getDB();
+        if (isFormateur()) {
+            $stmt = $pdo->prepare("SELECT anthropic_api_key FROM admins WHERE id = ?");
+            $stmt->execute([currentAdminId()]);
+            $val = $stmt->fetchColumn();
+            return $val ?: '';
+        }
         $stmt = $pdo->query("SELECT valeur FROM config WHERE cle = 'anthropic_api_key' LIMIT 1");
         $row  = $stmt->fetch();
         return $row ? $row['valeur'] : '';
@@ -20,9 +30,14 @@ function getApiKey(): string {
 
 function saveApiKey(string $key): void {
     $pdo = getDB();
-    $pdo->prepare("INSERT INTO config (cle, valeur) VALUES ('anthropic_api_key', ?)
-                   ON DUPLICATE KEY UPDATE valeur = ?")
-        ->execute([$key, $key]);
+    if (isFormateur()) {
+        $pdo->prepare("UPDATE admins SET anthropic_api_key = ? WHERE id = ?")
+            ->execute([$key, currentAdminId()]);
+    } else {
+        $pdo->prepare("INSERT INTO config (cle, valeur) VALUES ('anthropic_api_key', ?)
+                       ON DUPLICATE KEY UPDATE valeur = ?")
+            ->execute([$key, $key]);
+    }
 }
 
 $erreur = '';
@@ -30,7 +45,7 @@ $succes = '';
 $questionsGenerees = null;
 $moduleIdCible = 0;
 
-$allModules = getAllModules();
+$allModules = getModulesAccessibles(currentAdminId(), isAdmin());
 
 // ── AJAX : récupérer les parties d'un module ─────────────────
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'parties') {
@@ -231,7 +246,7 @@ $apiKeySaved = getApiKey();
             <div class="card border-0 shadow-sm rounded-4 mb-4">
                 <div class="card-body p-4">
                     <h6 class="fw-bold mb-3">
-                        <i class="bi bi-key me-2 text-warning"></i>Clé API Anthropic
+                        <i class="bi bi-key me-2 text-warning"></i>Ma clé API Anthropic
                     </h6>
                     <form method="POST">
                         <div class="input-group input-group-sm">
@@ -244,9 +259,12 @@ $apiKeySaved = getApiKey();
                         </div>
                         <?php if ($apiKeySaved): ?>
                         <div class="text-success small mt-1">
-                            <i class="bi bi-check-circle me-1"></i>Clé configurée
+                            <i class="bi bi-check-circle me-1"></i>Clé personnelle configurée
                         </div>
                         <?php else: ?>
+                        <div class="text-danger small mt-1 fw-semibold">
+                            <i class="bi bi-exclamation-triangle me-1"></i>Aucune clé — la génération IA est désactivée.
+                        </div>
                         <div class="text-muted small mt-1">
                             Obtenez votre clé sur
                             <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>

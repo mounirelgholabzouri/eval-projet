@@ -48,7 +48,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// ── Restrictions formateur ─────────────────────────────────────
+if (isFormateur()) {
+    // Un formateur ne peut qu'afficher ses groupes assignés, pas en créer/supprimer
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        $postAction2 = $_POST['action'] ?? '';
+        if (in_array($postAction2, ['ajouter', 'supprimer'])) {
+            $msg = "Action réservée à l'administrateur.";
+            $msgType = 'danger';
+        }
+    }
+}
+
 // ── Données ──────────────────────────────────────────────────
+if (isFormateur()) {
+    $groupes = getGroupesFormateur(currentAdminId());
+} else {
 $groupes = $pdo->query("
     SELECT g.*,
            COUNT(DISTINCT s.id)  AS nb_stagiaires,
@@ -59,6 +74,7 @@ $groupes = $pdo->query("
     GROUP BY g.id
     ORDER BY g.nom
 ")->fetchAll();
+}
 
 $editGroupe = null;
 if ($action === 'edit' && $id > 0) {

@@ -19,9 +19,10 @@ $moduleId  = (int)($_GET['module_id']  ?? 0);
 
 if ($sessionId > 0) {
     $sess = getSession($sessionId);
-    if (!$sess || $sess['statut'] !== 'termine' || ($sess['module_type'] ?? '') !== 'efm') {
+    if (!$sess || $sess['statut'] !== 'termine' || ($sess['module_type'] ?? '') !== 'efm'
+        || !canAccessModule((int)$sess['module_id'], currentAdminId(), isAdmin())) {
         http_response_code(400);
-        exit('<p style="color:red;padding:20px">Session invalide ou non EFM. <a href="results.php">Retour</a></p>');
+        exit('<p style="color:red;padding:20px">Session invalide, non EFM ou accès refusé. <a href="results.php">Retour</a></p>');
     }
     $sessions     = [$sess];
     $redirectBack = "results.php?module_id={$sess['module_id']}";

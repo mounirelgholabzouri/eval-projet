@@ -7,14 +7,17 @@ $msg    = '';
 $erreur = '';
 $activeTab = 'fusion'; // 'fusion' ou 'efm'
 
-$modules = getAllModules();
+$modules = getModulesAccessibles(currentAdminId(), isAdmin());
 
-// ── Précharger toutes les parties de tous les modules (pour JS) ──
+// ── Précharger toutes les parties des modules accessibles (pour JS) ──
 $allParties = [];
+$accessibleModuleIds = array_column($modules, 'id') ?: [0];
+$inMods = implode(',', $accessibleModuleIds);
 $stmtP = $pdo->query("
     SELECT p.*, COUNT(q.id) AS nb_questions
     FROM parties p
     LEFT JOIN questions q ON q.partie_id = p.id
+    WHERE p.module_id IN ($inMods)
     GROUP BY p.id
     ORDER BY p.module_id, p.ordre, p.id
 ");

@@ -20,8 +20,8 @@ $codeModule    = htmlspecialchars(trim($_GET['code_module'] ?? ''), ENT_QUOTES, 
 $intitule      = htmlspecialchars(trim($_GET['intitule'] ?? ''), ENT_QUOTES, 'UTF-8');
 
 $module = $moduleId ? getModule($moduleId) : null;
-if (!$module || empty($partieIds)) {
-    echo '<p class="text-danger p-4">Paramètres invalides. <a href="efm.php">Retour</a></p>'; exit;
+if (!$module || empty($partieIds) || !canAccessModule($moduleId, currentAdminId(), isAdmin())) {
+    echo '<p class="text-danger p-4">Paramètres invalides ou accès refusé. <a href="efm.php">Retour</a></p>'; exit;
 }
 
 // ── Charger les questions par partie sélectionnée ─────────────

@@ -17,7 +17,7 @@ $session = getSession($sessionId);
 if (!$session) { header('Location: results.php'); exit; }
 
 $module = getModule((int)$session['module_id']);
-if (!$module) { header('Location: results.php'); exit; }
+if (!$module || !canAccessModule((int)$session['module_id'], currentAdminId(), isAdmin())) { header('Location: results.php'); exit; }
 
 $codeModule    = $module['efm_code_module']   ?? '';
 $filiere       = $module['efm_filiere']       ?? '';

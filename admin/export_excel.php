@@ -27,10 +27,17 @@ if (!empty($_SESSION['admin_id'])) {
 $pdo = getDB();
 $moduleId = (int)($_GET['module_id'] ?? 0);
 $groupeId = (int)($_GET['groupe_id'] ?? 0);
+$adminRole = ($_SESSION['admin_role'] ?? 'admin') === 'admin';
+$adminId   = (int)($_SESSION['admin_id'] ?? 0);
 
 // ── Requête évaluations ──────────────────────────────────────────────────────
 $where  = ["se.statut = 'termine'"];
 $params = [];
+// Restreindre aux modules accessibles si formateur
+if (!$adminRole && $adminId) {
+    $myIds = array_column(getModulesFormateur($adminId), 'id') ?: [0];
+    $where[] = 'se.module_id IN (' . implode(',', $myIds) . ')';
+}
 if ($moduleId > 0) { $where[] = 'se.module_id = ?'; $params[] = $moduleId; }
 if ($groupeId > 0) { $where[] = 'se.groupe_id = ?'; $params[] = $groupeId; }
 

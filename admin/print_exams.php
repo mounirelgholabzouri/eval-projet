@@ -24,7 +24,7 @@ if (!$filterModule) {
 $stmtMod = $pdo->prepare("SELECT * FROM modules WHERE id = ?");
 $stmtMod->execute([$filterModule]);
 $module = $stmtMod->fetch();
-if (!$module) { header('Location: results.php'); exit; }
+if (!$module || !canAccessModule($filterModule, currentAdminId(), isAdmin())) { header('Location: results.php'); exit; }
 
 // Récupérer les sessions (une seule ou toutes)
 if ($filterSession) {

@@ -564,3 +564,224 @@ function resetPasswordStagiaire(int $id): void {
     $pdo->prepare("UPDATE stagiaires SET password_hash=?, must_change_password=1 WHERE id=?")
         ->execute([$hash, $id]);
 }
+
+// ============================================================
+// Fonctions formateurs (multi-tenant)
+// ============================================================
+
+function getAllFormateurs(): array {
+    $pdo = getDB();
+    return $pdo->query("
+        SELECT a.*,
+               COUNT(DISTINCT m.id)  AS nb_modules,
+               COUNT(DISTINCT fg.groupe_id) AS nb_groupes
+        FROM admins a
+        LEFT JOIN modules m           ON m.formateur_id = a.id
+        LEFT JOIN formateur_groupes fg ON fg.formateur_id = a.id
+        WHERE a.role = 'formateur'
+        GROUP BY a.id
+        ORDER BY a.nom, a.username
+    ")->fetchAll();
+}
+
+function getFormateur(int $id): ?array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT * FROM admins WHERE id = ? AND role = 'formateur'");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: null;
+}
+
+function creerFormateur(string $username, string $nom, string $password): int {
+    $pdo = getDB();
+    $hash = password_hash($password, PASSWORD_BCRYPT);
+    $pdo->prepare("INSERT INTO admins (username, nom, password_hash, role) VALUES (?,?,?,'formateur')")
+        ->execute([trim($username), trim($nom), $hash]);
+    return (int)$pdo->lastInsertId();
+}
+
+function modifierFormateur(int $id, string $username, string $nom, ?string $password = null): void {
+    $pdo = getDB();
+    if ($password) {
+        $hash = password_hash($password, PASSWORD_BCRYPT);
+        $pdo->prepare("UPDATE admins SET username=?, nom=?, password_hash=? WHERE id=?")
+            ->execute([trim($username), trim($nom), $hash, $id]);
+    } else {
+        $pdo->prepare("UPDATE admins SET username=?, nom=? WHERE id=?")
+            ->execute([trim($username), trim($nom), $id]);
+    }
+}
+
+function supprimerFormateur(int $id): void {
+    $pdo = getDB();
+    // Détacher les modules (pas supprimer)
+    $pdo->prepare("UPDATE modules SET formateur_id = NULL WHERE formateur_id = ?")->execute([$id]);
+    $pdo->prepare("DELETE FROM formateur_groupes WHERE formateur_id = ?")->execute([$id]);
+    $pdo->prepare("DELETE FROM admins WHERE id = ? AND role = 'formateur'")->execute([$id]);
+}
+
+function getGroupesFormateur(int $formateurId): array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        SELECT g.*,
+               COUNT(DISTINCT s.id)  AS nb_stagiaires,
+               COUNT(DISTINCT se.id) AS nb_sessions
+        FROM groupes g
+        JOIN formateur_groupes fg ON fg.groupe_id = g.id AND fg.formateur_id = ?
+        LEFT JOIN stagiaires s   ON s.groupe_id = g.id
+        LEFT JOIN sessions_eval se ON se.groupe_id = g.id
+        GROUP BY g.id
+        ORDER BY g.nom
+    ");
+    $stmt->execute([$formateurId]);
+    return $stmt->fetchAll();
+}
+
+/** Remplace les groupes assignés à un formateur. */
+function setGroupesFormateur(int $formateurId, array $groupeIds): void {
+    $pdo = getDB();
+    $pdo->prepare("DELETE FROM formateur_groupes WHERE formateur_id = ?")->execute([$formateurId]);
+    $stmt = $pdo->prepare("INSERT INTO formateur_groupes (formateur_id, groupe_id) VALUES (?,?)");
+    foreach (array_unique(array_filter(array_map('intval', $groupeIds))) as $gid) {
+        $stmt->execute([$formateurId, $gid]);
+    }
+}
+
+function getModulesFormateur(int $formateurId): array {
+    $pdo = getDB();
+    // Modules dont le formateur est propriétaire OU auxquels il a été invité
+    $stmt = $pdo->prepare("
+        SELECT DISTINCT m.*,
+               COALESCE(m.note_max, 20) AS note_max,
+               (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS nb_questions,
+               (SELECT COUNT(*) FROM parties p  WHERE p.module_id  = m.id) AS nb_parties,
+               COALESCE(em.code_module,   '') AS efm_code_module,
+               COALESCE(em.filiere,       '') AS efm_filiere,
+               COALESCE(em.etablissement, '') AS efm_etablissement,
+               COALESCE(em.annee,         '') AS efm_annee
+        FROM modules m
+        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
+        LEFT JOIN module_formateurs mf ON mf.module_id = m.id AND mf.formateur_id = ?
+        WHERE m.formateur_id = ? OR mf.formateur_id = ?
+        ORDER BY m.nom
+    ");
+    $stmt->execute([$formateurId, $formateurId, $formateurId]);
+    return $stmt->fetchAll();
+}
+
+/** Retourne les formateurs assignés à un module. */
+function getFormateursModule(int $moduleId): array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        SELECT a.id, a.nom, a.username
+        FROM admins a
+        JOIN module_formateurs mf ON mf.formateur_id = a.id
+        WHERE mf.module_id = ?
+        ORDER BY a.nom, a.username
+    ");
+    $stmt->execute([$moduleId]);
+    return $stmt->fetchAll();
+}
+
+/** Remplace les formateurs assignés à un module. */
+function setFormateursModule(int $moduleId, array $formateurIds): void {
+    $pdo = getDB();
+    $pdo->prepare("DELETE FROM module_formateurs WHERE module_id = ?")->execute([$moduleId]);
+    $stmt = $pdo->prepare("INSERT INTO module_formateurs (module_id, formateur_id) VALUES (?,?)");
+    foreach (array_unique(array_filter(array_map('intval', $formateurIds))) as $fid) {
+        $stmt->execute([$moduleId, $fid]);
+    }
+}
+
+/**
+ * Retourne la liste des modules accessibles au formateur connecté (owned + shared).
+ * Pour l'admin, retourne tous les modules.
+ * Utiliser en passant $adminId = currentAdminId() et $isAdmin = isAdmin().
+ */
+function getModulesAccessibles(int $adminId, bool $adminRole): array {
+    return $adminRole ? getAllModules() : getModulesFormateur($adminId);
+}
+
+/**
+ * Vérifie qu'un formateur (ou admin) a accès à un module donné.
+ */
+function canAccessModule(int $moduleId, int $adminId, bool $adminRole): bool {
+    if ($adminRole) return true;
+    $ids = array_column(getModulesFormateur($adminId), 'id');
+    return in_array($moduleId, array_map('intval', $ids));
+}
+
+function getStagiairesFormateur(int $formateurId, ?int $groupeId = null, ?string $annee = null): array {
+    $pdo = getDB();
+    $where  = ['fg.formateur_id = ?'];
+    $params = [$formateurId];
+    if ($groupeId) { $where[] = 's.groupe_id = ?'; $params[] = $groupeId; }
+    if ($annee)    { $where[] = 's.annee_scolaire = ?'; $params[] = $annee; }
+    $sql = "SELECT s.*, g.nom AS groupe_nom,
+                COUNT(se.id) AS nb_evaluations,
+                COALESCE(AVG(CASE WHEN se.statut='termine' THEN se.pourcentage END), NULL) AS moy_pourcentage
+            FROM stagiaires s
+            JOIN groupes g ON g.id = s.groupe_id
+            JOIN formateur_groupes fg ON fg.groupe_id = s.groupe_id
+            LEFT JOIN sessions_eval se ON se.stagiaire_id = s.id
+            WHERE " . implode(' AND ', $where) . "
+            GROUP BY s.id ORDER BY s.annee_scolaire DESC, g.nom, s.nom, s.prenom";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt->fetchAll();
+}
+
+function getStatsFormateur(int $formateurId): array {
+    $pdo = getDB();
+    $groupeIds = array_column(
+        $pdo->prepare("SELECT groupe_id FROM formateur_groupes WHERE formateur_id=?")
+            ->execute([$formateurId]) ? getGroupesFormateur($formateurId) : [],
+        'id'
+    );
+    $moduleIds = array_column(getModulesFormateur($formateurId), 'id');
+
+    $inModules = $moduleIds ? implode(',', $moduleIds) : '0';
+    $inGroupes = $groupeIds ? implode(',', $groupeIds) : '0';
+
+    return [
+        'total_sessions'  => (int)$pdo->query("SELECT COUNT(*) FROM sessions_eval WHERE module_id IN ($inModules)")->fetchColumn(),
+        'terminees'       => (int)$pdo->query("SELECT COUNT(*) FROM sessions_eval WHERE statut='termine' AND module_id IN ($inModules)")->fetchColumn(),
+        'moy_pourcentage' => (float)$pdo->query("SELECT COALESCE(AVG(pourcentage),0) FROM sessions_eval WHERE statut='termine' AND module_id IN ($inModules)")->fetchColumn(),
+        'nb_modules'      => count($moduleIds),
+        'nb_stagiaires'   => (int)$pdo->query("SELECT COUNT(*) FROM stagiaires WHERE groupe_id IN ($inGroupes)")->fetchColumn(),
+        'nb_groupes'      => count($groupeIds),
+    ];
+}
+
+function getAllSessionsFormateur(int $formateurId, int $limit = 100, int $offset = 0): array {
+    $pdo = getDB();
+    $moduleIds = array_column(getModulesFormateur($formateurId), 'id');
+    if (empty($moduleIds)) return [];
+    $in = implode(',', $moduleIds);
+    $stmt = $pdo->prepare("
+        SELECT s.*, m.nom AS module_nom,
+               COALESCE(g.nom, s.groupe_libre) AS groupe_nom
+        FROM sessions_eval s
+        JOIN modules m ON m.id = s.module_id
+        LEFT JOIN groupes g ON g.id = s.groupe_id
+        WHERE s.module_id IN ($in)
+        ORDER BY s.date_debut DESC
+        LIMIT ? OFFSET ?
+    ");
+    $stmt->execute([$limit, $offset]);
+    return $stmt->fetchAll();
+}
+
+function adminUsernameExists(string $username, int $excludeId = 0): bool {
+    $pdo = getDB();
+    $sql  = "SELECT COUNT(*) FROM admins WHERE username = ?";
+    $params = [trim($username)];
+    if ($excludeId > 0) { $sql .= " AND id != ?"; $params[] = $excludeId; }
+    return (bool)$pdo->prepare($sql)->execute($params) && (bool)$pdo->query($sql)->fetchColumn();
+}
+
+function adminUsernameUnique(string $username, int $excludeId = 0): bool {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM admins WHERE username = ? AND id != ?");
+    $stmt->execute([trim($username), $excludeId]);
+    return (int)$stmt->fetchColumn() === 0;
+}

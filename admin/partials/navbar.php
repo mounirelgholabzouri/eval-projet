@@ -1,7 +1,12 @@
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
     <div class="container-fluid px-4">
         <a class="navbar-brand fw-bold" href="index.php">
-            <i class="bi bi-shield-check me-2"></i>Admin Évaluations
+            <i class="bi bi-shield-check me-2"></i>
+            <?php if (isAdmin()): ?>
+                Admin Évaluations
+            <?php else: ?>
+                Espace Formateur
+            <?php endif; ?>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
             <span class="navbar-toggler-icon"></span>
@@ -41,7 +46,7 @@
                 <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'stagiaires.php' ? 'active' : '' ?>"
                        href="stagiaires.php">
-                        <i class="bi bi-people me-1"></i>Stagiaires
+                        <i class="bi bi-person-badge me-1"></i>Stagiaires
                     </a>
                 </li>
                 <li class="nav-item">
@@ -56,8 +61,30 @@
                         <i class="bi bi-stars me-1"></i>Génération IA
                     </a>
                 </li>
+                <?php if (isAdmin()): ?>
+                <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'formateurs.php' ? 'active' : '' ?>"
+                       href="formateurs.php">
+                        <i class="bi bi-people-fill me-1"></i>Formateurs
+                    </a>
+                </li>
+                <?php endif; ?>
             </ul>
-            <ul class="navbar-nav">
+            <ul class="navbar-nav align-items-center gap-2">
+                <?php if (isFormateur()): ?>
+                <li class="nav-item">
+                    <span class="badge bg-secondary px-2 py-1 small">
+                        <i class="bi bi-person me-1"></i><?= htmlspecialchars($_SESSION['admin_name']) ?>
+                    </span>
+                </li>
+                <?php endif; ?>
+                <?php if (isAdmin()): ?>
+                <li class="nav-item">
+                    <span class="badge bg-danger px-2 py-1 small">
+                        <i class="bi bi-shield-fill me-1"></i>Admin
+                    </span>
+                </li>
+                <?php endif; ?>
                 <li class="nav-item">
                     <a class="nav-link" href="../index.php" target="_blank">
                         <i class="bi bi-box-arrow-up-right me-1"></i>Voir le site

@@ -2,8 +2,8 @@
 require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-$stats    = getStatsGlobales();
-$sessions = getAllSessions(10, 0);
+$stats    = isAdmin() ? getStatsGlobales() : getStatsFormateur(currentAdminId());
+$sessions = isAdmin() ? getAllSessions(10, 0) : getAllSessionsFormateur(currentAdminId(), 10, 0);
 ?>
 <!DOCTYPE html>
 <html lang="fr">

@@ -110,8 +110,15 @@ if ($action === 'delete' && $questionId > 0) {
 }
 
 // ── Chargement données ───────────────────────────────────────
-$allModules = getAllModules();
+$allModules = isAdmin() ? getAllModules() : getModulesFormateur(currentAdminId());
 $module     = $moduleId > 0 ? getModule($moduleId) : null;
+// Formateur : accès si propriétaire OU module partagé avec lui
+if ($module && isFormateur()) {
+    $myModuleIds = array_column($allModules, 'id');
+    if (!in_array($moduleId, array_map('intval', $myModuleIds))) {
+        $module = null; $moduleId = 0;
+    }
+}
 $parties    = [];
 $currentPartie = null;
 $questionsCurrent = [];

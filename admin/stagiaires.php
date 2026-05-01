@@ -67,11 +67,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ── Données ────────────────────────────────────────────────────
-$groupes     = getGroupes();
+$groupes     = isAdmin() ? getGroupes() : getGroupesFormateur(currentAdminId());
 $annees      = getAnneesDisponibles();
 $anneeActive = $_GET['annee'] ?? getAnneeCourante();
 $groupeFiltre= isset($_GET['groupe_id']) ? (int)$_GET['groupe_id'] : null;
-$stagiaires  = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
+
+// Restreindre la liste selon le rôle
+if (isFormateur()) {
+    $stagiaires = getStagiairesFormateur(currentAdminId(), $groupeFiltre ?: null, $anneeActive ?: null);
+} else {
+    $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
+}
+
+// Un formateur ne peut créer/modifier des stagiaires que dans ses groupes
+if (isFormateur() && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $myGroupIds = array_column($groupes, 'id');
+    $postGrp = (int)($_POST['groupe_id'] ?? 0);
+    if ($postGrp && !in_array($postGrp, $myGroupIds)) {
+        $message     = "Accès refusé : ce groupe ne vous est pas assigné.";
+        $messageType = 'danger';
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">

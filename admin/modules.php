@@ -20,24 +20,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $erreur = "Le nom du module est requis.";
     } else {
         if ($action === 'edit' && $id > 0) {
+            // Vérification d'appartenance pour les formateurs
+            if (isFormateur()) {
+                $own = $pdo->prepare("SELECT id FROM modules WHERE id=? AND formateur_id=?");
+                $own->execute([$id, currentAdminId()]);
+                if (!$own->fetch()) { $erreur = "Accès refusé."; goto endPost; }
+            }
             $stmt = $pdo->prepare("UPDATE modules SET nom=?, description=?, duree_minutes=?, note_max=?, actif=? WHERE id=?");
             $stmt->execute([$nom, $desc, $duree, $noteMax, $actif, $id]);
+            if (isAdmin()) {
+                setFormateursModule($id, array_map('intval', $_POST['formateurs_assignes'] ?? []));
+            }
             $msg = "Module mis à jour avec succès.";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO modules (nom, description, duree_minutes, note_max, actif) VALUES (?,?,?,?,?)");
-            $stmt->execute([$nom, $desc, $duree, $noteMax, $actif]);
+            $formateurId = isFormateur() ? currentAdminId() : null;
+            $stmt = $pdo->prepare("INSERT INTO modules (nom, description, duree_minutes, note_max, actif, formateur_id) VALUES (?,?,?,?,?,?)");
+            $stmt->execute([$nom, $desc, $duree, $noteMax, $actif, $formateurId]);
+            $newModuleId = (int)$pdo->lastInsertId();
+            ensurePartieDefault($newModuleId);
+            if (isAdmin()) {
+                setFormateursModule($newModuleId, array_map('intval', $_POST['formateurs_assignes'] ?? []));
+            } elseif ($formateurId) {
+                // Le formateur-créateur est automatiquement dans module_formateurs
+                setFormateursModule($newModuleId, [$formateurId]);
+            }
             $msg = "Module créé avec succès.";
         }
         $action = 'list';
     }
+    endPost:
 }
 
 // ── Suppression (POST obligatoire) ──────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_module'])) {
     $delId = (int)($_POST['delete_id'] ?? 0);
     if ($delId > 0) {
-        supprimerModule($delId);
-        $msg = "Module et toutes ses données supprimés.";
+        if (isFormateur()) {
+            $own = $pdo->prepare("SELECT id FROM modules WHERE id=? AND formateur_id=?");
+            $own->execute([$delId, currentAdminId()]);
+            if (!$own->fetch()) { $msg = ''; $erreur = "Accès refusé."; $delId = 0; }
+        }
+        if ($delId > 0) {
+            supprimerModule($delId);
+            $msg = "Module et toutes ses données supprimés.";
+        }
+    }
+    $action = 'list';
+}
+
+// ── Partager module ───────────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_partager'])) {
+    $mid = (int)($_POST['module_id'] ?? 0);
+    if ($mid > 0 && isAdmin()) {
+        setFormateursModule($mid, array_map('intval', $_POST['formateurs'] ?? []));
+        $msg = "Partage mis à jour.";
     }
     $action = 'list';
 }
@@ -53,10 +89,15 @@ if ($action === 'toggle' && $id > 0) {
     $action = 'list';
 }
 
-$modules = getAllModules();
+$modules    = isAdmin() ? getAllModules() : getModulesFormateur(currentAdminId());
+$tousFormateurs = isAdmin() ? getAllFormateurs() : [];
 $editModule = null;
 if ($action === 'edit' && $id > 0) {
     $editModule = getModule($id);
+    // Formateur ne peut éditer que ses propres modules
+    if (isFormateur() && ($editModule['formateur_id'] ?? null) != currentAdminId()) {
+        $editModule = null;
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -129,6 +170,26 @@ if ($action === 'edit' && $id > 0) {
                                    <?= (!$editModule || $editModule['actif']) ? 'checked' : '' ?>>
                             <label class="form-check-label" for="actif">Module actif (visible aux stagiaires)</label>
                         </div>
+                        <?php if (isAdmin() && !empty($tousFormateurs)): ?>
+                        <?php $assignes = $editModule ? array_column(getFormateursModule($editModule['id']), 'id') : []; ?>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-share me-1 text-primary"></i>Partager avec les formateurs
+                            </label>
+                            <div class="border rounded-3 p-2" style="max-height:140px;overflow-y:auto">
+                                <?php foreach ($tousFormateurs as $f): ?>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="formateurs_assignes[]"
+                                           value="<?= $f['id'] ?>" id="fa_<?= $f['id'] ?>"
+                                           <?= in_array($f['id'], $assignes) ? 'checked' : '' ?>>
+                                    <label class="form-check-label" for="fa_<?= $f['id'] ?>">
+                                        <?= sanitize($f['nom'] ?: $f['username']) ?>
+                                    </label>
+                                </div>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <?php endif; ?>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">
                                 <i class="bi bi-save me-1"></i><?= $editModule ? 'Mettre à jour' : 'Créer' ?>
@@ -153,6 +214,7 @@ if ($action === 'edit' && $id > 0) {
                                 <th class="text-center">Durée</th>
                                 <th class="text-center">Questions</th>
                                 <th class="text-center">Parties</th>
+                                <?php if (isAdmin()): ?><th>Partagé avec</th><?php endif; ?>
                                 <th class="text-center">Statut</th>
                                 <th class="text-center">Actions</th>
                             </tr>
@@ -182,6 +244,20 @@ if ($action === 'edit' && $id > 0) {
                                         <i class="bi bi-layers me-1"></i><?= (int)($m['nb_parties'] ?? 0) ?>
                                     </a>
                                 </td>
+                                <?php if (isAdmin()): ?>
+                                <?php $fmts = getFormateursModule($m['id']); ?>
+                                <td>
+                                    <?php if (empty($fmts)): ?>
+                                        <span class="text-muted small fst-italic">—</span>
+                                    <?php else: ?>
+                                        <?php foreach ($fmts as $f): ?>
+                                            <span class="badge bg-primary-subtle text-primary border border-primary-subtle me-1">
+                                                <?= sanitize($f['nom'] ?: $f['username']) ?>
+                                            </span>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </td>
+                                <?php endif; ?>
                                 <td class="text-center">
                                     <div class="form-check form-switch d-flex justify-content-center align-items-center gap-2 mb-0">
                                         <input class="form-check-input toggle-actif fs-5" type="checkbox"
@@ -210,6 +286,14 @@ if ($action === 'edit' && $id > 0) {
                                            title="Imprimer sujet vierge">
                                             <i class="bi bi-printer"></i>
                                         </a>
+                                        <?php if (isAdmin()): ?>
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-warning rounded-3"
+                                                title="Partager avec des formateurs"
+                                                onclick='ouvrirPartage(<?= $m['id'] ?>, <?= json_encode($m['nom']) ?>, <?= json_encode(array_column(getFormateursModule($m['id']), 'id')) ?>)'>
+                                            <i class="bi bi-share"></i>
+                                        </button>
+                                        <?php endif; ?>
                                         <button type="button"
                                                 class="btn btn-sm btn-outline-danger rounded-3"
                                                 title="Supprimer"
@@ -298,6 +382,60 @@ document.querySelectorAll('.toggle-actif').forEach(function(toggle) {
         </div>
     </div>
 </div>
+
+<!-- Modal partage -->
+<?php if (isAdmin() && !empty($tousFormateurs)): ?>
+<div class="modal fade" id="modalPartage" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <form method="POST" class="modal-content">
+            <input type="hidden" name="action_partager" value="1">
+            <input type="hidden" name="module_id" id="partageModuleId">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold">
+                    <i class="bi bi-share me-2 text-warning"></i>Partager le module
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-muted small mb-3">
+                    Module : <strong id="partageModuleNom"></strong>
+                </p>
+                <label class="form-label fw-semibold">Sélectionner les formateurs</label>
+                <div class="border rounded-3 p-2" style="max-height:220px;overflow-y:auto" id="partageCheckboxes">
+                    <?php foreach ($tousFormateurs as $f): ?>
+                    <div class="form-check">
+                        <input class="form-check-input partage-cb" type="checkbox"
+                               name="formateurs[]" value="<?= $f['id'] ?>"
+                               id="pf_<?= $f['id'] ?>">
+                        <label class="form-check-label" for="pf_<?= $f['id'] ?>">
+                            <i class="bi bi-person me-1"></i><?= sanitize($f['nom'] ?: $f['username']) ?>
+                            <span class="text-muted small">(<?= sanitize($f['username']) ?>)</span>
+                        </label>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
+                <button type="submit" class="btn btn-warning text-white fw-semibold">
+                    <i class="bi bi-check2 me-2"></i>Enregistrer le partage
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
+
+<script>
+function ouvrirPartage(moduleId, moduleNom, assignesIds) {
+    document.getElementById('partageModuleId').value = moduleId;
+    document.getElementById('partageModuleNom').textContent = moduleNom;
+    document.querySelectorAll('.partage-cb').forEach(function(cb) {
+        cb.checked = assignesIds.includes(parseInt(cb.value));
+    });
+    new bootstrap.Modal(document.getElementById('modalPartage')).show();
+}
+</script>
 
 <script>
 function confirmDeleteModule(id, nom, nbQ, nbP) {

@@ -6,8 +6,8 @@ $pdo = getDB();
 
 $moduleId = (int)($_GET['module_id'] ?? 0);
 $module   = $moduleId ? getModule($moduleId) : null;
-if (!$module) {
-    echo '<p class="text-danger p-4">Module introuvable. <a href="modules.php">Retour</a></p>'; exit;
+if (!$module || !canAccessModule($moduleId, currentAdminId(), isAdmin())) {
+    echo '<p class="text-danger p-4">Module introuvable ou accès refusé. <a href="modules.php">Retour</a></p>'; exit;
 }
 
 $isEfm = ($module['type'] ?? 'qcm') === 'efm';

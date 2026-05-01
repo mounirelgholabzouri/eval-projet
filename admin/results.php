@@ -28,6 +28,13 @@ if (isset($_GET['export'])) {
     fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM UTF-8
     fputcsv($out, ['Nom', 'Prénom', 'Groupe', 'Module', 'Date', 'Score', 'Total', 'Pourcentage', 'Statut'], ';');
 
+    $csvWhere  = ['1=1'];
+    $csvParams = [];
+    if (isFormateur()) {
+        $myIds = array_column(getModulesFormateur(currentAdminId()), 'id') ?: [0];
+        $csvWhere[] = 's.module_id IN (' . implode(',', $myIds) . ')';
+    }
+    $csvWhereStr = implode(' AND ', $csvWhere);
     $stmt = $pdo->prepare("
         SELECT COALESCE(st.nom,    s.nom)    AS nom,
                COALESCE(st.prenom, s.prenom) AS prenom,
@@ -38,9 +45,10 @@ if (isset($_GET['export'])) {
         JOIN modules m ON m.id = s.module_id
         LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
         LEFT JOIN groupes g ON g.id = s.groupe_id
+        WHERE $csvWhereStr
         ORDER BY s.date_debut DESC
     ");
-    $stmt->execute();
+    $stmt->execute($csvParams);
     while ($row = $stmt->fetch()) {
         fputcsv($out, [
             $row['nom'], $row['prenom'], $row['groupe'], $row['module'],
@@ -55,9 +63,20 @@ if (isset($_GET['export'])) {
     exit;
 }
 
-// Requête avec filtres
-$where = ['1=1'];
+// Requête avec filtres — scopée par rôle
+$where  = ['1=1'];
 $params = [];
+
+// Restreindre les résultats aux modules du formateur
+if (isFormateur()) {
+    $myModuleIds = array_column(getModulesFormateur(currentAdminId()), 'id');
+    if (empty($myModuleIds)) {
+        $myModuleIds = [0]; // aucun résultat
+    }
+    $inList = implode(',', $myModuleIds);
+    $where[] = "s.module_id IN ($inList)";
+}
+
 if ($filterModule > 0) { $where[] = 's.module_id = ?'; $params[] = $filterModule; }
 if ($filterGroupe)     { $where[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $params[] = "%$filterGroupe%"; $params[] = "%$filterGroupe%"; }
 if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
@@ -80,7 +99,7 @@ $stmt = $pdo->prepare("
 $stmt->execute($params);
 $sessions = $stmt->fetchAll();
 
-$allModules = getAllModules();
+$allModules = isAdmin() ? getAllModules() : getModulesFormateur(currentAdminId());
 
 // Déterminer si le module filtré est un EFM et construire l'URL d'impression
 $filteredModuleIsEfm = false;
@@ -114,7 +133,7 @@ if ($filterModule) {
         }
     }
 }
-$stats = getStatsGlobales();
+$stats = isAdmin() ? getStatsGlobales() : getStatsFormateur(currentAdminId());
 ?>
 <!DOCTYPE html>
 <html lang="fr">
