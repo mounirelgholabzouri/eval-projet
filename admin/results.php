@@ -28,6 +28,9 @@ if (isset($_GET['export'])) {
     fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // BOM UTF-8
     fputcsv($out, ['Nom', 'Prénom', 'Groupe', 'Module', 'Date', 'Score', 'Total', 'Pourcentage', 'Statut'], ';');
 
+    $csvWhere  = ['1=1'];
+    $csvParams = [];
+    $csvWhereStr = implode(' AND ', $csvWhere);
     $stmt = $pdo->prepare("
         SELECT COALESCE(st.nom,    s.nom)    AS nom,
                COALESCE(st.prenom, s.prenom) AS prenom,
@@ -38,9 +41,10 @@ if (isset($_GET['export'])) {
         JOIN modules m ON m.id = s.module_id
         LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
         LEFT JOIN groupes g ON g.id = s.groupe_id
+        WHERE $csvWhereStr
         ORDER BY s.date_debut DESC
     ");
-    $stmt->execute();
+    $stmt->execute($csvParams);
     while ($row = $stmt->fetch()) {
         fputcsv($out, [
             $row['nom'], $row['prenom'], $row['groupe'], $row['module'],
@@ -56,8 +60,9 @@ if (isset($_GET['export'])) {
 }
 
 // Requête avec filtres
-$where = ['1=1'];
+$where  = ['1=1'];
 $params = [];
+
 if ($filterModule > 0) { $where[] = 's.module_id = ?'; $params[] = $filterModule; }
 if ($filterGroupe)     { $where[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $params[] = "%$filterGroupe%"; $params[] = "%$filterGroupe%"; }
 if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
@@ -89,16 +94,12 @@ if ($filterModule) {
     foreach ($allModules as $m) {
         if ((int)$m['id'] === $filterModule && ($m['type'] ?? '') === 'efm') {
             $filteredModuleIsEfm = true;
-            $partiesStmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND actif = 1 ORDER BY ordre, id");
-            $partiesStmt->execute([$filterModule]);
-            $partieIds = array_column($partiesStmt->fetchAll(), 'id');
             $dureeMin = (int)($m['duree_minutes'] ?? 0);
             $dureeStr = $dureeMin >= 60
                 ? floor($dureeMin/60).'h'.($dureeMin%60>0 ? sprintf('%02d',$dureeMin%60) : '')
                 : ($dureeMin > 0 ? $dureeMin.' min' : '');
             $printEfmUrl = 'print_efm.php?' . http_build_query([
                 'module_id'     => $filterModule,
-                'partie_ids'    => implode(',', $partieIds),
                 'shuffle'       => 0,
                 'shuffle_choix' => 0,
                 'corrige'       => 0,

@@ -178,8 +178,8 @@ if ($action === 'edit' && $id > 0) {
                                 <td class="text-center">
                                     <a href="questions.php?module_id=<?= $m['id'] ?>"
                                        class="btn btn-sm btn-outline-secondary rounded-pill px-3"
-                                       title="Gérer les parties et questions">
-                                        <i class="bi bi-layers me-1"></i><?= (int)($m['nb_parties'] ?? 0) ?>
+                                       title="Gérer les questions">
+                                        <i class="bi bi-question-circle me-1"></i><?= (int)($m['nb_questions'] ?? 0) ?>
                                     </a>
                                 </td>
                                 <td class="text-center">
@@ -210,12 +210,11 @@ if ($action === 'edit' && $id > 0) {
                                            title="Imprimer sujet vierge">
                                             <i class="bi bi-printer"></i>
                                         </a>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-danger rounded-3"
-                                                title="Supprimer"
-                                                onclick='confirmDeleteModule(<?= $m['id'] ?>, <?= json_encode($m['nom']) ?>, <?= (int)$m['nb_questions'] ?>, <?= (int)$m['nb_parties'] ?>)'>
+                                        <a href="delete_module.php?id=<?= $m['id'] ?>"
+                                           class="btn btn-sm btn-outline-danger rounded-3"
+                                           title="Supprimer (avec options)">
                                             <i class="bi bi-trash"></i>
-                                        </button>
+                                        </a>
                                     </div>
                                 </td>
                             </tr>

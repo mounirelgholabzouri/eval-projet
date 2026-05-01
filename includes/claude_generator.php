@@ -254,13 +254,8 @@ function extractJsonFromText(string $text): string {
  * Insère les questions générées dans la BD pour un module donné.
  * Remet l'ordre à la suite des questions existantes.
  */
-function sauvegarderQuestionsGenerees(array $questions, int $moduleId, ?int $partieId = null): int {
+function sauvegarderQuestionsGenerees(array $questions, int $moduleId): int {
     $pdo = getDB();
-
-    // partie_id obligatoire : fallback sur la partie par défaut du module
-    if (!$partieId) {
-        $partieId = ensurePartieDefault($moduleId);
-    }
 
     // Ordre de départ
     $stmt = $pdo->prepare("SELECT COALESCE(MAX(ordre), 0) FROM questions WHERE module_id = ?");
@@ -274,9 +269,9 @@ function sauvegarderQuestionsGenerees(array $questions, int $moduleId, ?int $par
         $points = max(0.5, (float)($q['points'] ?? 1));
 
         $stmt = $pdo->prepare(
-            "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre) VALUES (?,?,?,?,?,?)"
+            "INSERT INTO questions (module_id, texte, type, points, ordre) VALUES (?,?,?,?,?)"
         );
-        $stmt->execute([$moduleId, $partieId, trim($q['texte']), $type, $points, $ordre]);
+        $stmt->execute([$moduleId, trim($q['texte']), $type, $points, $ordre]);
         $questionId = (int)$pdo->lastInsertId();
 
         // Choix de réponses

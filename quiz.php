@@ -15,15 +15,7 @@ if (!$session || $session['statut'] === 'termine') {
     redirect('result.php');
 }
 
-$partieId  = isset($_SESSION['eval_partie_id']) ? (int)$_SESSION['eval_partie_id'] : 0;
 $questions = getQuestionsModule((int)$session['module_id']);
-$grouped   = getQuestionsGroupeesParPartie((int)$session['module_id']);
-
-if ($partieId > 0) {
-    $questions = array_values(array_filter($questions, fn($q) => (int)$q['partie_id'] === $partieId));
-    $grouped   = array_values(array_filter($grouped,   fn($g) => (int)$g['partie']['id'] === $partieId));
-}
-
 $nbQ = count($questions);
 
 // ── Traitement de la soumission finale ──────────────────────

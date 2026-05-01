@@ -71,7 +71,9 @@ $groupes     = getGroupes();
 $annees      = getAnneesDisponibles();
 $anneeActive = $_GET['annee'] ?? getAnneeCourante();
 $groupeFiltre= isset($_GET['groupe_id']) ? (int)$_GET['groupe_id'] : null;
-$stagiaires  = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
+
+// Récupérer les stagiaires
+$stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
 ?>
 <!DOCTYPE html>
 <html lang="fr">

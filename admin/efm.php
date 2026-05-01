@@ -5,7 +5,6 @@ require_once __DIR__ . '/../includes/functions.php';
 $pdo      = getDB();
 $moduleId = (int)($_GET['module_id'] ?? 0);
 $module   = $moduleId ? getModule($moduleId) : null;
-$parties  = $moduleId ? getPartiesModule($moduleId) : [];
 $modules  = getAllModules();
 $erreur   = '';
 
@@ -19,13 +18,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['select_module'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generer_efm'])) {
     $moduleId  = (int)($_POST['module_id'] ?? 0);
     $module    = getModule($moduleId);
-    $partieIds = array_map('intval', (array)($_POST['partie_ids'] ?? []));
-    $partieIds = array_filter($partieIds, fn($i) => $i > 0);
 
     if (!$module) {
         $erreur = "Module invalide.";
-    } elseif (empty($partieIds)) {
-        $erreur = "Sélectionnez au moins une partie.";
     } else {
         // Construire les paramètres GET pour la page d'impression
         $params = [
@@ -41,16 +36,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generer_efm'])) {
             'shuffle_choix'=> isset($_POST['shuffle_choix']) ? 1 : 0,
             'corrige'      => 0,
         ];
-        // Parties et nb_questions
-        foreach ($partieIds as $pid) {
-            $params["p[$pid]"] = max(0, (int)($_POST["nb_q_$pid"] ?? 0));
-        }
-        $params['partie_ids'] = implode(',', $partieIds);
 
         $qs = http_build_query($params);
         header("Location: print_efm.php?$qs"); exit;
     }
-    $parties = getPartiesModule($moduleId);
 }
 
 $anneeDefaut = date('y') . '/' . (date('y') + 1);
@@ -93,7 +82,7 @@ $anneeDefaut = date('y') . '/' . (date('y') + 1);
                         <option value="">— Choisir un module —</option>
                         <?php foreach ($modules as $m): ?>
                         <option value="<?= $m['id'] ?>" <?= $m['id'] == $moduleId ? 'selected' : '' ?>>
-                            <?= sanitize($m['nom']) ?> (<?= $m['nb_questions'] ?> Q — <?= $m['nb_parties'] ?> partie<?= $m['nb_parties'] > 1 ? 's' : '' ?>)
+                            <?= sanitize($m['nom']) ?> (<?= $m['nb_questions'] ?> Q)
                         </option>
                         <?php endforeach; ?>
                     </select>
@@ -115,76 +104,7 @@ $anneeDefaut = date('y') . '/' . (date('y') + 1);
 
         <div class="row g-4">
 
-            <!-- Colonne gauche : parties et questions -->
-            <div class="col-lg-6">
-                <div class="card border-0 shadow-sm rounded-4 h-100">
-                    <div class="card-header bg-white border-0 py-3 px-4">
-                        <h5 class="mb-0 fw-bold">
-                            <i class="bi bi-layers me-2 text-warning"></i>
-                            Parties du module
-                        </h5>
-                        <div class="text-muted small mt-1">
-                            Cochez les parties à inclure et définissez le nombre de questions
-                            (0 = toutes)
-                        </div>
-                    </div>
-                    <div class="card-body p-3">
-                        <?php if (empty($parties)): ?>
-                            <div class="text-center text-muted py-4">Aucune partie dans ce module.</div>
-                        <?php else: ?>
-                        <div class="d-flex gap-2 mb-3">
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnAllParties">
-                                <i class="bi bi-check2-all me-1"></i>Tout sélectionner
-                            </button>
-                            <button type="button" class="btn btn-sm btn-outline-secondary" id="btnNoneParties">
-                                <i class="bi bi-x-lg me-1"></i>Tout désélectionner
-                            </button>
-                        </div>
-                        <?php foreach ($parties as $p): ?>
-                        <div class="card mb-2 border partie-card" data-pid="<?= $p['id'] ?>" data-total="<?= $p['nb_questions'] ?>">
-                            <div class="card-body py-2 px-3">
-                                <div class="d-flex align-items-center gap-3">
-                                    <div class="form-check mb-0">
-                                        <input class="form-check-input partie-check" type="checkbox"
-                                               name="partie_ids[]"
-                                               value="<?= $p['id'] ?>"
-                                               id="p<?= $p['id'] ?>"
-                                               checked>
-                                    </div>
-                                    <div class="flex-grow-1">
-                                        <label class="fw-semibold mb-0" for="p<?= $p['id'] ?>">
-                                            <?= sanitize($p['nom']) ?>
-                                        </label>
-                                        <span class="badge bg-secondary-subtle text-secondary ms-2"><?= $p['nb_questions'] ?> question<?= $p['nb_questions'] > 1 ? 's' : '' ?></span>
-                                    </div>
-                                    <div style="width:130px">
-                                        <div class="input-group input-group-sm">
-                                            <span class="input-group-text" title="Nb questions (0 = toutes)">Q</span>
-                                            <input type="number"
-                                                   class="form-control nb-q-input"
-                                                   name="nb_q_<?= $p['id'] ?>"
-                                                   value="0"
-                                                   min="0"
-                                                   max="<?= $p['nb_questions'] ?>"
-                                                   title="0 = toutes les questions">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                        <?php endforeach; ?>
-
-                        <!-- Résumé -->
-                        <div class="alert alert-info rounded-3 py-2 mt-3 mb-0" id="partieSummary">
-                            <i class="bi bi-info-circle me-1"></i>
-                            <span id="summaryText">Calcul en cours…</span>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Colonne droite : métadonnées EFM -->
+            <!-- Colonne unique : métadonnées EFM -->
             <div class="col-lg-6">
                 <div class="card border-0 shadow-sm rounded-4">
                     <div class="card-header bg-white border-0 py-3 px-4">
@@ -284,64 +204,5 @@ $anneeDefaut = date('y') . '/' . (date('y') + 1);
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-const checks  = document.querySelectorAll('.partie-check');
-const inputs  = document.querySelectorAll('.nb-q-input');
-const summary = document.getElementById('summaryText');
-const cards   = document.querySelectorAll('.partie-card');
-
-function updateSummary() {
-    let totalSel = 0, totalQ = 0;
-    checks.forEach(cb => {
-        if (!cb.checked) return;
-        totalSel++;
-        const card   = cb.closest('.partie-card');
-        const nbTot  = parseInt(card.dataset.total);
-        const nbInp  = parseInt(card.querySelector('.nb-q-input').value) || 0;
-        totalQ      += (nbInp === 0) ? nbTot : Math.min(nbInp, nbTot);
-    });
-    if (summary) {
-        summary.textContent = totalSel === 0
-            ? "Aucune partie sélectionnée."
-            : `${totalSel} partie(s) — ${totalQ} question(s) au total dans l'EFM.`;
-    }
-    const btn = document.getElementById('btnGenerer');
-    if (btn) btn.disabled = (totalSel === 0);
-}
-
-// Activer/désactiver le champ nb selon la case
-checks.forEach(cb => {
-    const card  = cb.closest('.partie-card');
-    const input = card.querySelector('.nb-q-input');
-    cb.addEventListener('change', () => {
-        input.disabled = !cb.checked;
-        card.classList.toggle('opacity-50', !cb.checked);
-        updateSummary();
-    });
-});
-
-inputs.forEach(inp => inp.addEventListener('input', updateSummary));
-
-document.getElementById('btnAllParties')?.addEventListener('click', () => {
-    checks.forEach(cb => {
-        cb.checked = true;
-        const card = cb.closest('.partie-card');
-        card.querySelector('.nb-q-input').disabled = false;
-        card.classList.remove('opacity-50');
-    });
-    updateSummary();
-});
-document.getElementById('btnNoneParties')?.addEventListener('click', () => {
-    checks.forEach(cb => {
-        cb.checked = false;
-        const card = cb.closest('.partie-card');
-        card.querySelector('.nb-q-input').disabled = true;
-        card.classList.add('opacity-50');
-    });
-    updateSummary();
-});
-
-updateSummary();
-</script>
 </body>
 </html>

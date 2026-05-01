@@ -20,32 +20,24 @@ $noteMax     = (int)($module['note_max'] ?? 20);
 $duree       = (int)($module['duree_minutes'] ?? 0);
 $intitule    = htmlspecialchars($module['nom'], ENT_QUOTES, 'UTF-8');
 
-// Charger toutes les parties + questions
-$sections    = [];
+// Charger toutes les questions du module
+$questions   = [];
 $totalPoints = 0;
-$parties     = getPartiesActives($moduleId);
 
-foreach ($parties as $partie) {
-    $qStmt = $pdo->prepare("SELECT * FROM questions WHERE partie_id = ? AND module_id = ? ORDER BY ordre, id");
-    $qStmt->execute([$partie['id'], $moduleId]);
-    $questions = $qStmt->fetchAll();
+$qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
+$qStmt->execute([$moduleId]);
+$questions = $qStmt->fetchAll();
 
-    foreach ($questions as &$q) {
-        $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
-        $cStmt->execute([$q['id']]);
-        $q['choix'] = $cStmt->fetchAll();
-        $totalPoints += (float)$q['points'];
-    }
-    unset($q);
-
-    if (!empty($questions)) {
-        $sections[] = ['partie' => $partie, 'questions' => $questions];
-    }
+foreach ($questions as &$q) {
+    $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
+    $cStmt->execute([$q['id']]);
+    $q['choix'] = $cStmt->fetchAll();
+    $totalPoints += (float)$q['points'];
 }
+unset($q);
 
 $logoPath = __DIR__ . '/../assets/img/logo_efm.png';
 $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
-$qNum = 1;
 $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 ?>
 <!DOCTYPE html>
@@ -419,54 +411,44 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
 
     <hr class="section-sep" style="margin-bottom:3mm">
 
-    <!-- ══ QUESTIONS PAR PARTIE ══ -->
-    <?php if (empty($sections)): ?>
+    <!-- ══ QUESTIONS ══ -->
+    <?php if (empty($questions)): ?>
         <p style="margin-top:8mm; text-align:center; color:#888; font-style:italic;">Aucune question dans ce module.</p>
+    <?php else: ?>
+        <?php $qNum = 1; foreach ($questions as $q): ?>
+        <div class="question-block">
+            <div class="question-header">
+                <span class="q-num">Q<?= $qNum++ ?>.</span>
+                <span class="q-texte"><?= nl2br(htmlspecialchars($q['texte'], ENT_QUOTES, 'UTF-8')) ?></span>
+                <span class="q-points">(<?= $q['points'] ?> pt<?= $q['points'] > 1 ? 's' : '' ?>)</span>
+            </div>
+
+            <?php if ($q['type'] === 'qcm' && !empty($q['choix'])): ?>
+            <ul class="choix-list">
+                <?php foreach ($q['choix'] as $i => $c): ?>
+                <li class="choix-item">
+                    <span class="choix-circle"></span>
+                    <span><strong><?= $lettres[$i] ?? chr(65 + $i) ?>)</strong> <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?></span>
+                </li>
+                <?php endforeach; ?>
+            </ul>
+
+            <?php elseif ($q['type'] === 'vrai_faux'): ?>
+            <ul class="choix-list">
+                <li class="choix-item"><span class="choix-circle"></span><span>Vrai</span></li>
+                <li class="choix-item"><span class="choix-circle"></span><span>Faux</span></li>
+            </ul>
+
+            <?php else: ?>
+            <div class="reponse-libre">
+                <div class="reponse-ligne"></div>
+                <div class="reponse-ligne"></div>
+                <div class="reponse-ligne"></div>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endforeach; ?>
     <?php endif; ?>
-
-    <?php foreach ($sections as $section):
-        $partiePoints = array_sum(array_column($section['questions'], 'points'));
-        $nbQ = count($section['questions']);
-    ?>
-    <div class="partie-header">
-        <span><?= htmlspecialchars($section['partie']['nom'], ENT_QUOTES, 'UTF-8') ?></span>
-        <span class="partie-bareme"><?= $nbQ ?> question<?= $nbQ > 1 ? 's' : '' ?> — <?= $partiePoints ?> pt<?= $partiePoints > 1 ? 's' : '' ?></span>
-    </div>
-
-    <?php foreach ($section['questions'] as $q): ?>
-    <div class="question-block">
-        <div class="question-header">
-            <span class="q-num">Q<?= $qNum++ ?>.</span>
-            <span class="q-texte"><?= nl2br(htmlspecialchars($q['texte'], ENT_QUOTES, 'UTF-8')) ?></span>
-            <span class="q-points">(<?= $q['points'] ?> pt<?= $q['points'] > 1 ? 's' : '' ?>)</span>
-        </div>
-
-        <?php if ($q['type'] === 'qcm' && !empty($q['choix'])): ?>
-        <ul class="choix-list">
-            <?php foreach ($q['choix'] as $i => $c): ?>
-            <li class="choix-item">
-                <span class="choix-circle"></span>
-                <span><strong><?= $lettres[$i] ?? chr(65 + $i) ?>)</strong> <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?></span>
-            </li>
-            <?php endforeach; ?>
-        </ul>
-
-        <?php elseif ($q['type'] === 'vrai_faux'): ?>
-        <ul class="choix-list">
-            <li class="choix-item"><span class="choix-circle"></span><span>Vrai</span></li>
-            <li class="choix-item"><span class="choix-circle"></span><span>Faux</span></li>
-        </ul>
-
-        <?php else: ?>
-        <div class="reponse-libre">
-            <div class="reponse-ligne"></div>
-            <div class="reponse-ligne"></div>
-            <div class="reponse-ligne"></div>
-        </div>
-        <?php endif; ?>
-    </div>
-    <?php endforeach; ?>
-    <?php endforeach; ?>
 
     <div class="footer-doc">
         <?= $isEfm && $codeModule ? "Module $codeModule — " : '' ?>

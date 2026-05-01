@@ -6,7 +6,6 @@ $pdo = getDB();
 
 // ── Paramètres ────────────────────────────────────────────────
 $moduleId     = (int)($_GET['module_id'] ?? 0);
-$partieIds    = array_filter(array_map('intval', explode(',', $_GET['partie_ids'] ?? '')));
 $shuffle      = (bool)(int)($_GET['shuffle'] ?? 1);
 $shuffleChoix = (bool)(int)($_GET['shuffle_choix'] ?? 1);
 $corrige      = (bool)(int)($_GET['corrige'] ?? 0);
@@ -20,44 +19,29 @@ $codeModule    = htmlspecialchars(trim($_GET['code_module'] ?? ''), ENT_QUOTES, 
 $intitule      = htmlspecialchars(trim($_GET['intitule'] ?? ''), ENT_QUOTES, 'UTF-8');
 
 $module = $moduleId ? getModule($moduleId) : null;
-if (!$module || empty($partieIds)) {
-    echo '<p class="text-danger p-4">Paramètres invalides. <a href="efm.php">Retour</a></p>'; exit;
+if (!$module) {
+    echo '<p class="text-danger p-4">Module invalide. <a href="efm.php">Retour</a></p>'; exit;
 }
 
-// ── Charger les questions par partie sélectionnée ─────────────
-$sections = [];
+// ── Charger toutes les questions du module ─────────────────────
+$questions = [];
 $totalPoints = 0;
 
-foreach ($partieIds as $pid) {
-    $pStmt = $pdo->prepare("SELECT * FROM parties WHERE id = ? AND module_id = ? AND actif = 1");
-    $pStmt->execute([$pid, $moduleId]);
-    $partie = $pStmt->fetch();
-    if (!$partie) continue;
+$qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
+$qStmt->execute([$moduleId]);
+$questions = $qStmt->fetchAll();
 
-    $nbDemande = (int)($_GET["p[$pid]"] ?? 0);
+if ($shuffle) shuffle($questions);
 
-    $qStmt = $pdo->prepare("SELECT * FROM questions WHERE partie_id = ? AND module_id = ? ORDER BY ordre, id");
-    $qStmt->execute([$pid, $moduleId]);
-    $questions = $qStmt->fetchAll();
-
-    if ($shuffle) shuffle($questions);
-    if ($nbDemande > 0) $questions = array_slice($questions, 0, $nbDemande);
-
-    foreach ($questions as &$q) {
-        $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
-        $cStmt->execute([$q['id']]);
-        $choix = $cStmt->fetchAll();
-        if ($shuffleChoix && !empty($choix)) shuffle($choix);
-        $q['choix'] = $choix;
-        $totalPoints += (float)$q['points'];
-    }
-    unset($q);
-
-    $sections[] = ['partie' => $partie, 'questions' => $questions];
+foreach ($questions as &$q) {
+    $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
+    $cStmt->execute([$q['id']]);
+    $choix = $cStmt->fetchAll();
+    if ($shuffleChoix && !empty($choix)) shuffle($choix);
+    $q['choix'] = $choix;
+    $totalPoints += (float)$q['points'];
 }
-
-// Numérotation globale des questions
-$qNum = 1;
+unset($q);
 
 // ── Tampon OFPPT base64 ────────────────────────────────────────────────────
 $tamponPath = __DIR__ . '/../assets/img/tampon_ofppt.png';
@@ -407,21 +391,12 @@ $tamponB64  = file_exists($tamponPath)
 
     <hr class="section-sep" style="margin-bottom:3mm">
 
-    <!-- QUESTIONS PAR PARTIE -->
+    <!-- QUESTIONS -->
     <?php
     $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
-    foreach ($sections as $section):
-        $partiePoints = array_sum(array_column($section['questions'], 'points'));
-        $nbQ = count($section['questions']);
-        if ($nbQ === 0) continue;
+    $qNum = 1;
+    foreach ($questions as $q):
     ?>
-    <!-- Partie : <?= htmlspecialchars($section['partie']['nom'], ENT_QUOTES, 'UTF-8') ?> -->
-    <div class="partie-header">
-        <span><?= htmlspecialchars($section['partie']['nom'], ENT_QUOTES, 'UTF-8') ?></span>
-        <span class="partie-bareme"><?= $nbQ ?> question<?= $nbQ > 1 ? 's' : '' ?> — <?= $partiePoints ?> pt<?= $partiePoints > 1 ? 's' : '' ?></span>
-    </div>
-
-    <?php foreach ($section['questions'] as $q): ?>
     <div class="question-block">
         <div class="question-header">
             <span class="q-num">Q<?= $qNum++ ?>.</span>
@@ -464,8 +439,6 @@ $tamponB64  = file_exists($tamponPath)
         </div>
         <?php endif; ?>
     </div>
-    <?php endforeach; ?>
-
     <?php endforeach; ?>
 
     <!-- PIED DE PAGE -->

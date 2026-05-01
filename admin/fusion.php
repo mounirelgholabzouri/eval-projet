@@ -8,19 +8,7 @@ $erreur = '';
 $activeTab = 'fusion'; // 'fusion' ou 'efm'
 
 $modules = getAllModules();
-
-// ── Précharger toutes les parties de tous les modules (pour JS) ──
 $allParties = [];
-$stmtP = $pdo->query("
-    SELECT p.*, COUNT(q.id) AS nb_questions
-    FROM parties p
-    LEFT JOIN questions q ON q.partie_id = p.id
-    GROUP BY p.id
-    ORDER BY p.module_id, p.ordre, p.id
-");
-foreach ($stmtP->fetchAll() as $p) {
-    $allParties[(int)$p['module_id']][] = $p;
-}
 
 // ═══════════════════════════════════════════════════
 // POST : Fusion QCM classique
@@ -46,24 +34,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_fusion'])) {
             $stmt->execute([$nom, $desc, $duree, $noteMax, $actif]);
             $newModuleId = (int)$pdo->lastInsertId();
 
-            $partieOrdre = 1;
             $qOrdre = 1;
             foreach ($ids as $srcModuleId) {
-                $mCheck = $pdo->prepare("SELECT id, nom FROM modules WHERE id = ?");
-                $mCheck->execute([$srcModuleId]);
-                $srcModule = $mCheck->fetch();
-                if (!$srcModule) continue;
-
-                $newPartieId = creerPartie($newModuleId, $srcModule['nom'], $partieOrdre++);
-
-                $qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY partie_id, ordre, id");
+                $qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
                 $qStmt->execute([$srcModuleId]);
                 foreach ($qStmt->fetchAll() as $q) {
                     $insQ = $pdo->prepare(
-                        "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
-                         VALUES (?, ?, ?, ?, ?, ?, ?)"
+                        "INSERT INTO questions (module_id, texte, type, points, ordre, image_path)
+                         VALUES (?, ?, ?, ?, ?, ?)"
                     );
-                    $insQ->execute([$newModuleId, $newPartieId, $q['texte'], $q['type'], $q['points'], $qOrdre++, $q['image_path'] ?? null]);
+                    $insQ->execute([$newModuleId, $q['texte'], $q['type'], $q['points'], $qOrdre++, $q['image_path'] ?? null]);
                     $newQId = (int)$pdo->lastInsertId();
 
                     $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
@@ -98,20 +78,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
     $actif        = isset($_POST['efm_actif']) ? 1 : 0;
     $shuffle      = isset($_POST['efm_shuffle']) ? 1 : 0;
 
-    // Partie IDs sélectionnées : POST keys efm_p_{partieId}
-    $selectedParties = [];
+    // Module IDs sélectionnées : POST keys efm_m_{moduleId}
+    $selectedModules = [];
     foreach ($_POST as $k => $v) {
-        if (str_starts_with($k, 'efm_p_')) {
-            $pid   = (int)substr($k, 6);
-            $nbQ   = max(0, (int)($_POST["efm_nb_{$pid}"] ?? 0));
-            $selectedParties[$pid] = $nbQ;
+        if (str_starts_with($k, 'efm_m_')) {
+            $mid   = (int)substr($k, 6);
+            $selectedModules[$mid] = 1;
         }
     }
 
     if (strlen($nom) < 2) {
         $erreur = "Le nom de l'EFM est requis (minimum 2 caractères).";
-    } elseif (empty($selectedParties)) {
-        $erreur = "Sélectionnez au moins une partie.";
+    } elseif (empty($selectedModules)) {
+        $erreur = "Sélectionnez au moins un module.";
     } else {
         try {
             $pdo->beginTransaction();
@@ -129,30 +108,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
             )->execute([$newModuleId, $codeModule, $filiere, $etablissement, $annee]);
 
             $qOrdre = 1;
-            foreach ($selectedParties as $srcPartieId => $nbDemande) {
-                // Récupérer la partie source
-                $pStmt = $pdo->prepare("SELECT p.*, m.nom AS module_nom FROM parties p JOIN modules m ON m.id = p.module_id WHERE p.id = ?");
-                $pStmt->execute([$srcPartieId]);
-                $srcPartie = $pStmt->fetch();
-                if (!$srcPartie) continue;
-
-                // Créer une partie correspondante dans le nouveau module EFM
-                $newPartieId = creerPartie($newModuleId, $srcPartie['nom'], 0);
-
-                // Charger les questions de la partie source
-                $qStmt = $pdo->prepare("SELECT * FROM questions WHERE partie_id = ? ORDER BY ordre, id");
-                $qStmt->execute([$srcPartieId]);
+            foreach (array_keys($selectedModules) as $srcModuleId) {
+                // Charger les questions du module source
+                $qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
+                $qStmt->execute([$srcModuleId]);
                 $questions = $qStmt->fetchAll();
 
                 if ($shuffle) shuffle($questions);
-                if ($nbDemande > 0) $questions = array_slice($questions, 0, $nbDemande);
 
                 foreach ($questions as $q) {
                     $insQ = $pdo->prepare(
-                        "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
-                         VALUES (?, ?, ?, ?, ?, ?, ?)"
+                        "INSERT INTO questions (module_id, texte, type, points, ordre, image_path)
+                         VALUES (?, ?, ?, ?, ?, ?)"
                     );
-                    $insQ->execute([$newModuleId, $newPartieId, $q['texte'], $q['type'], $q['points'], $qOrdre++, $q['image_path'] ?? null]);
+                    $insQ->execute([$newModuleId, $q['texte'], $q['type'], $q['points'], $qOrdre++, $q['image_path'] ?? null]);
                     $newQId = (int)$pdo->lastInsertId();
 
                     $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");

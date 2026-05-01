@@ -39,28 +39,9 @@ function getMention(float $pourcentage): array {
 
 function getModulesActifs(): array {
     $pdo = getDB();
-    // Retourne les modules actifs qui ont au moins une partie active
-    return $pdo->query("
-        SELECT DISTINCT m.* FROM modules m
-        JOIN parties p ON p.module_id = m.id AND p.actif = 1
-        WHERE m.actif = 1
-        ORDER BY m.nom
-    ")->fetchAll();
+    return $pdo->query("SELECT * FROM modules WHERE actif = 1 ORDER BY nom")->fetchAll();
 }
 
-function getPartiesActives(int $moduleId): array {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("
-        SELECT p.*, COUNT(q.id) AS nb_questions
-        FROM parties p
-        LEFT JOIN questions q ON q.partie_id = p.id
-        WHERE p.module_id = ? AND p.actif = 1
-        GROUP BY p.id
-        ORDER BY p.ordre, p.id
-    ");
-    $stmt->execute([$moduleId]);
-    return $stmt->fetchAll();
-}
 
 function getModule(int $id): ?array {
     $pdo = getDB();
@@ -84,7 +65,6 @@ function getAllModules(): array {
         SELECT m.*,
                COALESCE(m.note_max, 20) AS note_max,
                (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS nb_questions,
-               (SELECT COUNT(*) FROM parties p WHERE p.module_id = m.id) AS nb_parties,
                COALESCE(em.code_module,   '') AS efm_code_module,
                COALESCE(em.filiere,       '') AS efm_filiere,
                COALESCE(em.etablissement, '') AS efm_etablissement,
@@ -110,7 +90,7 @@ function getGroupes(): array {
 
 function getQuestionsModule(int $moduleId): array {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY partie_id, ordre, id");
+    $stmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
     $stmt->execute([$moduleId]);
     $questions = $stmt->fetchAll();
 
@@ -122,108 +102,6 @@ function getQuestionsModule(int $moduleId): array {
     return $questions;
 }
 
-// ============================================================
-// Fonctions parties
-// ============================================================
-
-function getPartiesModule(int $moduleId): array {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("
-        SELECT p.*, COUNT(q.id) AS nb_questions
-        FROM parties p
-        LEFT JOIN questions q ON q.partie_id = p.id
-        WHERE p.module_id = ?
-        GROUP BY p.id
-        ORDER BY p.ordre, p.id
-    ");
-    $stmt->execute([$moduleId]);
-    return $stmt->fetchAll();
-}
-
-function creerPartie(int $moduleId, string $nom, int $ordre = 0): int {
-    $pdo = getDB();
-    if ($ordre === 0) {
-        $stmt = $pdo->prepare("SELECT COALESCE(MAX(ordre), 0) + 1 FROM parties WHERE module_id = ?");
-        $stmt->execute([$moduleId]);
-        $ordre = (int)$stmt->fetchColumn();
-    }
-    $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?,?,?)")
-        ->execute([$moduleId, $nom, $ordre]);
-    return (int)$pdo->lastInsertId();
-}
-
-/**
- * Garantit qu'un module a au moins une partie. Retourne l'id de la première.
- */
-function ensurePartieDefault(int $moduleId): int {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre, id LIMIT 1");
-    $stmt->execute([$moduleId]);
-    $id = $stmt->fetchColumn();
-    if ($id) return (int)$id;
-    return creerPartie($moduleId, 'Général', 1);
-}
-
-/**
- * Supprime une partie. Ses questions sont d'abord réassignées à une autre partie
- * du même module. Si c'est la dernière partie, la suppression est refusée.
- * Retourne true si supprimée, false sinon.
- */
-function supprimerPartie(int $partieId): bool {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT module_id FROM parties WHERE id = ?");
-    $stmt->execute([$partieId]);
-    $moduleId = (int)$stmt->fetchColumn();
-    if (!$moduleId) return false;
-
-    // Trouver une autre partie du même module pour recevoir les questions
-    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND id <> ? ORDER BY ordre, id LIMIT 1");
-    $stmt->execute([$moduleId, $partieId]);
-    $autrePartieId = $stmt->fetchColumn();
-
-    if (!$autrePartieId) {
-        return false; // Dernière partie du module : suppression refusée
-    }
-
-    $pdo->beginTransaction();
-    $pdo->prepare("UPDATE questions SET partie_id = ? WHERE partie_id = ?")
-        ->execute([$autrePartieId, $partieId]);
-    $pdo->prepare("DELETE FROM parties WHERE id = ?")->execute([$partieId]);
-    $pdo->commit();
-    return true;
-}
-
-function renommerPartie(int $partieId, string $nom): void {
-    $pdo = getDB();
-    $pdo->prepare("UPDATE parties SET nom = ? WHERE id = ?")->execute([$nom, $partieId]);
-}
-
-function togglePartieActif(int $partieId): bool {
-    $pdo = getDB();
-    $pdo->prepare("UPDATE parties SET actif = NOT actif WHERE id = ?")->execute([$partieId]);
-    $stmt = $pdo->prepare("SELECT actif FROM parties WHERE id = ?");
-    $stmt->execute([$partieId]);
-    return (bool)$stmt->fetchColumn();
-}
-
-function getPartie(int $partieId): ?array {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT * FROM parties WHERE id = ?");
-    $stmt->execute([$partieId]);
-    return $stmt->fetch() ?: null;
-}
-
-function getQuestionsGroupeesParPartie(int $moduleId): array {
-    $parties = getPartiesModule($moduleId);
-    $allQ    = getQuestionsModule($moduleId);
-
-    $result = [];
-    foreach ($parties as $p) {
-        $qs = array_filter($allQ, fn($q) => (int)$q['partie_id'] === (int)$p['id']);
-        $result[] = ['partie' => $p, 'questions' => array_values($qs)];
-    }
-    return $result;
-}
 
 function getTotalPoints(int $moduleId): float {
     $pdo = getDB();
@@ -232,12 +110,6 @@ function getTotalPoints(int $moduleId): float {
     return (float)$stmt->fetchColumn();
 }
 
-function getTotalPointsPartie(int $partieId): float {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(points), 0) AS total FROM questions WHERE partie_id = ?");
-    $stmt->execute([$partieId]);
-    return (float)$stmt->fetchColumn();
-}
 
 function supprimerSession(int $sessionId): void {
     $pdo = getDB();
@@ -261,9 +133,8 @@ function supprimerModule(int $moduleId): void {
     foreach ($qids->fetchAll(PDO::FETCH_COLUMN) as $qid) {
         $pdo->prepare("DELETE FROM choix_reponses WHERE question_id = ?")->execute([$qid]);
     }
-    // 4. Questions + parties + module
+    // 4. Questions + module
     $pdo->prepare("DELETE FROM questions WHERE module_id = ?")->execute([$moduleId]);
-    $pdo->prepare("DELETE FROM parties WHERE module_id = ?")->execute([$moduleId]);
     $pdo->prepare("DELETE FROM modules WHERE id = ?")->execute([$moduleId]);
 }
 
@@ -271,10 +142,10 @@ function supprimerModule(int $moduleId): void {
 // Fonctions sessions d'évaluation
 // ============================================================
 
-function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId, ?int $stagiaireId = null, ?int $partieId = null): array {
+function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId, ?int $stagiaireId = null): array {
     $pdo = getDB();
     $token = generateToken();
-    $totalPoints = $partieId ? getTotalPointsPartie($partieId) : getTotalPoints($moduleId);
+    $totalPoints = getTotalPoints($moduleId);
 
     $stmt = $pdo->prepare("INSERT INTO sessions_eval (token, nom, prenom, groupe_id, groupe_libre, module_id, total_points, stagiaire_id)
                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)");

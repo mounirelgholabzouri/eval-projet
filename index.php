@@ -19,22 +19,8 @@ $stagAnnee    = $_SESSION['stagiaire_annee'];
 $erreurs = [];
 $modules = getModulesActifs();
 
-// Précharge les parties actives des modules actifs pour le sélecteur JS
-$allParties = [];
-foreach ($modules as $m) {
-    $parties = getPartiesActives((int)$m['id']);
-    if (count($parties) > 1) {
-        $allParties[(int)$m['id']] = array_map(fn($p) => [
-            'id'          => (int)$p['id'],
-            'nom'         => $p['nom'],
-            'nb_questions'=> (int)$p['nb_questions'],
-        ], $parties);
-    }
-}
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $moduleId = (int)($_POST['module_id'] ?? 0);
-    $partieId = (int)($_POST['partie_id'] ?? 0);
     if ($moduleId <= 0) $erreurs[] = "Veuillez sélectionner un module d'évaluation.";
 
     if (empty($erreurs)) {
@@ -42,24 +28,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$module) {
             $erreurs[] = "Module invalide.";
         } else {
-            // Si une partie est choisie, vérifier qu'elle appartient au module et est active
-            if ($partieId > 0) {
-                $partie = getPartie($partieId);
-                if (!$partie || (int)$partie['module_id'] !== $moduleId || !(int)$partie['actif']) {
-                    $partieId = 0;
-                }
-            }
-
-            // Si aucune partie choisie, filtrer sur les parties actives uniquement
-            if ($partieId > 0) {
-                $questions = array_filter(getQuestionsModule($moduleId), fn($q) => (int)$q['partie_id'] === $partieId);
-            } else {
-                $partiesActives = array_column(getPartiesActives($moduleId), 'id');
-                $questions = array_filter(getQuestionsModule($moduleId), fn($q) => in_array((int)$q['partie_id'], array_map('intval', $partiesActives)));
-            }
+            $questions = getQuestionsModule($moduleId);
 
             if (empty($questions)) {
-                $erreurs[] = "Cette sélection ne contient pas encore de questions. Contactez votre formateur.";
+                $erreurs[] = "Ce module ne contient pas encore de questions. Contactez votre formateur.";
             } else {
                 $session = creerSession(
                     $stagNom,
@@ -67,12 +39,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stagGroupeId,
                     '',
                     $moduleId,
-                    $stagiaireId,
-                    $partieId ?: null
+                    $stagiaireId
                 );
                 $_SESSION['eval_session_id']    = $session['id'];
                 $_SESSION['eval_session_token'] = $session['token'];
-                $_SESSION['eval_partie_id']     = $partieId ?: null;
                 redirect('quiz.php');
             }
         }
@@ -169,15 +139,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 </select>
                             </div>
 
-                            <div class="col-12" id="partie-group" style="display:none">
-                                <label class="form-label fw-semibold">
-                                    <i class="bi bi-bookmark me-1 text-primary"></i>Partie
-                                </label>
-                                <select name="partie_id" id="partie_id" class="form-select form-select-lg">
-                                    <option value="">— Toutes les parties —</option>
-                                </select>
-                            </div>
-
                             <div class="col-12 mt-2">
                                 <div class="form-check">
                                     <input class="form-check-input" type="checkbox" id="accepte" required>
@@ -212,41 +173,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-const partiesMap = <?= json_encode($allParties, JSON_UNESCAPED_UNICODE) ?>;
-
 document.addEventListener('DOMContentLoaded', function () {
-    const cb          = document.getElementById('accepte');
-    const btn         = document.getElementById('btn-submit');
-    const moduleSel   = document.getElementById('module_id');
-    const partieGroup = document.getElementById('partie-group');
-    const partieSel   = document.getElementById('partie_id');
+    const cb  = document.getElementById('accepte');
+    const btn = document.getElementById('btn-submit');
 
     if (cb && btn) {
         btn.disabled = true;
         cb.addEventListener('change', () => btn.disabled = !cb.checked);
     }
-
-    function updateParties() {
-        const mid = parseInt(moduleSel.value, 10);
-        partieSel.innerHTML = '<option value="">— Toutes les parties —</option>';
-        if (partiesMap[mid]) {
-            partiesMap[mid].forEach(p => {
-                const opt = document.createElement('option');
-                opt.value = p.id;
-                opt.textContent = p.nom + ' (' + p.nb_questions + ' question' + (p.nb_questions > 1 ? 's' : '') + ')';
-                partieSel.appendChild(opt);
-            });
-            partieGroup.style.display = '';
-        } else {
-            partieGroup.style.display = 'none';
-        }
-    }
-
-    if (moduleSel) {
-        moduleSel.addEventListener('change', updateParties);
-        // Restaurer l'état après erreur POST
-        <?php if (isset($_POST['module_id']) && $_POST['module_id'] > 0): ?>
-        updateParties();
         partieSel.value = '<?= (int)($_POST['partie_id'] ?? 0) ?>';
         <?php endif; ?>
     }

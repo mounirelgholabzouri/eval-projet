@@ -54,26 +54,19 @@ if (empty($sessions)) {
     exit;
 }
 
-// Récupérer les parties du module
-$parties = getPartiesActives($filterModule);
-$partiesMap = [];
-foreach ($parties as $p) {
-    $partiesMap[$p['id']] = $p['nom'];
-}
-
 // Pré-charger les réponses de toutes les sessions en une requête
 $sessionIds = array_column($sessions, 'id');
 if ($sessionIds) {
     $inPlaceholders = implode(',', array_fill(0, count($sessionIds), '?'));
     $stmtAllRep = $pdo->prepare("
         SELECT rs.session_id, rs.question_id, rs.reponse_texte, rs.is_correct, rs.points_obtenus,
-               q.texte AS question_texte, q.type, q.points AS points_max, q.partie_id, q.ordre,
+               q.texte AS question_texte, q.type, q.points AS points_max, q.ordre,
                cr.texte AS choix_etudiant
         FROM reponses_stagiaires rs
         JOIN questions q ON q.id = rs.question_id
         LEFT JOIN choix_reponses cr ON cr.id = rs.choix_id
         WHERE rs.session_id IN ($inPlaceholders)
-        ORDER BY rs.session_id, q.partie_id, q.ordre, q.id
+        ORDER BY rs.session_id, q.ordre, q.id
     ");
     $stmtAllRep->execute($sessionIds);
     $allReponses = [];
@@ -134,9 +127,10 @@ $logoPath = '../assets/img/ofppt_logo.png';
         .page-break { page-break-after: always; break-after: page; }
 
         /* ---- Barre d'outils (masquée à l'impression) ---- */
+        @page { size: A4; margin: 0; }
         @media print {
             .no-print { display: none !important; }
-            body { font-size: 10.5pt; }
+            body { font-size: 10.5pt; padding: 12mm 14mm; }
             .question { page-break-inside: avoid; }
         }
         .toolbar { background: #2c3e50; color: #fff; padding: 10px 20px; display: flex; gap: 12px; align-items: center; }
@@ -164,11 +158,6 @@ $logoPath = '../assets/img/ofppt_logo.png';
     $groupe     = s($session['groupe_nom'] ?: '—');
     $nomComplet = s($session['prenom'] . ' ' . $session['nom']);
 
-    // Regrouper les réponses par partie
-    $repParPartie = [];
-    foreach ($reponses as $r) {
-        $repParPartie[$r['partie_id']][] = $r;
-    }
     $qNum = 0;
 
     // Score direct = note /20 (40 q × 0.5 pt = 20 pts)
@@ -209,14 +198,7 @@ $logoPath = '../assets/img/ofppt_logo.png';
     <?php if (empty($reponses)): ?>
         <p style="margin-top:12px;color:#888;font-style:italic">Aucune réponse enregistrée.</p>
     <?php else: ?>
-        <?php foreach ($parties as $partie):
-            if (!isset($repParPartie[$partie['id']])) continue;
-        ?>
-        <?php if (count($parties) > 1): ?>
-        <div class="partie-titre"><?= s($partie['nom']) ?></div>
-        <?php endif; ?>
-
-        <?php foreach ($repParPartie[$partie['id']] as $r):
+        <?php foreach ($reponses as $r):
             $qNum++;
             $isTexte  = ($r['type'] === 'texte_libre');
             $qNote = number_format((float)$r['points_obtenus'], 2);
@@ -239,7 +221,6 @@ $logoPath = '../assets/img/ofppt_logo.png';
                 </span>
             </div>
         </div>
-        <?php endforeach; ?>
         <?php endforeach; ?>
     <?php endif; ?>
 

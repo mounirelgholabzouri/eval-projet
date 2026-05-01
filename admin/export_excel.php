@@ -27,6 +27,8 @@ if (!empty($_SESSION['admin_id'])) {
 $pdo = getDB();
 $moduleId = (int)($_GET['module_id'] ?? 0);
 $groupeId = (int)($_GET['groupe_id'] ?? 0);
+$adminRole = ($_SESSION['admin_role'] ?? 'admin') === 'admin';
+$adminId   = (int)($_SESSION['admin_id'] ?? 0);
 
 // ── Requête évaluations ──────────────────────────────────────────────────────
 $where  = ["se.statut = 'termine'"];
