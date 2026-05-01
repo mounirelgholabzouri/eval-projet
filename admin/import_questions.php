@@ -247,7 +247,9 @@ uploadZone.addEventListener('drop', (e) => {
     uploadZone.classList.remove('dragover');
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-        fileInput.files = files;
+        const dt = new DataTransfer();
+        dt.items.add(files[0]);
+        fileInput.files = dt.files;
         updateFileName();
     }
 });
