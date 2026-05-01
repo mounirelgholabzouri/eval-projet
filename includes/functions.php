@@ -524,3 +524,184 @@ function setGroupesFormateur(int $formateurId, array $groupeIds): void {
             ->execute([$formateurId, (int)$groupeId]);
     }
 }
+
+// ============================================================
+// Fonctions import questions
+// ============================================================
+
+function parseExcelFile(string $filePath): array {
+    $questions = [];
+    if (!file_exists($filePath)) return [];
+
+    // Lecture simple du CSV (Excel en .csv)
+    if (($handle = fopen($filePath, 'r')) !== false) {
+        $header = null;
+        while (($data = fgetcsv($handle, 0, ',')) !== false) {
+            if ($header === null) {
+                $header = $data;
+                continue;
+            }
+            if (count($data) > 0 && !empty($data[0])) {
+                $questions[] = array_combine($header, $data);
+            }
+        }
+        fclose($handle);
+    }
+    return $questions;
+}
+
+function parsePdfFile(string $filePath): array {
+    // Simple extraction - assume PDF has text format
+    // For production, use a proper PDF library
+    $text = shell_exec("pdftotext \"$filePath\" -") ?? '';
+    return extractQuestionsFromText($text);
+}
+
+function parseMarkdownFile(string $filePath): array {
+    if (!file_exists($filePath)) return [];
+    $content = file_get_contents($filePath);
+    return extractQuestionsFromMarkdown($content);
+}
+
+function parseDocxFile(string $filePath): array {
+    // Extract from DOCX (which is a ZIP with XML)
+    $questions = [];
+    $zip = new ZipArchive();
+    if ($zip->open($filePath) !== true) return [];
+
+    if ($xml = $zip->getFromName('word/document.xml')) {
+        $dom = new DOMDocument();
+        @$dom->loadXML($xml);
+        $xpath = new DOMXPath($dom);
+
+        $paragraphs = $xpath->query('//w:p');
+        $currentQuestion = null;
+
+        foreach ($paragraphs as $para) {
+            $text = trim($xpath->evaluate('string(.)', $para));
+            if (empty($text)) continue;
+
+            // Détecte les questions (commençant par un numéro)
+            if (preg_match('/^\d+[\.\)]\s+(.+)/', $text, $m)) {
+                if ($currentQuestion) {
+                    $questions[] = $currentQuestion;
+                }
+                $currentQuestion = ['texte' => $m[1], 'type' => 'qcm', 'points' => 1];
+            } elseif ($currentQuestion && preg_match('/^[a-dA-D\*]\)\s+(.+)/', $text, $m)) {
+                // Réponses possibles
+                if (!isset($currentQuestion['choix'])) {
+                    $currentQuestion['choix'] = [];
+                }
+                $isCorrect = strpos($text, '*') !== false ? 1 : 0;
+                $currentQuestion['choix'][] = [
+                    'texte' => preg_replace('/^\*?\s*[a-dA-D]\)\s*/', '', $m[1]),
+                    'is_correct' => $isCorrect
+                ];
+            }
+        }
+        if ($currentQuestion) {
+            $questions[] = $currentQuestion;
+        }
+    }
+    $zip->close();
+    return $questions;
+}
+
+function extractQuestionsFromMarkdown(string $content): array {
+    $questions = [];
+    $lines = explode("\n", $content);
+    $currentQuestion = null;
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if (empty($line)) continue;
+
+        // Questions (## Titre ou ### Titre)
+        if (preg_match('/^#+\s+(.+)/', $line, $m)) {
+            if ($currentQuestion) {
+                $questions[] = $currentQuestion;
+            }
+            $currentQuestion = ['texte' => $m[1], 'type' => 'qcm', 'points' => 1];
+        } elseif ($currentQuestion && preg_match('/^[-*]\s+\*?\*?(.+?)\*?\*?$/', $line, $m)) {
+            // Choix de réponse
+            if (!isset($currentQuestion['choix'])) {
+                $currentQuestion['choix'] = [];
+            }
+            $isCorrect = (strpos($line, '**') !== false || strpos($line, '*') !== false) ? 1 : 0;
+            $currentQuestion['choix'][] = [
+                'texte' => $m[1],
+                'is_correct' => $isCorrect
+            ];
+        }
+    }
+    if ($currentQuestion) {
+        $questions[] = $currentQuestion;
+    }
+    return $questions;
+}
+
+function extractQuestionsFromText(string $text): array {
+    $questions = [];
+    // Pattern simple: numéro. Question
+    $pattern = '/(\d+)[\.\)]\s+([^\n]+)/';
+
+    if (preg_match_all($pattern, $text, $matches, PREG_SET_ORDER)) {
+        foreach ($matches as $match) {
+            $questions[] = [
+                'texte' => $match[2],
+                'type' => 'qcm',
+                'points' => 1,
+                'choix' => []
+            ];
+        }
+    }
+    return $questions;
+}
+
+function importQuestionsToModule(array $questions, int $moduleId): array {
+    $pdo = getDB();
+    $imported = 0;
+    $errors = [];
+
+    foreach ($questions as $q) {
+        try {
+            $texte = trim($q['texte'] ?? $q['question'] ?? '');
+            $type = $q['type'] ?? 'qcm';
+            $points = (float)($q['points'] ?? 1);
+
+            if (strlen($texte) < 3) {
+                $errors[] = "Question ignorée : texte trop court";
+                continue;
+            }
+
+            // Insert question
+            $stmt = $pdo->prepare("
+                INSERT INTO questions (module_id, texte, type, points, ordre)
+                VALUES (?, ?, ?, ?, ?)
+            ");
+            $stmt->execute([$moduleId, $texte, $type, $points, $imported + 1]);
+            $questionId = (int)$pdo->lastInsertId();
+
+            // Insert choices if exists
+            $choix = $q['choix'] ?? [];
+            $ordre = 1;
+            foreach ($choix as $choice) {
+                $choixTexte = $choice['texte'] ?? $choice ?? '';
+                $isCorrect = isset($choice['is_correct']) ? (int)$choice['is_correct'] : 0;
+
+                $stmt = $pdo->prepare("
+                    INSERT INTO choix_reponses (question_id, texte, is_correct, ordre)
+                    VALUES (?, ?, ?, ?)
+                ");
+                $stmt->execute([$questionId, $choixTexte, $isCorrect, $ordre]);
+                $ordre++;
+            }
+
+            $imported++;
+        } catch (Exception $e) {
+            $errors[] = "Erreur : " . $e->getMessage();
+        }
+    }
+
+    return ['imported' => $imported, 'errors' => $errors];
+}

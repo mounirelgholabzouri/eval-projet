@@ -27,6 +27,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'import_questions.php' ? 'active' : '' ?>"
+                       href="import_questions.php">
+                        <i class="bi bi-cloud-upload me-1"></i>Importer
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'move_questions.php' ? 'active' : '' ?>"
                        href="move_questions.php">
                         <i class="bi bi-arrow-left-right me-1"></i>Déplacer
