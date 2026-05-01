@@ -51,6 +51,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'formateurs.php' ? 'active' : '' ?>"
+                       href="formateurs.php">
+                        <i class="bi bi-person-badge me-1"></i>Formateurs
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['fusion.php','print_efm_result.php']) ? 'active' : '' ?>"
                        href="fusion.php">
                         <i class="bi bi-intersect me-1"></i>Fusion / EFM
