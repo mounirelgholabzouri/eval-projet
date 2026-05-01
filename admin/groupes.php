@@ -46,6 +46,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         $action = 'list';
     }
+
+    // ── Suppression en masse ─────────────────────────────────
+    elseif ($postAction === 'bulk_delete') {
+        $selectedIds = array_map('intval', $_POST['selected_ids'] ?? []);
+        $deleted = 0;
+        $skipped = 0;
+
+        foreach ($selectedIds as $id) {
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM stagiaires WHERE groupe_id=?");
+            $stmt->execute([$id]);
+            $nbStag = (int)$stmt->fetchColumn();
+
+            if ($nbStag === 0) {
+                $pdo->prepare("DELETE FROM groupes WHERE id=?")->execute([$id]);
+                $deleted++;
+            } else {
+                $skipped++;
+            }
+        }
+
+        if ($deleted > 0) {
+            $msg = "$deleted groupe(s) supprimé(s).";
+            if ($skipped > 0) {
+                $msg .= " $skipped groupe(s) non supprimé(s) (contiennent des stagiaires).";
+                $msgType = 'warning';
+            }
+        } else {
+            $msg = "Aucun groupe supprimé (tous contiennent des stagiaires).";
+            $msgType = 'danger';
+        }
+        $action = 'list';
+    }
 }
 
 // ── Données ──────────────────────────────────────────────────
@@ -104,10 +136,27 @@ if ($action === 'edit' && $id > 0) {
 
     <!-- Liste des groupes -->
     <div class="card border-0 shadow-sm rounded-4">
+        <!-- Barre d'actions en masse -->
+        <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display: none;">
+            <div class="d-flex gap-2 align-items-center">
+                <span class="text-muted">
+                    <span id="bulkCount">0</span> sélectionné(s)
+                </span>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="bulkDeleteGroupes()">
+                    <i class="bi bi-trash me-1"></i>Supprimer
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="clearSelection()">
+                    Annuler
+                </button>
+            </div>
+        </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
+                        <th class="ps-4" style="width: 40px;">
+                            <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
+                        </th>
                         <th class="ps-4">Groupe</th>
                         <th class="text-center">Stagiaires</th>
                         <th class="text-center">Évaluations</th>
@@ -116,10 +165,13 @@ if ($action === 'edit' && $id > 0) {
                 </thead>
                 <tbody>
                 <?php if (empty($groupes)): ?>
-                    <tr><td colspan="4" class="text-center text-muted py-4">Aucun groupe</td></tr>
+                    <tr><td colspan="5" class="text-center text-muted py-4">Aucun groupe</td></tr>
                 <?php endif; ?>
                 <?php foreach ($groupes as $g): ?>
                     <tr>
+                        <td class="ps-4">
+                            <input type="checkbox" class="form-check-input groupe-checkbox" value="<?= $g['id'] ?>" onchange="updateBulkActionBar()">
+                        </td>
                         <td class="ps-4 fw-semibold"><?= sanitize($g['nom']) ?></td>
                         <td class="text-center">
                             <?php if ($g['nb_stagiaires'] > 0): ?>
@@ -245,6 +297,63 @@ document.querySelectorAll('.btn-supprimer').forEach(btn => {
         new bootstrap.Modal(document.getElementById('modalSupprimer')).show();
     });
 });
+
+// ── Fonctions sélection multiple ─────────────────────────────
+function updateBulkActionBar() {
+    const checkboxes = document.querySelectorAll('.groupe-checkbox:checked');
+    const bar = document.getElementById('bulkActionBar');
+    const count = document.getElementById('bulkCount');
+    const selectAll = document.getElementById('selectAll');
+
+    count.textContent = checkboxes.length;
+    bar.style.display = checkboxes.length > 0 ? 'block' : 'none';
+
+    const allCheckboxes = document.querySelectorAll('.groupe-checkbox');
+    selectAll.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+    selectAll.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
+}
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    document.querySelectorAll('.groupe-checkbox').forEach(cb => {
+        cb.checked = selectAll.checked;
+    });
+    updateBulkActionBar();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.groupe-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateBulkActionBar();
+}
+
+function bulkDeleteGroupes() {
+    const checkboxes = document.querySelectorAll('.groupe-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('Sélectionnez au moins un groupe.');
+        return;
+    }
+    if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' groupe(s) ?\nLes groupes contenant des stagiaires ne seront pas supprimés.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        const input1 = document.createElement('input');
+        input1.type = 'hidden';
+        input1.name = 'action';
+        input1.value = 'bulk_delete';
+        form.appendChild(input1);
+
+        checkboxes.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_ids[]';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
 </script>
 </body>
 </html>

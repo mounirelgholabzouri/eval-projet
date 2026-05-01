@@ -60,6 +60,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = "Formateur supprimé.";
         }
         $action = 'list';
+
+    // ── Suppression en masse ──────────────────────────────────────
+    } elseif ($postAction === 'bulk_delete') {
+        $selectedIds = array_map('intval', $_POST['selected_ids'] ?? []);
+        foreach ($selectedIds as $id) {
+            supprimerFormateur($id);
+        }
+        $msg = count($selectedIds) . " formateur(s) supprimé(s).";
+        $action = 'list';
     }
 }
 
@@ -111,10 +120,27 @@ if ($action === 'edit' && $id > 0) {
 
     <!-- Tableau des formateurs -->
     <div class="card border-0 shadow-sm rounded-4">
+        <!-- Barre d'actions en masse -->
+        <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display: none;">
+            <div class="d-flex gap-2 align-items-center">
+                <span class="text-muted">
+                    <span id="bulkCount">0</span> sélectionné(s)
+                </span>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="bulkDeleteFormateurs()">
+                    <i class="bi bi-trash me-1"></i>Supprimer
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="clearSelection()">
+                    Annuler
+                </button>
+            </div>
+        </div>
         <div class="table-responsive">
             <table class="table table-hover align-middle mb-0">
                 <thead class="table-light">
                     <tr>
+                        <th class="ps-4" style="width: 40px;">
+                            <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
+                        </th>
                         <th class="ps-4">Formateur</th>
                         <th>Identifiant</th>
                         <th class="text-center">Modules</th>
@@ -124,11 +150,14 @@ if ($action === 'edit' && $id > 0) {
                 </thead>
                 <tbody>
                     <?php if (empty($formateurs)): ?>
-                    <tr><td colspan="5" class="text-center text-muted py-4">Aucun formateur. Créez-en un avec le bouton ci-dessus.</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">Aucun formateur. Créez-en un avec le bouton ci-dessus.</td></tr>
                     <?php endif; ?>
                     <?php foreach ($formateurs as $f): ?>
                     <?php $grps = getGroupesFormateur_Details($f['id']); ?>
                     <tr>
+                        <td class="ps-4">
+                            <input type="checkbox" class="form-check-input formateur-checkbox" value="<?= $f['id'] ?>" onchange="updateBulkActionBar()">
+                        </td>
                         <td class="ps-4 fw-semibold">
                             <i class="bi bi-person-circle me-2 text-primary"></i><?= sanitize($f['nom'] ?: $f['username']) ?>
                         </td>
@@ -282,6 +311,63 @@ function confirmerSuppression(id, nom) {
     if (confirm('Supprimer le formateur "' + nom + '" ?\nSes modules seront conservés (non assignés).')) {
         document.getElementById('supprimerId').value = id;
         document.getElementById('formSupprimer').submit();
+    }
+}
+
+// ── Fonctions sélection multiple ─────────────────────────────
+function updateBulkActionBar() {
+    const checkboxes = document.querySelectorAll('.formateur-checkbox:checked');
+    const bar = document.getElementById('bulkActionBar');
+    const count = document.getElementById('bulkCount');
+    const selectAll = document.getElementById('selectAll');
+
+    count.textContent = checkboxes.length;
+    bar.style.display = checkboxes.length > 0 ? 'block' : 'none';
+
+    const allCheckboxes = document.querySelectorAll('.formateur-checkbox');
+    selectAll.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+    selectAll.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
+}
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    document.querySelectorAll('.formateur-checkbox').forEach(cb => {
+        cb.checked = selectAll.checked;
+    });
+    updateBulkActionBar();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.formateur-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateBulkActionBar();
+}
+
+function bulkDeleteFormateurs() {
+    const checkboxes = document.querySelectorAll('.formateur-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('Sélectionnez au moins un formateur.');
+        return;
+    }
+    if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' formateur(s) ?\nLeurs modules seront conservés (non assignés).')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        const input1 = document.createElement('input');
+        input1.type = 'hidden';
+        input1.name = 'action';
+        input1.value = 'bulk_delete';
+        form.appendChild(input1);
+
+        checkboxes.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_ids[]';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
     }
 }
 </script>

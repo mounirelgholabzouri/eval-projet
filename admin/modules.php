@@ -42,6 +42,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_module
     $action = 'list';
 }
 
+// ── Suppression en masse ─────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
+    $bulkAction = $_POST['bulk_action'] ?? '';
+    $selectedIds = array_map('intval', $_POST['selected_ids'] ?? []);
+
+    if (!empty($selectedIds)) {
+        if ($bulkAction === 'delete') {
+            foreach ($selectedIds as $id) {
+                supprimerModule($id);
+            }
+            $msg = count($selectedIds) . " module(s) supprimé(s).";
+        } elseif ($bulkAction === 'toggle_status') {
+            foreach ($selectedIds as $id) {
+                $pdo->prepare("UPDATE modules SET actif = NOT actif WHERE id = ?")->execute([$id]);
+            }
+            $msg = count($selectedIds) . " module(s) activé(s)/désactivé(s).";
+        }
+    }
+    $action = 'list';
+}
+
 // ── Toggle actif ─────────────────────────────────────────────
 if ($action === 'toggle' && $id > 0) {
     $pdo->prepare("UPDATE modules SET actif = NOT actif WHERE id = ?")->execute([$id]);
@@ -145,10 +166,32 @@ if ($action === 'edit' && $id > 0) {
         <!-- Liste des modules -->
         <div class="col-md-8">
             <div class="card border-0 shadow-sm rounded-4">
+                <!-- Barre d'actions en masse -->
+                <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display: none;">
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="text-muted">
+                            <span id="bulkCount">0</span> sélectionné(s)
+                        </span>
+                        <div class="btn-group btn-group-sm" role="group">
+                            <button type="button" class="btn btn-outline-danger" onclick="bulkDelete()">
+                                <i class="bi bi-trash me-1"></i>Supprimer
+                            </button>
+                            <button type="button" class="btn btn-outline-success" onclick="bulkToggleStatus()">
+                                <i class="bi bi-arrow-repeat me-1"></i>Basculer statut
+                            </button>
+                        </div>
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="clearSelection()">
+                            Annuler
+                        </button>
+                    </div>
+                </div>
                 <div class="card-body p-0">
                     <table class="table table-hover mb-0 align-middle">
                         <thead class="table-light">
                             <tr>
+                                <th class="ps-4" style="width: 40px;">
+                                    <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
+                                </th>
                                 <th class="ps-4">Module</th>
                                 <th class="text-center">Durée</th>
                                 <th class="text-center">Questions</th>
@@ -163,6 +206,9 @@ if ($action === 'edit' && $id > 0) {
                         <?php endif; ?>
                         <?php foreach ($modules as $m): ?>
                             <tr>
+                                <td class="ps-4">
+                                    <input type="checkbox" class="form-check-input module-checkbox" value="<?= $m['id'] ?>" onchange="updateBulkActionBar()">
+                                </td>
                                 <td class="ps-4">
                                     <div class="fw-semibold"><?= htmlspecialchars($m['nom']) ?></div>
                                     <?php if ($m['description']): ?>
@@ -265,6 +311,91 @@ document.querySelectorAll('.toggle-actif').forEach(function(toggle) {
             });
     });
 });
+
+// ── Fonctions sélection multiple ─────────────────────────────
+function updateBulkActionBar() {
+    const checkboxes = document.querySelectorAll('.module-checkbox:checked');
+    const bar = document.getElementById('bulkActionBar');
+    const count = document.getElementById('bulkCount');
+    const selectAll = document.getElementById('selectAll');
+
+    count.textContent = checkboxes.length;
+    bar.style.display = checkboxes.length > 0 ? 'block' : 'none';
+
+    // Mettre à jour le checkbox "Sélectionner tout"
+    const allCheckboxes = document.querySelectorAll('.module-checkbox');
+    selectAll.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+    selectAll.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
+}
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    document.querySelectorAll('.module-checkbox').forEach(cb => {
+        cb.checked = selectAll.checked;
+    });
+    updateBulkActionBar();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.module-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateBulkActionBar();
+}
+
+function bulkDelete() {
+    const checkboxes = document.querySelectorAll('.module-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('Sélectionnez au moins un module.');
+        return;
+    }
+    if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' module(s) ?\nCette action est irréversible.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        const input1 = document.createElement('input');
+        input1.type = 'hidden';
+        input1.name = 'bulk_action';
+        input1.value = 'delete';
+        form.appendChild(input1);
+
+        checkboxes.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_ids[]';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
+function bulkToggleStatus() {
+    const checkboxes = document.querySelectorAll('.module-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('Sélectionnez au moins un module.');
+        return;
+    }
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    const input1 = document.createElement('input');
+    input1.type = 'hidden';
+    input1.name = 'bulk_action';
+    input1.value = 'toggle_status';
+    form.appendChild(input1);
+
+    checkboxes.forEach(cb => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'selected_ids[]';
+        input.value = cb.value;
+        form.appendChild(input);
+    });
+
+    document.body.appendChild(form);
+    form.submit();
+}
 </script>
 
 <!-- Modal suppression module -->
