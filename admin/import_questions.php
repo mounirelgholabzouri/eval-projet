@@ -66,10 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['import_file'])) {
                     $msgType = 'danger';
                 }
 
-                if (!isset($msg)) {
+                if (empty($msg)) {
                     if (!empty($questions)) {
                         $result = importQuestionsToModule($questions, $moduleId);
                         $msg = "{$result['imported']} question(s) importée(s).";
+                        $msgType = 'success';
                         if (!empty($result['errors'])) {
                             $msg .= " " . count($result['errors']) . " erreur(s).";
                             $msgType = 'warning';
