@@ -15,6 +15,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_sessio
     }
 }
 
+// ── Suppression en masse ─────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
+    $bulkAction = $_POST['bulk_action'] ?? '';
+    $selectedIds = array_map('intval', $_POST['selected_ids'] ?? []);
+
+    if (!empty($selectedIds)) {
+        if ($bulkAction === 'delete') {
+            foreach ($selectedIds as $id) {
+                supprimerSession($id);
+            }
+            $msg = count($selectedIds) . " résultat(s) supprimé(s).";
+        }
+    }
+}
+
 // Filtres
 $filterModule = (int)($_GET['module_id'] ?? 0);
 $filterGroupe = trim($_GET['groupe'] ?? '');
@@ -244,10 +259,27 @@ $stats = getStatsGlobales();
 
     <!-- Tableau résultats -->
     <div class="card border-0 shadow-sm rounded-4">
+        <!-- Barre d'actions en masse -->
+        <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display: none;">
+            <div class="d-flex gap-2 align-items-center">
+                <span class="text-muted">
+                    <span id="bulkCount">0</span> sélectionné(s)
+                </span>
+                <button type="button" class="btn btn-outline-danger btn-sm" onclick="bulkDeleteResults()">
+                    <i class="bi bi-trash me-1"></i>Supprimer
+                </button>
+                <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="clearSelection()">
+                    Annuler
+                </button>
+            </div>
+        </div>
         <div class="table-responsive">
             <table class="table table-hover mb-0 align-middle">
                 <thead class="table-light">
                     <tr>
+                        <th class="ps-4" style="width: 40px;">
+                            <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
+                        </th>
                         <th class="ps-4">Stagiaire</th>
                         <th>Groupe</th>
                         <th>Module</th>
@@ -262,11 +294,14 @@ $stats = getStatsGlobales();
                 </thead>
                 <tbody>
                     <?php if (empty($sessions)): ?>
-                    <tr><td colspan="10" class="text-center text-muted py-4">Aucun résultat trouvé</td></tr>
+                    <tr><td colspan="11" class="text-center text-muted py-4">Aucun résultat trouvé</td></tr>
                     <?php endif; ?>
                     <?php foreach ($sessions as $s): ?>
                     <?php $mention = getMention((float)$s['pourcentage']); ?>
                     <tr>
+                        <td class="ps-4">
+                            <input type="checkbox" class="form-check-input result-checkbox" value="<?= $s['id'] ?>" onchange="updateBulkActionBar()">
+                        </td>
                         <td class="ps-4 fw-semibold">
                             <?= htmlspecialchars($s['prenom'] . ' ' . $s['nom']) ?>
                         </td>
@@ -370,6 +405,63 @@ function confirmDeleteSession(id, nom, module) {
     document.getElementById('delSessNom').textContent    = nom;
     document.getElementById('delSessModule').textContent = module;
     new bootstrap.Modal(document.getElementById('deleteSessionModal')).show();
+}
+
+// ── Fonctions sélection multiple ─────────────────────────────
+function updateBulkActionBar() {
+    const checkboxes = document.querySelectorAll('.result-checkbox:checked');
+    const bar = document.getElementById('bulkActionBar');
+    const count = document.getElementById('bulkCount');
+    const selectAll = document.getElementById('selectAll');
+
+    count.textContent = checkboxes.length;
+    bar.style.display = checkboxes.length > 0 ? 'block' : 'none';
+
+    const allCheckboxes = document.querySelectorAll('.result-checkbox');
+    selectAll.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+    selectAll.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
+}
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    document.querySelectorAll('.result-checkbox').forEach(cb => {
+        cb.checked = selectAll.checked;
+    });
+    updateBulkActionBar();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.result-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateBulkActionBar();
+}
+
+function bulkDeleteResults() {
+    const checkboxes = document.querySelectorAll('.result-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('Sélectionnez au moins un résultat.');
+        return;
+    }
+    if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' résultat(s) ?\nToutes les réponses associées seront effacées.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        const input1 = document.createElement('input');
+        input1.type = 'hidden';
+        input1.name = 'bulk_action';
+        input1.value = 'delete';
+        form.appendChild(input1);
+
+        checkboxes.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_ids[]';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+    }
 }
 </script>
 </body>
