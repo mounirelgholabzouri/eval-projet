@@ -17,7 +17,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['import_file'])) {
         $msg = "Sélectionnez un module.";
         $msgType = 'danger';
     } elseif ($file['error'] !== UPLOAD_ERR_OK) {
-        $msg = "Erreur d'upload de fichier.";
+        $uploadErrors = [
+            UPLOAD_ERR_INI_SIZE => 'Fichier dépasse la limite (php.ini)',
+            UPLOAD_ERR_FORM_SIZE => 'Fichier dépasse la limite (formulaire)',
+            UPLOAD_ERR_PARTIAL => 'Upload incomplet',
+            UPLOAD_ERR_NO_FILE => 'Aucun fichier',
+            UPLOAD_ERR_NO_TMP_DIR => 'Dossier temporaire manquant',
+            UPLOAD_ERR_CANT_WRITE => 'Erreur écriture disque',
+            UPLOAD_ERR_EXTENSION => 'Extension non autorisée'
+        ];
+        $msg = "Erreur d'upload : " . ($uploadErrors[$file['error']] ?? "Erreur inconnue ({$file['error']})");
         $msgType = 'danger';
     } else {
         $tmpFile = $file['tmp_name'];
@@ -27,9 +36,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['import_file'])) {
         try {
             $questions = [];
 
-            // Debug: vérifier le fichier temporaire
             if (!file_exists($tmpFile)) {
                 $msg = "Erreur : fichier temporaire non trouvé.";
+                $msgType = 'danger';
+            } elseif (empty($ext)) {
+                $msg = "Erreur : extension de fichier manquante.";
                 $msgType = 'danger';
             } else {
                 // Déterminer le format et parser
@@ -40,33 +51,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['import_file'])) {
                 } elseif ($ext === 'pdf') {
                     $questions = parsePdfFile($tmpFile);
                 } elseif ($ext === 'md') {
-                    // Pour Markdown, lire le contenu directement
                     $content = file_get_contents($tmpFile);
                     if ($content === false) {
                         $msg = "Erreur : impossible de lire le fichier Markdown.";
+                        $msgType = 'danger';
+                    } elseif (strlen($content) === 0) {
+                        $msg = "Erreur : fichier Markdown vide.";
                         $msgType = 'danger';
                     } else {
                         $questions = extractQuestionsFromMarkdown($content);
                     }
                 } else {
-                    $msg = "Format non supporté. Utilisez : Excel, DOCX, PDF ou Markdown.";
+                    $msg = "Format non supporté. Utilisez : Excel (.xlsx, .csv), Word (.docx), PDF ou Markdown (.md)";
                     $msgType = 'danger';
                 }
 
-                if (!isset($msg) && !empty($questions)) {
-                    $result = importQuestionsToModule($questions, $moduleId);
-                    $msg = "{$result['imported']} question(s) importée(s).";
-                    if (!empty($result['errors'])) {
-                        $msg .= " " . count($result['errors']) . " erreur(s).";
+                if (!isset($msg)) {
+                    if (!empty($questions)) {
+                        $result = importQuestionsToModule($questions, $moduleId);
+                        $msg = "{$result['imported']} question(s) importée(s).";
+                        if (!empty($result['errors'])) {
+                            $msg .= " " . count($result['errors']) . " erreur(s).";
+                            $msgType = 'warning';
+                        }
+                    } else {
+                        $msg = "Aucune question trouvée dans le fichier.";
                         $msgType = 'warning';
                     }
-                } elseif (!isset($msg)) {
-                    $msg = "Aucune question trouvée dans le fichier.";
-                    $msgType = 'warning';
                 }
             }
-        } catch (Exception $e) {
-            $msg = "Erreur : " . $e->getMessage();
+        } catch (Throwable $e) {
+            $msg = "Erreur lors de l'import : " . $e->getMessage();
             $msgType = 'danger';
         }
     }
