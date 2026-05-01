@@ -62,6 +62,22 @@ if ($action === 'delete' && $questionId > 0) {
     header("Location: questions.php?module_id=$moduleId&deleted=1"); exit;
 }
 
+// ── Suppression en masse ─────────────────────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
+    $bulkAction = $_POST['bulk_action'] ?? '';
+    $selectedIds = array_map('intval', $_POST['selected_ids'] ?? []);
+
+    if (!empty($selectedIds)) {
+        if ($bulkAction === 'delete') {
+            foreach ($selectedIds as $id) {
+                $pdo->prepare("DELETE FROM questions WHERE id=?")->execute([$id]);
+            }
+            $msg = count($selectedIds) . " question(s) supprimée(s).";
+        }
+    }
+    header("Location: questions.php?module_id=$moduleId&bulk_deleted=1&count=" . count($selectedIds)); exit;
+}
+
 // ── Chargement données ───────────────────────────────────────
 $allModules = getAllModules();
 $module     = $moduleId > 0 ? getModule($moduleId) : null;
@@ -98,6 +114,7 @@ if ($moduleId > 0 && $module) {
 $flash = $_GET;
 if (isset($flash['saved']))          $msg = "Question enregistrée.";
 if (isset($flash['deleted']))        $msg = "Question supprimée.";
+if (isset($flash['bulk_deleted']))   $msg = (int)$flash['count'] . " question(s) supprimée(s).";
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -241,14 +258,35 @@ if (isset($flash['deleted']))        $msg = "Question supprimée.";
                     </h5>
                     <span class="badge bg-primary"><?= count($questionsCurrent) ?> question(s)</span>
                 </div>
+                <!-- Barre d'actions en masse -->
+                <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display: none;">
+                    <div class="d-flex gap-2 align-items-center">
+                        <span class="text-muted">
+                            <span id="bulkCount">0</span> sélectionnée(s)
+                        </span>
+                        <button type="button" class="btn btn-outline-danger btn-sm" onclick="bulkDeleteQuestions()">
+                            <i class="bi bi-trash me-1"></i>Supprimer
+                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="clearSelection()">
+                            Annuler
+                        </button>
+                    </div>
+                </div>
                 <div class="card-body p-0">
                     <?php if (empty($questionsCurrent)): ?>
                         <p class="text-center text-muted py-4">
                             <i class="bi bi-inbox me-2"></i>Aucune question dans cette partie.
                         </p>
                     <?php endif; ?>
+                    <div style="display: flex; flex-direction: column;">
+                        <div style="padding: 12px 16px; border-bottom: 1px solid #dee2e6; font-weight: 600; font-size: 13px;">
+                            <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()" style="margin-right: 10px; cursor: pointer;">
+                            <span style="cursor: pointer; user-select: none;" onclick="document.getElementById('selectAll').click()">Sélectionner tout</span>
+                        </div>
+                    </div>
                     <?php foreach ($questionsCurrent as $idx => $q): ?>
                     <div class="p-3 border-bottom d-flex align-items-start gap-3">
+                        <input type="checkbox" class="form-check-input question-checkbox mt-2" value="<?= $q['id'] ?>" onchange="updateBulkActionBar()">
                         <div class="question-number small"><?= $idx + 1 ?></div>
                         <div class="flex-grow-1">
                             <div class="fw-semibold small"><?= htmlspecialchars(mb_substr($q['texte'], 0, 100)) ?><?= mb_strlen($q['texte']) > 100 ? '…' : '' ?></div>
@@ -289,6 +327,70 @@ if (isset($flash['deleted']))        $msg = "Question supprimée.";
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+// ── Fonctions sélection multiple ─────────────────────────────
+function updateBulkActionBar() {
+    const checkboxes = document.querySelectorAll('.question-checkbox:checked');
+    const bar = document.getElementById('bulkActionBar');
+    const count = document.getElementById('bulkCount');
+    const selectAll = document.getElementById('selectAll');
+
+    if (!bar || !count) return;
+
+    count.textContent = checkboxes.length;
+    bar.style.display = checkboxes.length > 0 ? 'block' : 'none';
+
+    const allCheckboxes = document.querySelectorAll('.question-checkbox');
+    if (selectAll) {
+        selectAll.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
+        selectAll.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
+    }
+}
+
+function toggleSelectAll() {
+    const selectAll = document.getElementById('selectAll');
+    if (!selectAll) return;
+    document.querySelectorAll('.question-checkbox').forEach(cb => {
+        cb.checked = selectAll.checked;
+    });
+    updateBulkActionBar();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.question-checkbox').forEach(cb => cb.checked = false);
+    const selectAll = document.getElementById('selectAll');
+    if (selectAll) selectAll.checked = false;
+    updateBulkActionBar();
+}
+
+function bulkDeleteQuestions() {
+    const checkboxes = document.querySelectorAll('.question-checkbox:checked');
+    if (checkboxes.length === 0) {
+        alert('Sélectionnez au moins une question.');
+        return;
+    }
+    if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' question(s) ?\nCette action est irréversible.')) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        const moduleId = new URLSearchParams(window.location.search).get('module_id');
+        const input1 = document.createElement('input');
+        input1.type = 'hidden';
+        input1.name = 'bulk_action';
+        input1.value = 'delete';
+        form.appendChild(input1);
+
+        checkboxes.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_ids[]';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+
+        document.body.appendChild(form);
+        form.submit();
+    }
+}
+
 function toggleChoix() {
     const type = document.getElementById('typeSelect').value;
     const section = document.getElementById('choixSection');
