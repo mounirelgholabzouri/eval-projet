@@ -27,6 +27,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'move_questions.php' ? 'active' : '' ?>"
+                       href="move_questions.php">
+                        <i class="bi bi-arrow-left-right me-1"></i>Déplacer
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'groupes.php' ? 'active' : '' ?>"
                        href="groupes.php">
                         <i class="bi bi-people me-1"></i>Groupes

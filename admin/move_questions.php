@@ -1,0 +1,389 @@
+<?php
+require_once __DIR__ . '/../includes/admin_auth.php';
+require_once __DIR__ . '/../includes/functions.php';
+
+$pdo = getDB();
+$msg    = '';
+$erreur = '';
+
+$filterModule = (int)($_GET['filter_module'] ?? 0);
+$filterPartie = (int)($_GET['filter_partie'] ?? 0);
+$searchText = trim($_GET['search'] ?? '');
+
+// Traitement du déplacement de questions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['move_questions'])) {
+    $questionIds = $_POST['question_ids'] ?? [];
+    $targetModuleId = (int)($_POST['target_module_id'] ?? 0);
+    $targetPartieId = (int)($_POST['target_partie_id'] ?? 0);
+
+    if (empty($questionIds)) {
+        $erreur = "Sélectionnez au moins une question.";
+    } elseif ($targetModuleId <= 0) {
+        $erreur = "Module cible requis.";
+    } elseif ($targetPartieId <= 0) {
+        $erreur = "Partie cible requise.";
+    } else {
+        // Vérifier que la partie appartient au module cible
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM parties WHERE id = ? AND module_id = ?");
+        $stmt->execute([$targetPartieId, $targetModuleId]);
+        if ($stmt->fetchColumn() == 0) {
+            $erreur = "La partie ne correspond pas au module cible.";
+        } else {
+            // Vérifier que toutes les questions existent
+            $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
+            $stmt = $pdo->prepare("SELECT COUNT(*) FROM questions WHERE id IN ($placeholders)");
+            $stmt->execute($questionIds);
+            if ((int)$stmt->fetchColumn() !== count($questionIds)) {
+                $erreur = "Une ou plusieurs questions n'existent pas.";
+            } else {
+                // Déplacer les questions
+                $stmt = $pdo->prepare("UPDATE questions SET module_id = ?, partie_id = ? WHERE id IN ($placeholders)");
+                $params = array_merge([$targetModuleId, $targetPartieId], $questionIds);
+                if ($stmt->execute($params)) {
+                    $msg = count($questionIds) . " question(s) déplacée(s) avec succès.";
+                } else {
+                    $erreur = "Erreur lors du déplacement.";
+                }
+            }
+        }
+    }
+}
+
+// Récupération des données
+$allModules = getAllModules();
+$questions = [];
+
+// Requête principale pour les questions
+$baseQuery = "
+    SELECT q.*, m.nom AS module_nom, p.nom AS partie_nom
+    FROM questions q
+    JOIN modules m ON m.id = q.module_id
+    JOIN parties p ON p.id = q.partie_id
+    WHERE 1=1
+";
+$params = [];
+
+if ($filterModule > 0) {
+    $baseQuery .= " AND q.module_id = ?";
+    $params[] = $filterModule;
+}
+
+if ($filterPartie > 0) {
+    $baseQuery .= " AND q.partie_id = ?";
+    $params[] = $filterPartie;
+}
+
+if ($searchText !== '') {
+    $baseQuery .= " AND q.texte LIKE ?";
+    $params[] = "%$searchText%";
+}
+
+$baseQuery .= " ORDER BY m.nom, p.nom, q.ordre, q.id";
+
+$stmt = $pdo->prepare($baseQuery);
+$stmt->execute($params);
+$questions = $stmt->fetchAll();
+
+// Récupération des parties si un module est filtré
+$targetParties = [];
+if ($filterModule > 0) {
+    $stmt = $pdo->prepare("SELECT * FROM parties WHERE module_id = ? ORDER BY ordre, id");
+    $stmt->execute([$filterModule]);
+    $targetParties = $stmt->fetchAll();
+}
+?>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Déplacer les questions — Administration</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../assets/css/style.css" rel="stylesheet">
+    <style>
+        .question-card { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; margin-bottom: 8px; background: #fff; cursor: pointer; transition: all 0.15s; }
+        .question-card:hover { background: #f9fafb; border-color: #6366f1; }
+        .question-card.selected { background: #eef2ff; border-color: #4f46e5; }
+        .question-card input[type="checkbox"] { cursor: pointer; }
+        .question-text { flex: 1; word-break: break-word; color: #374151; font-size: 14px; line-height: 1.4; }
+        .question-meta { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+        .badge-meta { font-size: 11px; padding: 3px 8px; }
+    </style>
+</head>
+<body class="bg-light">
+<?php include __DIR__ . '/partials/navbar.php'; ?>
+
+<div class="container-fluid py-4 px-4">
+    <h2 class="h4 fw-bold mb-4">
+        <i class="bi bi-arrow-left-right me-2 text-primary"></i>Déplacer les questions entre modules
+    </h2>
+
+    <?php if ($msg): ?>
+        <div class="alert alert-success alert-dismissible fade show rounded-3">
+            <i class="bi bi-check-circle me-2"></i><?= htmlspecialchars($msg) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
+    <?php if ($erreur): ?>
+        <div class="alert alert-danger alert-dismissible fade show rounded-3">
+            <i class="bi bi-exclamation-circle me-2"></i><?= htmlspecialchars($erreur) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
+    <div class="row g-4">
+        <!-- Filtres et sélection cible (gauche) -->
+        <div class="col-lg-3">
+            <!-- Filtres -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h6 class="mb-0 fw-bold"><i class="bi bi-funnel me-2"></i>Filtres</h6>
+                </div>
+                <div class="card-body p-4">
+                    <form method="GET" class="d-flex flex-column gap-3">
+                        <div>
+                            <label class="form-label fw-semibold small">Module</label>
+                            <select name="filter_module" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">— Tous les modules —</option>
+                                <?php foreach ($allModules as $m): ?>
+                                <option value="<?= $m['id'] ?>" <?= $m['id'] == $filterModule ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($m['nom']) ?> (<?= $m['nb_questions'] ?> Q)
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <?php if ($filterModule > 0): ?>
+                        <div>
+                            <label class="form-label fw-semibold small">Partie</label>
+                            <select name="filter_partie" class="form-select form-select-sm" onchange="this.form.submit()">
+                                <option value="">— Toutes les parties —</option>
+                                <?php
+                                $stmt = $pdo->prepare("
+                                    SELECT p.*, COUNT(q.id) AS nb_questions
+                                    FROM parties p
+                                    LEFT JOIN questions q ON q.partie_id = p.id
+                                    WHERE p.module_id = ?
+                                    GROUP BY p.id
+                                    ORDER BY p.ordre, p.id
+                                ");
+                                $stmt->execute([$filterModule]);
+                                $filterParties = $stmt->fetchAll();
+                                foreach ($filterParties as $fp): ?>
+                                <option value="<?= $fp['id'] ?>" <?= $fp['id'] == $filterPartie ? 'selected' : '' ?>>
+                                    <?= htmlspecialchars($fp['nom']) ?> (<?= $fp['nb_questions'] ?> Q)
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <?php endif; ?>
+
+                        <div>
+                            <label class="form-label fw-semibold small">Recherche</label>
+                            <input type="text" name="search" class="form-control form-control-sm"
+                                   placeholder="Texte de question..."
+                                   value="<?= htmlspecialchars($searchText) ?>"
+                                   onkeyup="this.form.submit()">
+                        </div>
+
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-arrow-clockwise me-1"></i>Rafraîchir
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Sélection cible (pour le déplacement) -->
+            <div class="card border-0 shadow-sm rounded-4 sticky-top" style="top: 20px;">
+                <div class="card-header bg-white border-0 py-3 px-4">
+                    <h6 class="mb-0 fw-bold"><i class="bi bi-target me-2"></i>Destination</h6>
+                </div>
+                <div class="card-body p-4">
+                    <form method="POST" id="moveForm">
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Module cible <span class="text-danger">*</span></label>
+                            <select name="target_module_id" class="form-select form-select-sm" id="targetModule" onchange="updateTargetParties()">
+                                <option value="">— Choisir un module —</option>
+                                <?php foreach ($allModules as $m): ?>
+                                <option value="<?= $m['id'] ?>">
+                                    <?= htmlspecialchars($m['nom']) ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold small">Partie cible <span class="text-danger">*</span></label>
+                            <select name="target_partie_id" class="form-select form-select-sm" id="targetPartie">
+                                <option value="">— Choisir une partie —</option>
+                            </select>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" name="move_questions" class="btn btn-primary btn-sm"
+                                    id="moveBtn" disabled>
+                                <i class="bi bi-arrow-right me-1"></i>Déplacer (0 sélectionnée)
+                            </button>
+                        </div>
+
+                        <small class="text-muted d-block mt-2">
+                            <i class="bi bi-info-circle me-1"></i>
+                            Sélectionnez des questions à gauche, puis choisissez la destination et cliquez sur "Déplacer".
+                        </small>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tableau des questions (droite) -->
+        <div class="col-lg-9">
+            <div class="card border-0 shadow-sm rounded-4">
+                <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between align-items-center">
+                    <h6 class="mb-0 fw-bold">
+                        <i class="bi bi-list-check me-2"></i>
+                        Questions
+                        <span class="badge bg-primary-subtle text-primary"><?= count($questions) ?></span>
+                    </h6>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="toggleAllQuestions()">
+                        <i class="bi bi-check2-square me-1"></i>Tout sélectionner
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <form id="questionsForm">
+                        <div style="max-height: 600px; overflow-y: auto;">
+                            <?php if (empty($questions)): ?>
+                            <div class="p-4 text-center text-muted">
+                                <i class="bi bi-inbox" style="font-size: 32px; opacity: 0.3;"></i>
+                                <p class="mt-2">Aucune question trouvée.</p>
+                            </div>
+                            <?php else: ?>
+                                <?php
+                                $lastModule = null;
+                                $lastPartie = null;
+                                $groupedQuestions = [];
+                                foreach ($questions as $q) {
+                                    $key = $q['module_nom'] . '||' . $q['partie_nom'];
+                                    if (!isset($groupedQuestions[$key])) {
+                                        $groupedQuestions[$key] = [
+                                            'module' => $q['module_nom'],
+                                            'partie' => $q['partie_nom'],
+                                            'questions' => []
+                                        ];
+                                    }
+                                    $groupedQuestions[$key]['questions'][] = $q;
+                                }
+
+                                foreach ($groupedQuestions as $group):
+                                ?>
+                                <div class="px-4 py-2 bg-light border-bottom" style="font-weight: 600; font-size: 13px; position: sticky; top: 0; z-index: 10;">
+                                    <i class="bi bi-folder me-1"></i><?= htmlspecialchars($group['module']) ?>
+                                </div>
+                                <div class="px-4 py-2 bg-light" style="font-size: 12px; font-weight: 500; margin-left: 8px; color: #666; border-bottom: 1px solid #ddd;">
+                                    <i class="bi bi-bookmark me-1"></i><?= htmlspecialchars($group['partie']) ?>
+                                </div>
+                                <div class="px-4">
+                                    <?php foreach ($group['questions'] as $q): ?>
+                                    <div class="question-card d-flex align-items-flex-start gap-3">
+                                        <input type="checkbox" name="question_ids" value="<?= $q['id'] ?>"
+                                               class="form-check-input question-checkbox mt-1"
+                                               onchange="updateMoveButtonCount()">
+                                        <div style="flex: 1;">
+                                            <div class="question-text">
+                                                <?= htmlspecialchars(substr($q['texte'], 0, 120)) ?>
+                                                <?= strlen($q['texte']) > 120 ? '…' : '' ?>
+                                            </div>
+                                            <div class="question-meta">
+                                                <span class="badge bg-secondary-subtle text-secondary badge-meta">
+                                                    <i class="bi bi-lightning me-1"></i><?= htmlspecialchars($q['type']) ?>
+                                                </span>
+                                                <span class="badge bg-primary-subtle text-primary badge-meta">
+                                                    <i class="bi bi-star me-1"></i><?= $q['points'] ?>pts
+                                                </span>
+                                                <span class="badge bg-info-subtle text-info badge-meta">
+                                                    <i class="bi bi-question-circle me-1"></i>Q#<?= $q['id'] ?>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <?php endforeach; ?>
+                                </div>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function toggleAllQuestions() {
+    const checkboxes = document.querySelectorAll('.question-checkbox');
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    checkboxes.forEach(cb => cb.checked = !allChecked);
+    updateMoveButtonCount();
+}
+
+function updateMoveButtonCount() {
+    const checkboxes = document.querySelectorAll('.question-checkbox:checked');
+    const count = checkboxes.length;
+    const btn = document.getElementById('moveBtn');
+    btn.textContent = `Déplacer (${count} sélectionnée${count !== 1 ? 's' : ''})`;
+    btn.disabled = count === 0 || document.getElementById('targetModule').value === '';
+
+    // Highlight selected cards
+    document.querySelectorAll('.question-card').forEach(card => {
+        const checkbox = card.querySelector('input[type="checkbox"]');
+        card.classList.toggle('selected', checkbox.checked);
+    });
+}
+
+function updateTargetParties() {
+    const moduleId = document.getElementById('targetModule').value;
+    const partieSelect = document.getElementById('targetPartie');
+    partieSelect.innerHTML = '<option value="">— Choisir une partie —</option>';
+
+    if (!moduleId) {
+        updateMoveButtonCount();
+        return;
+    }
+
+    fetch('move_questions.php?get_parties=' + moduleId)
+        .then(r => r.json())
+        .then(parties => {
+            parties.forEach(p => {
+                const option = document.createElement('option');
+                option.value = p.id;
+                option.textContent = p.nom;
+                partieSelect.appendChild(option);
+            });
+        })
+        .catch(e => console.error('Erreur:', e));
+
+    updateMoveButtonCount();
+}
+
+document.querySelectorAll('.question-checkbox').forEach(cb => {
+    cb.addEventListener('change', updateMoveButtonCount);
+});
+
+updateMoveButtonCount();
+</script>
+
+<?php
+// API endpoint pour récupérer les parties d'un module
+if (isset($_GET['get_parties']) && !isset($_POST['move_questions'])) {
+    $moduleId = (int)$_GET['get_parties'];
+    $stmt = $pdo->prepare("SELECT id, nom FROM parties WHERE module_id = ? ORDER BY ordre, id");
+    $stmt->execute([$moduleId]);
+    header('Content-Type: application/json');
+    echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    exit;
+}
+?>
+
+</body>
+</html>
