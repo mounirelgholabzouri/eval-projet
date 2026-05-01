@@ -72,7 +72,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['import_file'])) {
                         $msg = "{$result['imported']} question(s) importée(s).";
                         $msgType = 'success';
                         if (!empty($result['errors'])) {
-                            $msg .= " " . count($result['errors']) . " erreur(s).";
+                            $msg .= " " . count($result['errors']) . " erreur(s) : " . implode(' | ', array_slice($result['errors'], 0, 3));
                             $msgType = 'warning';
                         }
                     } else {

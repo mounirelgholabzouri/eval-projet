@@ -715,7 +715,11 @@ function extractQuestionsFromMarkdown(string $content): array {
 
         // ── Détection d'en-tête **Question N** ──
         if (preg_match('/^\*\*Question\s+\d+\**/', $line)) {
-            if ($currentQuestion && !empty($currentQuestion['choix'] ?? [])) {
+            // Sauvegarde la question précédente même si pas de choix → texte_libre
+            if ($currentQuestion && !empty($currentQuestion['texte'])) {
+                if (empty($currentQuestion['choix'])) {
+                    $currentQuestion['type'] = 'texte_libre';
+                }
                 $questions[] = $currentQuestion;
             }
             $currentQuestion = ['texte' => '', 'type' => 'qcm', 'points' => 1, 'choix' => []];
@@ -725,9 +729,11 @@ function extractQuestionsFromMarkdown(string $content): array {
 
         // ── Texte de question : ligne normale ou blockquote > « ... » ──
         if ($expectQuestionText && $currentQuestion !== null && empty($currentQuestion['texte'])) {
-            // Blockquote Vrai/Faux : > « texte »
-            if (preg_match('/^>\s*[«"](.+?)[»"]?\s*$/', $line, $m)) {
-                $currentQuestion['texte'] = trim($m[1]);
+            // Blockquote Vrai/Faux : > « texte »  (regex en mode u pour UTF-8)
+            if (preg_match('/^>\s*(.+)$/u', $line, $m)) {
+                // Strip les guillemets « » " ' au début et à la fin
+                $texte = preg_replace('/^[«»"\'\s]+|[«»"\'\s]+$/u', '', $m[1]);
+                $currentQuestion['texte'] = trim($texte);
                 $currentQuestion['type']  = 'vrai_faux';
                 $currentQuestion['choix'] = [
                     ['texte' => 'Vrai', 'is_correct' => 0],
@@ -744,7 +750,10 @@ function extractQuestionsFromMarkdown(string $content): array {
 
         // ── Question numérotée (1. ou 1)) ──
         if (preg_match('/^\d+[\.\)]\s+(.+)/', $line, $m)) {
-            if ($currentQuestion && !empty($currentQuestion['choix'] ?? [])) {
+            if ($currentQuestion && !empty($currentQuestion['texte'])) {
+                if (empty($currentQuestion['choix'])) {
+                    $currentQuestion['type'] = 'texte_libre';
+                }
                 $questions[] = $currentQuestion;
             }
             $currentQuestion = ['texte' => trim($m[1]), 'type' => 'qcm', 'points' => 1, 'choix' => []];
@@ -795,7 +804,10 @@ function extractQuestionsFromMarkdown(string $content): array {
         }
     }
 
-    if ($currentQuestion && !empty($currentQuestion['choix'] ?? [])) {
+    if ($currentQuestion && !empty($currentQuestion['texte'])) {
+        if (empty($currentQuestion['choix'])) {
+            $currentQuestion['type'] = 'texte_libre';
+        }
         $questions[] = $currentQuestion;
     }
 
