@@ -219,7 +219,18 @@
       "Bash(curl -s -b /tmp/adm.txt \"http://localhost/admin/generate_efm_pdf.php?session_id=195\" -o /tmp/pdf_test.html -w '%{http_code}')",
       "Read(//c/laragon/bin/composer//**)",
       "Read(//c/laragon/**)",
-      "Bash(curl -s -b /tmp/adm.txt \"http://localhost/admin/generate_efm_pdf.php?session_id=195\" -o /tmp/pdf_test2.bin -w '%{http_code}')"
+      "Bash(curl -s -b /tmp/adm.txt \"http://localhost/admin/generate_efm_pdf.php?session_id=195\" -o /tmp/pdf_test2.bin -w '%{http_code}')",
+      "Bash(cp 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\.claude\\\\worktrees\\\\nifty-rosalind-7474dd/db/migration_formateur.php' 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet/db/migration_formateur.php')",
+      "Bash(cp 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\.claude\\\\worktrees\\\\nifty-rosalind-7474dd/includes/admin_auth.php' 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet/includes/admin_auth.php')",
+      "Bash(cp 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\.claude\\\\worktrees\\\\nifty-rosalind-7474dd/includes/functions.php' 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet/includes/functions.php')",
+      "Bash(cp 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\.claude\\\\worktrees\\\\nifty-rosalind-7474dd/admin/login.php' 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet/admin/login.php')",
+      "Bash(cp 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\.claude\\\\worktrees\\\\nifty-rosalind-7474dd/admin/formateurs.php' 'C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet/admin/formateurs.php')",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\db\\\\migration_formateur.php\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\modules.php\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\includes\\\\functions.php\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\questions.php\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\generate.php\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\mysql\\\\mysql-8.4.3-winx64\\\\bin\\\\mysqldump.exe\" -u root eval_online)"
     ]
   }
 }
