@@ -694,77 +694,93 @@ function parseDocxFile(string $filePath): array {
 function extractQuestionsFromMarkdown(string $content): array {
     $questions = [];
     $lines = explode("\n", $content);
+    $n = count($lines);
     $currentQuestion = null;
+    $expectQuestionText = false; // après **Question N**, la prochaine ligne non-vide est le texte
 
-    foreach ($lines as $line) {
-        $line = trim($line);
-        if (empty($line)) continue;
+    for ($i = 0; $i < $n; $i++) {
+        $line = trim($lines[$i]);
 
-        // Skip Markdown headers (##, ###, etc.)
-        if (preg_match('/^#+\s+/', $line)) {
+        // Ligne vide
+        if (empty($line) || $line === '---') {
             continue;
         }
 
-        // Question: numbered format (1. or 1))
+        // Format 1 : **Question N** (ligne d'en-tête, texte sur la ligne suivante)
+        if (preg_match('/^\*\*Question\s+\d+\**/', $line)) {
+            if ($currentQuestion && !empty($currentQuestion['choix'] ?? [])) {
+                $questions[] = $currentQuestion;
+            }
+            $currentQuestion = ['texte' => '', 'type' => 'qcm', 'points' => 1, 'choix' => []];
+            $expectQuestionText = true;
+            continue;
+        }
+
+        // Texte de la question (ligne suivant **Question N**)
+        if ($expectQuestionText && $currentQuestion !== null && empty($currentQuestion['texte'])) {
+            // Supprimer les éventuelles ** du texte de question
+            $currentQuestion['texte'] = trim(preg_replace('/\*\*(.+?)\*\*/', '$1', $line));
+            $expectQuestionText = false;
+            continue;
+        }
+
+        // Format 2 : question numérotée (1. Question ou 1) Question)
         if (preg_match('/^\d+[\.\)]\s+(.+)/', $line, $m)) {
             if ($currentQuestion && !empty($currentQuestion['choix'] ?? [])) {
                 $questions[] = $currentQuestion;
             }
-            $currentQuestion = ['texte' => trim($m[1]), 'type' => 'qcm', 'points' => 1];
+            $currentQuestion = ['texte' => trim($m[1]), 'type' => 'qcm', 'points' => 1, 'choix' => []];
+            $expectQuestionText = false;
+            continue;
         }
-        // Answer choice: A. or A) format (uppercase or lowercase)
-        elseif ($currentQuestion && preg_match('/^[a-dA-D][\.\)]\s+(.+)/', $line, $m)) {
-            if (!isset($currentQuestion['choix'])) {
-                $currentQuestion['choix'] = [];
-            }
 
-            $fullLine = $m[1];
-            $isCorrect = 0;
-            $choixTexte = $fullLine;
-
-            // Check for correct answer markers: **bold**, ✓, [x]
-            if (preg_match('/^\*\*(.+?)\*\*/', $fullLine, $bold)) {
-                $isCorrect = 1;
-                $choixTexte = $bold[1];
-            } elseif (preg_match('/^✓\s*(.+)/', $fullLine, $check)) {
-                $isCorrect = 1;
-                $choixTexte = $check[1];
-            } elseif (preg_match('/^\[x\]\s*(.+)/', $fullLine, $checkbox)) {
-                $isCorrect = 1;
-                $choixTexte = $checkbox[1];
-            }
-
-            $currentQuestion['choix'][] = [
-                'texte' => trim($choixTexte),
-                'is_correct' => $isCorrect
-            ];
+        // Ignorer les en-têtes Markdown purs (##, ###...)
+        if (preg_match('/^#+\s+/', $line)) {
+            continue;
         }
-        // Bullet-style answers (- or *)
-        elseif ($currentQuestion && preg_match('/^[-\*]\s+(.+)$/', $line, $m)) {
-            if (!isset($currentQuestion['choix'])) {
-                $currentQuestion['choix'] = [];
+
+        // === Choix de réponse ===
+        if ($currentQuestion !== null) {
+
+            // Format - [ ] A. texte  ou  - [x] A. texte  ou  - [ ] texte
+            if (preg_match('/^-\s+\[(x| )\]\s*(?:[a-dA-D][\.\)]\s*)?(.+)/u', $line, $m)) {
+                $isCorrect = ($m[1] === 'x') ? 1 : 0;
+                $choixTexte = trim(preg_replace('/\*\*(.+?)\*\*/', '$1', $m[2]));
+                $currentQuestion['choix'][] = ['texte' => $choixTexte, 'is_correct' => $isCorrect];
+                continue;
             }
 
-            $fullLine = $m[1];
-            $isCorrect = 0;
-            $choixTexte = $fullLine;
+            // Format - A. texte  ou  * A. texte  ou  - **texte** (réponse correcte en gras)
+            if (preg_match('/^[-\*]\s+(.+)$/', $line, $m)) {
+                $fullLine = $m[1];
+                $isCorrect = 0;
+                $choixTexte = $fullLine;
 
-            // Check for correct answer markers
-            if (preg_match('/^\*\*(.+?)\*\*/', $fullLine, $bold)) {
-                $isCorrect = 1;
-                $choixTexte = $bold[1];
-            } elseif (preg_match('/^✓\s*(.+)/', $fullLine, $check)) {
-                $isCorrect = 1;
-                $choixTexte = $check[1];
-            } elseif (preg_match('/^\[x\]\s*(.+)/', $fullLine, $checkbox)) {
-                $isCorrect = 1;
-                $choixTexte = $checkbox[1];
+                if (preg_match('/^\*\*(.+?)\*\*$/', $fullLine, $bold)) {
+                    $isCorrect = 1;
+                    $choixTexte = $bold[1];
+                } elseif (preg_match('/^✓\s*(.+)/', $fullLine, $check)) {
+                    $isCorrect = 1;
+                    $choixTexte = $check[1];
+                }
+
+                // Enlever le préfixe A. B. C. D. si présent
+                $choixTexte = preg_replace('/^[a-dA-D][\.\)]\s*/', '', trim($choixTexte));
+                $currentQuestion['choix'][] = ['texte' => trim($choixTexte), 'is_correct' => $isCorrect];
+                continue;
             }
 
-            $currentQuestion['choix'][] = [
-                'texte' => trim($choixTexte),
-                'is_correct' => $isCorrect
-            ];
+            // Format A. texte  ou  A) texte
+            if (preg_match('/^[a-dA-D][\.\)]\s+(.+)/', $line, $m)) {
+                $fullLine = $m[1];
+                $isCorrect = 0;
+                $choixTexte = trim(preg_replace('/\*\*(.+?)\*\*/', '$1', $fullLine));
+                if (strpos($fullLine, '**') !== false && preg_match('/^\*\*(.+?)\*\*/', $fullLine)) {
+                    $isCorrect = 1;
+                }
+                $currentQuestion['choix'][] = ['texte' => $choixTexte, 'is_correct' => $isCorrect];
+                continue;
+            }
         }
     }
 
