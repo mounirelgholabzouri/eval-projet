@@ -15,16 +15,30 @@ if (!$session || $session['statut'] === 'termine') {
     redirect('result.php');
 }
 
-$partieId  = isset($_SESSION['eval_partie_id']) ? (int)$_SESSION['eval_partie_id'] : 0;
 $questions = getQuestionsModule((int)$session['module_id']);
-$grouped   = getQuestionsGroupeesParPartie((int)$session['module_id']);
+$nbQ = count($questions);
 
-if ($partieId > 0) {
-    $questions = array_values(array_filter($questions, fn($q) => (int)$q['partie_id'] === $partieId));
-    $grouped   = array_values(array_filter($grouped,   fn($g) => (int)$g['partie']['id'] === $partieId));
+// Group questions by partie
+$pdo = getDB();
+$grouped = [];
+$partieIds = [];
+foreach ($questions as $q) {
+    $partieIds[] = (int)$q['partie_id'];
 }
 
-$nbQ = count($questions);
+if (!empty($partieIds)) {
+    $placeholders = implode(',', array_fill(0, count($partieIds), '?'));
+    $stmt = $pdo->prepare("SELECT DISTINCT id, nom FROM parties WHERE id IN ($placeholders) ORDER BY ordre, id");
+    $stmt->execute($partieIds);
+    $parties = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+
+    foreach ($parties as $partieId => $partieNom) {
+        $grouped[] = [
+            'partie' => ['id' => $partieId, 'nom' => $partieNom],
+            'questions' => array_filter($questions, fn($q) => (int)$q['partie_id'] === (int)$partieId)
+        ];
+    }
+}
 
 // ── Traitement de la soumission finale ──────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_final'])) {
@@ -127,7 +141,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
     <div class="container-fluid">
         <span class="navbar-brand fw-bold">
             <i class="bi bi-journal-check me-2"></i><?= sanitize($session['module_nom']) ?>
-            <?php if ($partieId > 0 && !empty($grouped[0]['partie'])): ?>
+            <?php if (!empty($grouped[0]['partie'])): ?>
             <span class="badge bg-white text-primary ms-2 fw-normal fs-6"><?= sanitize($grouped[0]['partie']['nom']) ?></span>
             <?php endif; ?>
         </span>
