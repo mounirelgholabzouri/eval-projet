@@ -492,9 +492,9 @@ function supprimerFormateur(int $id): void {
 
 function setGroupesFormateur(int $formateurId, array $groupeIds): void {
     $pdo = getDB();
-    $pdo->prepare("DELETE FROM module_formateurs WHERE admin_id = ?")->execute([$formateurId]);
+    $pdo->prepare("DELETE FROM formateur_groupes WHERE formateur_id = ?")->execute([$formateurId]);
     foreach ($groupeIds as $groupeId) {
-        $pdo->prepare("INSERT INTO module_formateurs (admin_id, groupe_id) VALUES (?, ?)")
+        $pdo->prepare("INSERT INTO formateur_groupes (formateur_id, groupe_id) VALUES (?, ?)")
             ->execute([$formateurId, (int)$groupeId]);
     }
 }
