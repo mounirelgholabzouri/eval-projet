@@ -27,15 +27,17 @@ foreach ($questions as $q) {
 }
 
 if (!empty($partieIds)) {
+    $partieIds = array_unique($partieIds);
     $placeholders = implode(',', array_fill(0, count($partieIds), '?'));
-    $stmt = $pdo->prepare("SELECT DISTINCT id, nom FROM parties WHERE id IN ($placeholders) ORDER BY ordre, id");
+    $stmt = $pdo->prepare("SELECT id, nom, ordre FROM parties WHERE id IN ($placeholders) ORDER BY ordre, id");
     $stmt->execute($partieIds);
-    $parties = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+    $parties = $stmt->fetchAll();
 
-    foreach ($parties as $partieId => $partieNom) {
+    foreach ($parties as $partie) {
+        $partieId = (int)$partie['id'];
         $grouped[] = [
-            'partie' => ['id' => $partieId, 'nom' => $partieNom],
-            'questions' => array_filter($questions, fn($q) => (int)$q['partie_id'] === (int)$partieId)
+            'partie' => ['id' => $partieId, 'nom' => $partie['nom']],
+            'questions' => array_filter($questions, fn($q) => (int)$q['partie_id'] === $partieId)
         ];
     }
 }
