@@ -18,6 +18,30 @@ if (!$session || $session['statut'] === 'termine') {
 $questions = getQuestionsModule((int)$session['module_id']);
 $nbQ = count($questions);
 
+// Group questions by partie
+$pdo = getDB();
+$grouped = [];
+$partieIds = [];
+foreach ($questions as $q) {
+    $partieIds[] = (int)$q['partie_id'];
+}
+
+if (!empty($partieIds)) {
+    $partieIds = array_unique($partieIds);
+    $placeholders = implode(',', array_fill(0, count($partieIds), '?'));
+    $stmt = $pdo->prepare("SELECT id, nom, ordre FROM parties WHERE id IN ($placeholders) ORDER BY ordre, id");
+    $stmt->execute($partieIds);
+    $parties = $stmt->fetchAll();
+
+    foreach ($parties as $partie) {
+        $partieId = (int)$partie['id'];
+        $grouped[] = [
+            'partie' => ['id' => $partieId, 'nom' => $partie['nom']],
+            'questions' => array_filter($questions, fn($q) => (int)$q['partie_id'] === $partieId)
+        ];
+    }
+}
+
 // ── Traitement de la soumission finale ──────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_final'])) {
     foreach ($questions as $q) {
@@ -119,7 +143,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
     <div class="container-fluid">
         <span class="navbar-brand fw-bold">
             <i class="bi bi-journal-check me-2"></i><?= sanitize($session['module_nom']) ?>
-            <?php if ($partieId > 0 && !empty($grouped[0]['partie'])): ?>
+            <?php if (!empty($grouped[0]['partie'])): ?>
             <span class="badge bg-white text-primary ms-2 fw-normal fs-6"><?= sanitize($grouped[0]['partie']['nom']) ?></span>
             <?php endif; ?>
         </span>

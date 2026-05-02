@@ -92,7 +92,8 @@ function genererQuestionsAvecClaude(
     string $niveau,
     int    $noteMax,
     string $apiKey,
-    string $prompt = ''
+    string $prompt = '',
+    string $model = 'claude-sonnet-4-20250514'
 ): array {
     $typesStr = implode(', ', $types);
 
@@ -180,7 +181,7 @@ SYSTEM;
 
     // Appel API
     $payload = json_encode([
-        'model'      => 'claude-opus-4-6',
+        'model'      => $model,
         'max_tokens' => 8192,
         'system'     => $systemPrompt,
         'messages'   => $messages,

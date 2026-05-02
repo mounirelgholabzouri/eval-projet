@@ -90,7 +90,12 @@ function getGroupes(): array {
 
 function getQuestionsModule(int $moduleId): array {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
+    $stmt = $pdo->prepare("
+        SELECT q.* FROM questions q
+        INNER JOIN parties p ON q.partie_id = p.id
+        WHERE q.module_id = ? AND p.actif = 1
+        ORDER BY p.ordre, q.ordre, q.id
+    ");
     $stmt->execute([$moduleId]);
     $questions = $stmt->fetchAll();
 
@@ -105,7 +110,12 @@ function getQuestionsModule(int $moduleId): array {
 
 function getTotalPoints(int $moduleId): float {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(points), 0) AS total FROM questions WHERE module_id = ?");
+    $stmt = $pdo->prepare("
+        SELECT COALESCE(SUM(q.points), 0) AS total
+        FROM questions q
+        INNER JOIN parties p ON q.partie_id = p.id
+        WHERE q.module_id = ? AND p.actif = 1
+    ");
     $stmt->execute([$moduleId]);
     return (float)$stmt->fetchColumn();
 }
@@ -821,4 +831,154 @@ function importQuestionsToModule(array $questions, int $moduleId): array {
     }
 
     return ['imported' => $imported, 'errors' => $errors];
+}
+
+// ============================================================
+// Fonctions Correction IA (Claude)
+// ============================================================
+
+function getAnthropicApiKey(): string {
+    $pdo = getDB();
+    try {
+        $stmt = $pdo->prepare("SELECT valeur FROM config WHERE cle = 'anthropic_api_key' LIMIT 1");
+        $stmt->execute();
+        return trim($stmt->fetchColumn() ?: '');
+    } catch (Exception $e) {
+        return '';
+    }
+}
+
+function getAIModel(): string {
+    $pdo = getDB();
+    try {
+        $stmt = $pdo->prepare("SELECT valeur FROM config WHERE cle = 'ai_model' LIMIT 1");
+        $stmt->execute();
+        $model = trim($stmt->fetchColumn() ?: 'claude-sonnet-4-20250514');
+        return !empty($model) ? $model : 'claude-sonnet-4-20250514';
+    } catch (Exception $e) {
+        return 'claude-sonnet-4-20250514';
+    }
+}
+
+function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte, float $pointsMax): array {
+    $apiKey = getAnthropicApiKey();
+
+    if (empty($apiKey)) {
+        return [
+            'success' => false,
+            'error' => 'Clé API Anthropic non configurée'
+        ];
+    }
+
+    try {
+        $prompt = "Tu es un correcteur d'examens expert et bienveillant. Évalue cette réponse d'étudiant à la question suivante.
+
+**Question :** $questionTexte
+
+**Réponse de l'étudiant :** $reponseTexte
+
+**Instructions :**
+1. Évalue la réponse sur $pointsMax points (décimales acceptées : 0, 0.5, 1, etc.)
+2. Fournis un feedback constructif, clair et bref (2-3 phrases max)
+3. Explique pourquoi les points sont accordés
+
+**Format de réponse JSON (strict) :**
+{
+  \"points\": <nombre entre 0 et $pointsMax>,
+  \"feedback\": \"<feedback constructif en français>\"
+}";
+
+        $url = 'https://api.anthropic.com/v1/messages';
+
+        $headers = [
+            'Content-Type: application/json',
+            'x-api-key: ' . $apiKey,
+            'anthropic-version: 2023-06-01',
+            'anthropic-beta: pdfs-2024-09-25'
+        ];
+
+        $model = getAIModel();
+
+        $payload = json_encode([
+            'model' => $model,
+            'max_tokens' => 300,
+            'messages' => [
+                [
+                    'role' => 'user',
+                    'content' => $prompt
+                ]
+            ]
+        ]);
+
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POST => true,
+            CURLOPT_POSTFIELDS => $payload,
+            CURLOPT_TIMEOUT => 30
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        if ($httpCode !== 200) {
+            return [
+                'success' => false,
+                'error' => 'Erreur API Claude (HTTP ' . $httpCode . ')'
+            ];
+        }
+
+        $data = json_decode($response, true);
+
+        if (!isset($data['content'][0]['text'])) {
+            return [
+                'success' => false,
+                'error' => 'Réponse API invalide'
+            ];
+        }
+
+        $contenu = trim($data['content'][0]['text']);
+
+        // Parser JSON de la réponse
+        preg_match('/\{[^{}]*"points"\s*:\s*([0-9.]+)[^{}]*"feedback"\s*:\s*"([^"]+)"[^{}]*\}/s', $contenu, $matches);
+
+        if (count($matches) < 3) {
+            return [
+                'success' => false,
+                'error' => 'Format de réponse IA incorrect'
+            ];
+        }
+
+        $pointsSuggeres = (float)$matches[1];
+        $feedback = $matches[2];
+
+        // Valider les points
+        if ($pointsSuggeres < 0 || $pointsSuggeres > $pointsMax) {
+            $pointsSuggeres = min(max($pointsSuggeres, 0), $pointsMax);
+        }
+
+        // Sauvegarder la correction IA
+        $pdo = getDB();
+        $pdo->prepare("
+            UPDATE reponses_stagiaires
+            SET correction_ia_feedback = ?,
+                correction_ia_points_suggeres = ?,
+                correction_ia_date = NOW()
+            WHERE id = ?
+        ")->execute([$feedback, $pointsSuggeres, $repId]);
+
+        return [
+            'success' => true,
+            'points' => $pointsSuggeres,
+            'feedback' => $feedback
+        ];
+
+    } catch (Exception $e) {
+        return [
+            'success' => false,
+            'error' => 'Erreur : ' . $e->getMessage()
+        ];
+    }
 }

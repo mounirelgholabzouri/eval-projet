@@ -6,25 +6,6 @@ require_once __DIR__ . '/../config/database.php';
 
 $pdo = getDB();
 
-// Récupérer la clé API stockée en DB (ou depuis la config)
-function getApiKey(): string {
-    try {
-        $pdo  = getDB();
-        $stmt = $pdo->query("SELECT valeur FROM config WHERE cle = 'anthropic_api_key' LIMIT 1");
-        $row  = $stmt->fetch();
-        return $row ? $row['valeur'] : '';
-    } catch (\Throwable $e) {
-        return defined('ANTHROPIC_API_KEY') ? ANTHROPIC_API_KEY : '';
-    }
-}
-
-function saveApiKey(string $key): void {
-    $pdo = getDB();
-    $pdo->prepare("INSERT INTO config (cle, valeur) VALUES ('anthropic_api_key', ?)
-                   ON DUPLICATE KEY UPDATE valeur = ?")
-        ->execute([$key, $key]);
-}
-
 $erreur = '';
 $succes = '';
 $questionsGenerees = null;
@@ -32,15 +13,6 @@ $moduleIdCible = 0;
 
 $allModules = getAllModules();
 
-
-// ── Sauvegarde clé API ───────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_api_key'])) {
-    $apiKey = trim($_POST['anthropic_api_key'] ?? '');
-    if ($apiKey) {
-        saveApiKey($apiKey);
-        $succes = "Clé API sauvegardée.";
-    }
-}
 
 // ── Sauvegarde des questions générées ────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_questions'])) {
@@ -60,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_questions'])) {
 
 // ── Génération via Claude ────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
-    $apiKey      = trim($_POST['api_key_runtime'] ?? '') ?: getApiKey();
+    $apiKey      = getAnthropicApiKey();
+    $model       = getAIModel();
     $moduleIdCible = (int)($_POST['module_id'] ?? 0);
     $nbQuestions = max(1, min(30, (int)($_POST['nb_questions'] ?? 10)));
     $typesRaw    = $_POST['types'] ?? ['qcm'];
@@ -74,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $hasPrompt = $prompt !== '';
 
     if (!$apiKey) {
-        $erreur = "Veuillez saisir votre clé API Anthropic.";
+        $erreur = "Clé API Anthropic non configurée. Allez dans Paramètres IA pour la configurer.";
     } elseif ($moduleIdCible <= 0) {
         $erreur = "Veuillez sélectionner un module cible.";
     } elseif (!$hasFile && !$hasPrompt) {
@@ -110,7 +83,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                     $niveau,
                     $noteMax,
                     $apiKey,
-                    $prompt
+                    $prompt,
+                    $model
                 );
 
                 $succes = count($questionsGenerees) . " questions générées. Vérifiez et sauvegardez.";
@@ -125,7 +99,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     }
 }
 
-$apiKeySaved = getApiKey();
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -183,7 +156,16 @@ $apiKeySaved = getApiKey();
         <h2 class="h4 fw-bold mb-0">
             <i class="bi bi-stars me-2 text-primary"></i>Génération de quiz par IA
         </h2>
-        <span class="ai-badge">Claude Opus 4.6</span>
+        <?php
+            $modelLabels = [
+                'claude-opus-4-7' => 'Claude Opus 4.7',
+                'claude-sonnet-4-20250514' => 'Claude Sonnet 4',
+                'claude-haiku-4-5-20251001' => 'Claude Haiku',
+            ];
+            $configuredModel = getAIModel();
+            $modelLabel = $modelLabels[$configuredModel] ?? 'Model';
+        ?>
+        <span class="ai-badge"><?= htmlspecialchars($modelLabel) ?></span>
     </div>
 
     <!-- Alertes -->
@@ -204,32 +186,18 @@ $apiKeySaved = getApiKey();
         <!-- ── Panneau de configuration ─────────────────── -->
         <div class="col-lg-4">
 
-            <!-- Clé API -->
-            <div class="card border-0 shadow-sm rounded-4 mb-4">
+            <!-- Configuration IA -->
+            <div class="card border-0 shadow-sm rounded-4 mb-4 bg-primary-subtle">
                 <div class="card-body p-4">
-                    <h6 class="fw-bold mb-3">
-                        <i class="bi bi-key me-2 text-warning"></i>Clé API Anthropic
+                    <h6 class="fw-bold mb-2 text-primary">
+                        <i class="bi bi-gear me-2"></i>Configuration IA
                     </h6>
-                    <form method="POST">
-                        <div class="input-group input-group-sm">
-                            <input type="password" name="anthropic_api_key" class="form-control"
-                                   placeholder="sk-ant-api..."
-                                   value="<?= $apiKeySaved ? str_repeat('•', 20) : '' ?>">
-                            <button type="submit" name="save_api_key" class="btn btn-warning btn-sm">
-                                <i class="bi bi-save me-1"></i>Sauvegarder
-                            </button>
-                        </div>
-                        <?php if ($apiKeySaved): ?>
-                        <div class="text-success small mt-1">
-                            <i class="bi bi-check-circle me-1"></i>Clé configurée
-                        </div>
-                        <?php else: ?>
-                        <div class="text-muted small mt-1">
-                            Obtenez votre clé sur
-                            <a href="https://console.anthropic.com" target="_blank" rel="noopener">console.anthropic.com</a>
-                        </div>
-                        <?php endif; ?>
-                    </form>
+                    <p class="text-muted small mb-3">
+                        Configurez votre clé API Anthropic et le modèle IA à utiliser dans la page de paramètres.
+                    </p>
+                    <a href="config_ia.php" class="btn btn-primary btn-sm w-100 fw-semibold">
+                        <i class="bi bi-sliders me-2"></i>Paramètres IA
+                    </a>
                 </div>
             </div>
 
@@ -381,22 +349,6 @@ $apiKeySaved = getApiKey();
                             </select>
                         </div>
 
-                        <!-- Clé API à la volée (si non configurée) -->
-                        <?php if (!$apiKeySaved): ?>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold small text-muted">
-                                Clé API (utilisation ponctuelle)
-                            </label>
-                            <input type="password" name="api_key_runtime" class="form-control form-control-sm"
-                                   placeholder="sk-ant-api...">
-                            <div class="form-check mt-1">
-                                <input class="form-check-input" type="checkbox" name="remember_key" id="rememberKey">
-                                <label class="form-check-label small" for="rememberKey">Mémoriser la clé</label>
-                            </div>
-                        </div>
-                        <?php else: ?>
-                        <input type="hidden" name="api_key_runtime" value="">
-                        <?php endif; ?>
 
                         <button type="submit" name="generate" id="generateBtn"
                                 class="btn btn-primary w-100 fw-semibold py-2">

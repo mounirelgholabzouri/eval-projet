@@ -181,10 +181,8 @@ document.addEventListener('DOMContentLoaded', function () {
         btn.disabled = true;
         cb.addEventListener('change', () => btn.disabled = !cb.checked);
     }
-        partieSel.value = '<?= (int)($_POST['partie_id'] ?? 0) ?>';
-        <?php endif; ?>
-    }
 });
+
 </script>
 </body>
 </html>
