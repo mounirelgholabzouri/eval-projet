@@ -219,7 +219,26 @@
       "Bash(curl -s -b /tmp/adm.txt \"http://localhost/admin/generate_efm_pdf.php?session_id=195\" -o /tmp/pdf_test.html -w '%{http_code}')",
       "Read(//c/laragon/bin/composer//**)",
       "Read(//c/laragon/**)",
-      "Bash(curl -s -b /tmp/adm.txt \"http://localhost/admin/generate_efm_pdf.php?session_id=195\" -o /tmp/pdf_test2.bin -w '%{http_code}')"
+      "Bash(curl -s -b /tmp/adm.txt \"http://localhost/admin/generate_efm_pdf.php?session_id=195\" -o /tmp/pdf_test2.bin -w '%{http_code}')",
+      "Bash('C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe' -r ' *)",
+      "Bash(grep -A 20 \"CREATE TABLE \\\\`parties\\\\`\" db/schema.sql)",
+      "Bash(grep -n '$currentPartie = null' admin/questions.php)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -d error_reporting=E_ALL -l admin/questions.php)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -S localhost:8888)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -d error_reporting=E_ALL -d display_errors=1)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l admin/move_questions.php)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l admin/formateurs.php)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l includes/functions.php)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\")",
+      "Bash(curl -s http://localhost/admin/formateurs.php)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\formateurs.php\")",
+      "Bash(awk '{print $NF}')",
+      "Bash(xargs -I {} basename {})",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\import_questions.php\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\includes\\\\functions.php\")",
+      "Bash(php -r ' *)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\test_md_parser2.php\")",
+      "PowerShell(\"Cleaned up test files\")"
     ]
   }
 }
