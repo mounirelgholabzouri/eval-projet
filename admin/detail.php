@@ -43,6 +43,10 @@ $groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
                     onclick="corrigerToutAvecIA(<?= $id ?>)">
                 <i class="bi bi-robot me-1"></i>Corriger tout avec IA
             </button>
+            <button type="button" id="btn-validate-all" class="btn btn-sm btn-success rounded-3"
+                    onclick="validerToutesLesNotes(<?= $id ?>)" style="display:none;">
+                <i class="bi bi-check-all me-1"></i>Valider toutes les notes
+            </button>
             <?php endif; ?>
             <a href="print_exams.php?session_id=<?= $id ?>" target="_blank"
                class="btn btn-sm btn-dark rounded-3">
@@ -331,7 +335,50 @@ async function corrigerToutAvecIA(sessionId) {
         btn.innerHTML = `<i class="bi bi-check-circle me-1"></i>${data.corriges} corrigée(s)`;
         btn.classList.replace('btn-info', 'btn-success');
 
+        // Afficher le bouton "Valider toutes les notes"
+        const btnValidateAll = document.getElementById('btn-validate-all');
+        if (btnValidateAll) {
+            btnValidateAll.style.display = 'inline-block';
+        }
+
         if (data.erreurs.length) alert('⚠ ' + data.erreurs.join('\n'));
+
+    } catch (err) {
+        alert('Erreur réseau : ' + err.message);
+        btn.innerHTML = orig;
+        btn.disabled = false;
+    }
+}
+
+async function validerToutesLesNotes(sessionId) {
+    const btn  = document.getElementById('btn-validate-all');
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Validation en cours...';
+
+    try {
+        const res  = await fetch('api_validate_all_notes.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'session_id=' + sessionId
+        });
+        const data = await res.json();
+
+        if (!data.success) {
+            alert('Erreur : ' + data.error);
+            btn.innerHTML = orig;
+            btn.disabled = false;
+            return;
+        }
+
+        updateScoreDisplay(data.score, data.total, data.pct);
+
+        btn.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${data.validees} validée(s)`;
+
+        setTimeout(() => {
+            btn.innerHTML = orig;
+            btn.disabled = false;
+        }, 3000);
 
     } catch (err) {
         alert('Erreur réseau : ' + err.message);
