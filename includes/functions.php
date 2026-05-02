@@ -92,9 +92,8 @@ function getQuestionsModule(int $moduleId): array {
     $pdo = getDB();
     $stmt = $pdo->prepare("
         SELECT q.* FROM questions q
-        INNER JOIN parties p ON q.partie_id = p.id
-        WHERE q.module_id = ? AND p.actif = 1
-        ORDER BY p.ordre, q.ordre, q.id
+        WHERE q.module_id = ?
+        ORDER BY q.ordre, q.id
     ");
     $stmt->execute([$moduleId]);
     $questions = $stmt->fetchAll();
@@ -113,8 +112,7 @@ function getTotalPoints(int $moduleId): float {
     $stmt = $pdo->prepare("
         SELECT COALESCE(SUM(q.points), 0) AS total
         FROM questions q
-        INNER JOIN parties p ON q.partie_id = p.id
-        WHERE q.module_id = ? AND p.actif = 1
+        WHERE q.module_id = ?
     ");
     $stmt->execute([$moduleId]);
     return (float)$stmt->fetchColumn();
@@ -860,63 +858,61 @@ function getAIModel(): string {
     }
 }
 
+function niveauToPoints(int $niveau, float $pointsMax): float {
+    // Niveau 0 → 0 | Niveau 1 → note/3 | Niveau 2 → 2*(note/3) | Niveau 3 → note complète
+    return match($niveau) {
+        0 => 0.0,
+        1 => round($pointsMax / 3, 2),
+        2 => round(2 * $pointsMax / 3, 2),
+        default => $pointsMax,
+    };
+}
+
 function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte, float $pointsMax): array {
     $apiKey = getAnthropicApiKey();
-
     if (empty($apiKey)) {
-        return [
-            'success' => false,
-            'error' => 'Clé API Anthropic non configurée'
-        ];
+        return ['success' => false, 'error' => 'Clé API Anthropic non configurée'];
     }
 
     try {
-        $prompt = "Tu es un correcteur d'examens expert et bienveillant. Évalue cette réponse d'étudiant à la question suivante.
+        $prompt = "Tu es un correcteur d'examens expert. Évalue cette réponse d'étudiant selon 4 niveaux de proximité.
 
 **Question :** $questionTexte
 
 **Réponse de l'étudiant :** $reponseTexte
 
+**Niveaux (choisis exactement l'un d'eux) :**
+- Niveau 0 — Nul : réponse vide, illisible ou sans aucun lien avec le sujet de la question
+- Niveau 1 — Insuffisant : réponse en lien avec le sujet mais incorrecte ou très incomplète
+- Niveau 2 — Partiel : réponse partiellement correcte, éléments justes mais incomplets
+- Niveau 3 — Correct : réponse correcte et suffisamment complète
+
 **Instructions :**
-1. Évalue la réponse sur $pointsMax points (décimales acceptées : 0, 0.5, 1, etc.)
-2. Fournis un feedback constructif, clair et bref (2-3 phrases max)
-3. Explique pourquoi les points sont accordés
+1. Choisis le niveau le plus adapté (0, 1, 2 ou 3)
+2. Fournis un feedback constructif en 2-3 phrases (explique pourquoi ce niveau, ce qui manque ou ce qui est bien)
 
-**Format de réponse JSON (strict) :**
-{
-  \"points\": <nombre entre 0 et $pointsMax>,
-  \"feedback\": \"<feedback constructif en français>\"
-}";
-
-        $url = 'https://api.anthropic.com/v1/messages';
+**Format JSON strict (rien d'autre) :**
+{\"niveau\": <0|1|2|3>, \"feedback\": \"<feedback en français>\"}";
 
         $headers = [
             'Content-Type: application/json',
             'x-api-key: ' . $apiKey,
             'anthropic-version: 2023-06-01',
-            'anthropic-beta: pdfs-2024-09-25'
         ];
 
-        $model = getAIModel();
-
         $payload = json_encode([
-            'model' => $model,
-            'max_tokens' => 300,
-            'messages' => [
-                [
-                    'role' => 'user',
-                    'content' => $prompt
-                ]
-            ]
+            'model'      => getAIModel(),
+            'max_tokens' => 400,
+            'messages'   => [['role' => 'user', 'content' => $prompt]]
         ]);
 
-        $ch = curl_init($url);
+        $ch = curl_init('https://api.anthropic.com/v1/messages');
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_POST => true,
-            CURLOPT_POSTFIELDS => $payload,
-            CURLOPT_TIMEOUT => 30
+            CURLOPT_HTTPHEADER     => $headers,
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => $payload,
+            CURLOPT_TIMEOUT        => 30
         ]);
 
         $response = curl_exec($ch);
@@ -924,61 +920,49 @@ function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte
         curl_close($ch);
 
         if ($httpCode !== 200) {
-            return [
-                'success' => false,
-                'error' => 'Erreur API Claude (HTTP ' . $httpCode . ')'
-            ];
+            return ['success' => false, 'error' => 'Erreur API Claude (HTTP ' . $httpCode . ')'];
         }
 
         $data = json_decode($response, true);
-
         if (!isset($data['content'][0]['text'])) {
-            return [
-                'success' => false,
-                'error' => 'Réponse API invalide'
-            ];
+            return ['success' => false, 'error' => 'Réponse API invalide'];
         }
 
         $contenu = trim($data['content'][0]['text']);
 
-        // Parser JSON de la réponse
-        preg_match('/\{[^{}]*"points"\s*:\s*([0-9.]+)[^{}]*"feedback"\s*:\s*"([^"]+)"[^{}]*\}/s', $contenu, $matches);
+        // Extraire niveau et feedback
+        preg_match('/"niveau"\s*:\s*([0123])/', $contenu, $nm);
+        preg_match('/"feedback"\s*:\s*"((?:[^"\\\\]|\\\\.)*)"/', $contenu, $fm);
 
-        if (count($matches) < 3) {
-            return [
-                'success' => false,
-                'error' => 'Format de réponse IA incorrect'
-            ];
+        if (!$nm || !$fm) {
+            return ['success' => false, 'error' => 'Format de réponse IA incorrect'];
         }
 
-        $pointsSuggeres = (float)$matches[1];
-        $feedback = $matches[2];
+        $niveau   = (int)$nm[1];
+        $feedback = $fm[1];
+        $points   = niveauToPoints($niveau, $pointsMax);
+        $isCorrect = $niveau >= 2 ? 1 : 0; // niveaux 0 et 1 = incorrect
 
-        // Valider les points
-        if ($pointsSuggeres < 0 || $pointsSuggeres > $pointsMax) {
-            $pointsSuggeres = min(max($pointsSuggeres, 0), $pointsMax);
-        }
-
-        // Sauvegarder la correction IA
         $pdo = getDB();
         $pdo->prepare("
             UPDATE reponses_stagiaires
-            SET correction_ia_feedback = ?,
+            SET points_obtenus              = ?,
+                is_correct                  = ?,
+                correction_ia_feedback      = ?,
                 correction_ia_points_suggeres = ?,
-                correction_ia_date = NOW()
+                correction_ia_niveau        = ?,
+                correction_ia_date          = NOW()
             WHERE id = ?
-        ")->execute([$feedback, $pointsSuggeres, $repId]);
+        ")->execute([$points, $isCorrect, $feedback, $points, $niveau, $repId]);
 
         return [
-            'success' => true,
-            'points' => $pointsSuggeres,
-            'feedback' => $feedback
+            'success'  => true,
+            'points'   => $points,
+            'niveau'   => $niveau,
+            'feedback' => $feedback,
         ];
 
     } catch (Exception $e) {
-        return [
-            'success' => false,
-            'error' => 'Erreur : ' . $e->getMessage()
-        ];
+        return ['success' => false, 'error' => 'Erreur : ' . $e->getMessage()];
     }
 }
