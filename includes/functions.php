@@ -860,12 +860,14 @@ function getAIModel(): string {
 
 function niveauToPoints(int $niveau, float $pointsMax): float {
     // Niveau 0 → 0 | Niveau 1 → note/3 | Niveau 2 → 2*(note/3) | Niveau 3 → note complète
-    return match($niveau) {
+    // Arrondi au demi-point supérieur : 0.1-0.4 → 0.5 | 0.6-0.9 → 1.0
+    $raw = match($niveau) {
         0 => 0.0,
-        1 => round($pointsMax / 3, 2),
-        2 => round(2 * $pointsMax / 3, 2),
+        1 => $pointsMax / 3,
+        2 => 2 * $pointsMax / 3,
         default => $pointsMax,
     };
+    return $niveau === 0 ? 0.0 : ceil($raw * 2) / 2;
 }
 
 function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte, float $pointsMax): array {
