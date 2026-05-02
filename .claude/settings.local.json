@@ -219,7 +219,9 @@
       "Bash(curl -s -b /tmp/adm.txt \"http://localhost/admin/generate_efm_pdf.php?session_id=195\" -o /tmp/pdf_test.html -w '%{http_code}')",
       "Read(//c/laragon/bin/composer//**)",
       "Read(//c/laragon/**)",
-      "Bash(curl -s -b /tmp/adm.txt \"http://localhost/admin/generate_efm_pdf.php?session_id=195\" -o /tmp/pdf_test2.bin -w '%{http_code}')"
+      "Bash(curl -s -b /tmp/adm.txt \"http://localhost/admin/generate_efm_pdf.php?session_id=195\" -o /tmp/pdf_test2.bin -w '%{http_code}')",
+      "Skill(update-config)",
+      "Skill(update-config:*)"
     ]
   }
 }
