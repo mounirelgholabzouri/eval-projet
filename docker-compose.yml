@@ -1,6 +1,7 @@
 services:
 
   app:
+    image: elgholabzouri1968/eval-projet:allinone
     build: .
     container_name: eval_app
     ports:

@@ -4,7 +4,45 @@
 
 ---
 
-## 📋 Prérequis
+## 🐳 Déploiement Docker (recommandé — le plus simple)
+
+### Image Docker Hub disponible
+
+```bash
+docker pull elgholabzouri1968/eval-projet:allinone
+```
+
+### Lancement en une commande
+
+```bash
+docker run -d -p 8080:80 --name eval-projet elgholabzouri1968/eval-projet:allinone
+```
+
+Puis ouvrez : **http://localhost:8080**
+
+- Interface stagiaire : `http://localhost:8080/`
+- Interface admin : `http://localhost:8080/admin/`
+- Login admin : `admin` / Mot de passe : `admin123`
+
+### Via docker-compose (avec base de données persistante)
+
+```bash
+# Télécharger docker-compose.yml depuis le dépôt GitHub
+# puis lancer :
+docker compose up -d
+```
+
+URL : **http://localhost:8080**
+
+### Prérequis Docker
+
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) installé
+- Ports 8080 libres
+- 2 Go d'espace disque
+
+---
+
+## 📋 Prérequis (installation XAMPP)
 
 - **OS** : Windows 10/11 ou Windows Server 2016+
 - **Accès administrateur** : requis pour installer XAMPP et démarrer services
