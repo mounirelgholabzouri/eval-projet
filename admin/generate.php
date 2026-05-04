@@ -32,7 +32,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_questions'])) {
 
 // ── Génération via Claude ────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
-    $apiKey      = getAnthropicApiKey();
+    $provider    = getAIProvider();
+    $apiKey      = getAPIKeyForProvider($provider);
     $model       = getAIModel();
     $moduleIdCible = (int)($_POST['module_id'] ?? 0);
     $nbQuestions = max(1, min(30, (int)($_POST['nb_questions'] ?? 10)));
@@ -47,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $hasPrompt = $prompt !== '';
 
     if (!$apiKey) {
-        $erreur = "Clé API Anthropic non configurée. Allez dans Paramètres IA pour la configurer.";
+        $erreur = "Clé API IA non configurée. Allez dans Paramètres IA pour la configurer.";
     } elseif ($moduleIdCible <= 0) {
         $erreur = "Veuillez sélectionner un module cible.";
     } elseif (!$hasFile && !$hasPrompt) {
@@ -84,7 +85,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                     $noteMax,
                     $apiKey,
                     $prompt,
-                    $model
+                    $model,
+                    $provider
                 );
 
                 $succes = count($questionsGenerees) . " questions générées. Vérifiez et sauvegardez.";
@@ -157,15 +159,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
             <i class="bi bi-stars me-2 text-primary"></i>Génération de quiz par IA
         </h2>
         <?php
-            $modelLabels = [
-                'claude-opus-4-7' => 'Claude Opus 4.7',
-                'claude-sonnet-4-20250514' => 'Claude Sonnet 4',
-                'claude-haiku-4-5-20251001' => 'Claude Haiku',
-            ];
+            $allProviders    = getProvidersConfig();
+            $configuredProv  = getAIProvider();
             $configuredModel = getAIModel();
-            $modelLabel = $modelLabels[$configuredModel] ?? 'Model';
+            $allModels = array_merge(
+                $allProviders['anthropic']['models'],
+                $allProviders['openai']['models'],
+                $allProviders['google']['models']
+            );
+            $providerLabel = $allProviders[$configuredProv]['label'] ?? $configuredProv;
+            $modelLabel    = $allModels[$configuredModel] ?? $configuredModel;
         ?>
-        <span class="ai-badge"><?= htmlspecialchars($modelLabel) ?></span>
+        <span class="ai-badge"><?= htmlspecialchars($providerLabel . ' — ' . $modelLabel) ?></span>
     </div>
 
     <!-- Alertes -->
