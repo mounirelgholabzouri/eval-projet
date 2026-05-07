@@ -114,11 +114,7 @@ function fpts(float $pts): string {
         .q-text { flex-grow: 1; font-size: 10pt; }
         .q-pts  { font-size: 9pt; font-weight: bold; flex-shrink: 0; white-space: nowrap; }
 
-        /* Lignes de réponse stagiaire */
-        .answer-lines { margin-top: 6px; padding-left: 4px; }
-        .answer-line  { border-bottom: 1px solid #bbb; height: 18px; margin-bottom: 4px; }
-
-        /* ---- Séparateur de pages ---- */
+/* ---- Séparateur de pages ---- */
         .page-break { page-break-after: always; break-after: page; }
 
         /* ---- Tampon ---- */
@@ -170,7 +166,7 @@ function fpts(float $pts): string {
     </div>
 
     <div class="module-box">
-        <div class="label">Contr&ocirc;le de Note Pratique</div>
+        <div class="label">Contr&ocirc;le Pratique</div>
         <div class="titre">
             <?= $eval['module_code'] ? s($eval['module_code']) . ' &mdash; ' : '' ?><?= s($eval['module_intitule'] ?: $eval['titre']) ?>
             <span class="variante-badge">Variante <?= $lettre ?></span>
@@ -215,20 +211,13 @@ function fpts(float $pts): string {
 
     <?php foreach ($p['questions'] as $q):
         $qGlobal++;
-        $qPts     = fpts((float)$q['points']);
-        $criteres = json_decode($q['criteres'] ?? '[]', true);
-        $nbLignes = max(3, count($criteres) * 2);
+        $qPts = fpts((float)$q['points']);
     ?>
     <div class="question">
         <div class="q-header">
             <span class="q-num">Q<?= $qGlobal ?>.</span>
             <span class="q-text"><?= nl2br(s($q['texte'])) ?></span>
             <span class="q-pts"><?= $qPts ?> pts</span>
-        </div>
-        <div class="answer-lines">
-            <?php for ($l = 0; $l < $nbLignes; $l++): ?>
-            <div class="answer-line"></div>
-            <?php endfor; ?>
         </div>
     </div>
     <?php endforeach; ?>
