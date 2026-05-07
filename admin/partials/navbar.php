@@ -74,6 +74,12 @@
                         <i class="bi bi-stars me-1"></i>Génération IA
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['eval_pratique.php','print_grille_pratique.php','print_sujet_pratique.php']) ? 'active' : '' ?>"
+                       href="eval_pratique.php">
+                        <i class="bi bi-clipboard2-check me-1"></i>Eval. Pratique
+                    </a>
+                </li>
             </ul>
             <ul class="navbar-nav">
                 <li class="nav-item">

@@ -327,6 +327,57 @@ INSERT INTO `stagiaires` VALUES (2,'AZZAB','ADM',6,'2025-2026','ADM.Z','$2y$10$M
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
+--
+-- Table structure for table `eval_pratique`
+--
+
+CREATE TABLE IF NOT EXISTS `eval_pratique` (
+  `id`              INT AUTO_INCREMENT PRIMARY KEY,
+  `titre`           VARCHAR(255)  NOT NULL,
+  `module_code`     VARCHAR(100)  DEFAULT '',
+  `module_intitule` VARCHAR(255)  DEFAULT '',
+  `filiere`         VARCHAR(100)  DEFAULT '',
+  `etablissement`   VARCHAR(200)  DEFAULT '',
+  `annee`           VARCHAR(20)   DEFAULT '',
+  `duree`           VARCHAR(50)   DEFAULT '2h',
+  `note_max`        INT           DEFAULT 20,
+  `prompt_sujet`    TEXT,
+  `sujet_texte`     LONGTEXT,
+  `structure_json`  LONGTEXT,
+  `created_at`      TIMESTAMP     DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `eval_pratique_parties`
+--
+
+CREATE TABLE IF NOT EXISTS `eval_pratique_parties` (
+  `id`       INT AUTO_INCREMENT PRIMARY KEY,
+  `eval_id`  INT NOT NULL,
+  `numero`   INT NOT NULL,
+  `titre`    VARCHAR(255) DEFAULT '',
+  `points`   FLOAT        DEFAULT 5,
+  `ordre`    INT          DEFAULT 0,
+  CONSTRAINT `fk_epp_eval` FOREIGN KEY (`eval_id`) REFERENCES `eval_pratique` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `eval_pratique_questions`
+--
+
+CREATE TABLE IF NOT EXISTS `eval_pratique_questions` (
+  `id`        INT AUTO_INCREMENT PRIMARY KEY,
+  `partie_id` INT  NOT NULL,
+  `eval_id`   INT  NOT NULL,
+  `numero`    INT  NOT NULL,
+  `texte`     TEXT NOT NULL,
+  `points`    FLOAT DEFAULT 2.5,
+  `criteres`  TEXT,
+  `ordre`     INT  DEFAULT 0,
+  CONSTRAINT `fk_epq_partie` FOREIGN KEY (`partie_id`) REFERENCES `eval_pratique_parties` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_epq_eval`   FOREIGN KEY (`eval_id`)   REFERENCES `eval_pratique` (`id`)   ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
 /*!40014 SET FOREIGN_KEY_CHECKS=@OLD_FOREIGN_KEY_CHECKS */;
 /*!40014 SET UNIQUE_CHECKS=@OLD_UNIQUE_CHECKS */;
@@ -335,4 +386,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-04-30 13:12:53
+-- Dump completed on 2026-05-07 (+ eval_pratique tables)

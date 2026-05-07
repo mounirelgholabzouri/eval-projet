@@ -112,9 +112,9 @@ PHP
 ok "Schéma importé avec succès"
 
 # ============================================================
-# 6. Migrations additionnelles (stagiaires)
+# 6. Migrations additionnelles
 # ============================================================
-info "Application des migrations..."
+info "Application des migrations SQL..."
 for migration in "$PROJECT_DIR"/db/migration_*.sql; do
     [ -f "$migration" ] || continue
     mig_name=$(basename "$migration")
@@ -128,7 +128,15 @@ foreach (\$statements as \$stmt) {
     try { \$pdo->exec(\$stmt); } catch (PDOException \$e) { /* ignore */ }
 }
 PHP
-    ok "  Migration appliquée : $mig_name"
+    ok "  Migration SQL appliquée : $mig_name"
+done
+
+info "Application des migrations PHP (migrate_*.php)..."
+for migration in "$PROJECT_DIR"/db/migrate_*.php; do
+    [ -f "$migration" ] || continue
+    mig_name=$(basename "$migration")
+    output=$("$PHP_BIN" "$migration" 2>&1) || true
+    ok "  $mig_name — $(echo "$output" | grep -E '(✔|✅|—)' | tr '\n' ' ')"
 done
 
 # ============================================================

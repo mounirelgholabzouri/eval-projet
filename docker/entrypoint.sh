@@ -12,5 +12,13 @@ if [ -f /var/www/html/composer.json ] && [ ! -d /var/www/html/vendor ]; then
     cd /var/www/html && composer install --no-interaction --optimize-autoloader
 fi
 
+echo "🔄 Exécution des migrations DB..."
+for migration in /var/www/html/db/migrate_*.php; do
+    if [ -f "$migration" ]; then
+        echo "  → $(basename $migration)"
+        php "$migration" 2>&1 | grep -E '(✔|✅|—|Error|Fatal)' || true
+    fi
+done
+
 echo "🚀 Démarrage Apache..."
 exec apache2-foreground
