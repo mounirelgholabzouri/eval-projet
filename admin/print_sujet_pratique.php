@@ -1,22 +1,24 @@
 <?php
 /**
- * Impression du sujet d'évaluation pratique — A4 portrait
+ * Impression sujet évaluation pratique — 3 variantes
+ * Format IDENTIQUE à print_exams.php (non-EFM)
  */
 require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 $pdo    = getDB();
 $evalId = (int)($_GET['id'] ?? 0);
-if (!$evalId) { echo '<p class="text-danger p-4">ID invalide.</p>'; exit; }
+if (!$evalId) { header('Location: eval_pratique.php'); exit; }
 
 $ev = $pdo->prepare("SELECT * FROM eval_pratique WHERE id = ?");
 $ev->execute([$evalId]);
 $eval = $ev->fetch();
-if (!$eval) { echo '<p class="text-danger p-4">Évaluation introuvable.</p>'; exit; }
+if (!$eval) { header('Location: eval_pratique.php'); exit; }
 
 $stmtP = $pdo->prepare("SELECT * FROM eval_pratique_parties WHERE eval_id = ? ORDER BY ordre, numero");
 $stmtP->execute([$evalId]);
 $parties = $stmtP->fetchAll();
+
 foreach ($parties as &$p) {
     $stmtQ = $pdo->prepare("SELECT * FROM eval_pratique_questions WHERE partie_id = ? ORDER BY ordre, numero");
     $stmtQ->execute([$p['id']]);
@@ -24,233 +26,224 @@ foreach ($parties as &$p) {
 }
 unset($p);
 
+// Logo en base64
+$logoPath = __DIR__ . '/../assets/img/ofppt_logo.png';
+$logoB64  = file_exists($logoPath)
+    ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
+    : '';
+
 $tamponPath = __DIR__ . '/../assets/img/tampon_ofppt.png';
 $tamponB64  = file_exists($tamponPath)
     ? 'data:image/png;base64,' . base64_encode(file_get_contents($tamponPath))
     : '';
 
-$logoPath = __DIR__ . '/../assets/img/logo_ofppt.png';
-$logob64  = file_exists($logoPath)
-    ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath))
-    : '';
+$annee     = $eval['annee'] ?: date('Y') . '/' . (date('Y')+1);
+$noteMax   = (int)$eval['note_max'];
+$duree     = $eval['duree'] ?: '2h';
+$struct    = json_decode($eval['structure_json'] ?? '{}', true);
+$consignes = $struct['consignes'] ?? '';
+
+// 3 variantes : parties mélangées avec seeds différents
+function makeVariant(array $parties, int $seed): array {
+    srand($seed);
+    $v = $parties;
+    shuffle($v);
+    foreach ($v as $i => &$p) { $p['num_affichage'] = $i + 1; }
+    unset($p);
+    return $v;
+}
+
+$variantes = [
+    'A' => makeVariant($parties, 42),
+    'B' => makeVariant($parties, 137),
+    'C' => makeVariant($parties, 251),
+];
+
+function s(string $str): string {
+    return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
+}
+function fpts(float $pts): string {
+    return rtrim(rtrim(number_format($pts, 2, '.', ''), '0'), '.');
+}
 ?>
 <!DOCTYPE html>
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title><?= htmlspecialchars($eval['titre']) ?> — Sujet</title>
+    <title>Sujet Pratique — <?= s($eval['titre']) ?></title>
     <style>
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; background: #fff; }
 
-        @page { size: A4 portrait; margin: 15mm 18mm 20mm 18mm; }
+        /* ---- En-tête (identique print_exams) ---- */
+        .header { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
+        .header-top { display: flex; align-items: center; gap: 12px; }
+        .header-logo { width: 70px; height: auto; flex-shrink: 0; }
+        .header-org { font-size: 9pt; font-style: italic; font-weight: bold; flex-grow: 1; text-align: center; }
+        .header-year { text-align: center; font-size: 9pt; margin-top: 4px; }
 
-        body { font-family: Arial, sans-serif; font-size: 10.5px; color: #000; background: #fff; line-height: 1.5; }
-
-        /* ── Header ── */
-        .page-header {
-            display: flex;
-            align-items: center;
-            border: 1px solid #000;
-            margin-bottom: 10px;
-        }
-        .page-header .logo-cell {
-            width: 50px;
-            padding: 4px 6px;
-            border-right: 1px solid #000;
-            text-align: center;
-        }
-        .page-header .logo-cell img { max-width: 42px; max-height: 42px; }
-        .page-header .centre-cell {
-            flex: 1;
-            text-align: center;
-            padding: 4px 8px;
-            border-right: 1px solid #000;
-        }
-        .page-header .centre-cell .etab { font-size: 8px; text-transform: uppercase; }
-        .page-header .centre-cell .titre-doc { font-size: 12px; font-weight: bold; }
-        .page-header .centre-cell .module { font-size: 9px; }
-        .page-header .right-cell { width: 110px; padding: 4px 6px; font-size: 8px; text-align: center; }
-
-        /* ── Meta stagiaire ── */
-        .stagiaire-meta {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 8px;
-            font-size: 9.5px;
-        }
-        .stagiaire-meta .field {
-            flex: 1;
-            border-bottom: 1px solid #000;
-            padding-bottom: 2px;
-        }
-        .stagiaire-meta .field.narrow { flex: 0 0 90px; }
-
-        /* ── Consignes ── */
-        .consignes {
-            border: 1px dashed #888;
-            padding: 5px 8px;
-            font-size: 9px;
-            margin-bottom: 10px;
-            border-radius: 3px;
-            background: #fafafa;
-        }
-        .consignes strong { font-size: 9.5px; }
-
-        /* ── Parties ── */
-        .partie {
-            margin-bottom: 10px;
-            page-break-inside: avoid;
-        }
-        .partie-header {
-            background: #1a3a5c;
-            color: #fff;
-            padding: 4px 8px;
-            font-size: 10px;
-            font-weight: bold;
-            display: flex;
-            justify-content: space-between;
-        }
-        .partie-header .pts { font-weight: normal; font-size: 9px; }
-
-        .contexte {
-            font-style: italic;
-            font-size: 9px;
-            color: #444;
-            padding: 4px 8px;
-            background: #f5f5f5;
-            border-left: 3px solid #1a3a5c;
-            margin-bottom: 4px;
+        .module-box { border: 1px solid #000; padding: 4px 8px; margin: 6px 0; text-align: center; }
+        .module-box .label { font-size: 8pt; }
+        .module-box .titre { font-size: 10pt; font-weight: bold; }
+        .module-box .variante-badge {
+            display: inline-block; margin-left: 8px;
+            background: #000; color: #fff;
+            font-size: 9pt; font-weight: bold;
+            padding: 1px 7px; border-radius: 3px;
         }
 
-        .question {
-            display: flex;
-            gap: 6px;
-            padding: 4px 8px;
-            border-bottom: 1px solid #e0e0e0;
-        }
-        .question:last-child { border-bottom: none; }
-        .question .qnum {
-            font-weight: bold;
-            min-width: 28px;
-            color: #1a3a5c;
-            font-size: 10px;
-        }
-        .question .qtexte { flex: 1; font-size: 10px; }
-        .question .qpts {
-            white-space: nowrap;
-            font-size: 9px;
-            color: #888;
-            min-width: 50px;
-            text-align: right;
-        }
-        .partie-body { border: 1px solid #c0c8d8; border-top: none; }
+        .info-row { display: flex; justify-content: space-between; font-size: 10pt; margin: 3px 0; border-bottom: 1px solid #000; padding-bottom: 2px; }
+        .info-row span { font-weight: normal; }
 
-        /* ── Pied ── */
-        .page-footer { text-align: center; font-size: 8px; color: #888; margin-top: 10px; }
+        /* ---- Consignes ---- */
+        .consignes-box { border: 1px dashed #888; padding: 4px 8px; margin: 8px 0; font-size: 9pt; background: #fafafa; }
+        .consignes-box strong { font-size: 9.5pt; }
 
-        /* ── Tampon ── */
+        /* ---- Parties & questions (identique print_exams) ---- */
+        .partie-titre {
+            font-weight: bold; font-size: 10pt;
+            background: #f0f0f0; padding: 3px 6px;
+            margin: 10px 0 4px; border-left: 3px solid #000;
+            display: flex; justify-content: space-between;
+        }
+        .partie-contexte { font-style: italic; font-size: 9pt; color: #444; padding: 3px 8px 5px; }
+
+        .question { margin: 6px 0; padding: 5px 8px; border: 1px solid #ccc; page-break-inside: avoid; }
+        .q-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+        .q-num  { font-weight: bold; font-size: 10pt; flex-shrink: 0; }
+        .q-text { flex-grow: 1; font-size: 10pt; }
+        .q-pts  { font-size: 9pt; font-weight: bold; flex-shrink: 0; white-space: nowrap; }
+
+        /* Lignes de réponse stagiaire */
+        .answer-lines { margin-top: 6px; padding-left: 4px; }
+        .answer-line  { border-bottom: 1px solid #bbb; height: 18px; margin-bottom: 4px; }
+
+        /* ---- Séparateur de pages ---- */
+        .page-break { page-break-after: always; break-after: page; }
+
+        /* ---- Tampon ---- */
         .tampon-fixed { position: fixed; bottom: 14mm; right: 14mm; width: 38mm; }
 
-        .no-print { text-align: center; padding: 12px; }
-        .no-print .btn-print { background: #0d6efd; color: #fff; border: none; padding: 8px 24px; border-radius: 6px; font-size: 14px; cursor: pointer; }
-
-        @media print { .no-print { display: none; } }
+        /* ---- Barre d'outils ---- */
+        @page { size: A4; margin: 0; }
+        @media print {
+            .no-print { display: none !important; }
+            body { font-size: 10.5pt; padding: 12mm 14mm; }
+            .question { page-break-inside: avoid; }
+        }
+        .toolbar { background: #2c3e50; color: #fff; padding: 10px 20px; display: flex; gap: 12px; align-items: center; }
+        .toolbar h1 { font-size: 13pt; font-weight: bold; flex-grow: 1; }
+        .toolbar a, .toolbar button {
+            background: #fff; color: #2c3e50; border: none; padding: 6px 14px;
+            border-radius: 4px; cursor: pointer; font-size: 10pt; font-weight: bold;
+            text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .toolbar button:hover, .toolbar a:hover { background: #f0f0f0; }
     </style>
 </head>
 <body>
 
-<div class="no-print">
-    <button class="btn-print" onclick="window.print()">&#128438; Imprimer le sujet</button>
-    <a href="print_grille_pratique.php?id=<?= $evalId ?>" target="_blank"
-       style="margin-left:12px; color:#198754; font-size:14px;">
-        &#128203; Imprimer la grille
-    </a>
-    <a href="eval_pratique.php" style="margin-left:12px; color:#6c757d; font-size:13px;">
-        &#8592; Retour
-    </a>
+<div class="toolbar no-print">
+    <h1>Impression — <?= s($eval['titre']) ?> — 3 Variantes</h1>
+    <a href="print_grille_pratique.php?id=<?= $evalId ?>">Grille de notes</a>
+    <a href="eval_pratique.php">&#8592; Retour</a>
+    <button onclick="window.print()">Imprimer / PDF</button>
 </div>
 
-<!-- ── En-tête officiel ── -->
-<div class="page-header">
-    <div class="logo-cell">
-        <?php if ($logob64): ?>
-        <img src="<?= $logob64 ?>" alt="Logo OFPPT">
-        <?php else: ?>
-        <span style="font-size:7px;font-weight:bold;">OFPPT</span>
-        <?php endif; ?>
-    </div>
-    <div class="centre-cell">
-        <?php if ($eval['etablissement']): ?>
-        <div class="etab"><?= htmlspecialchars($eval['etablissement']) ?></div>
-        <?php endif; ?>
-        <div class="titre-doc"><?= htmlspecialchars($eval['titre']) ?></div>
-        <?php if ($eval['module_code'] || $eval['module_intitule']): ?>
-        <div class="module">
-            <?= htmlspecialchars(($eval['module_code'] ? $eval['module_code'] . ' — ' : '') . $eval['module_intitule']) ?>
-        </div>
-        <?php endif; ?>
-    </div>
-    <div class="right-cell">
-        <?php if ($eval['filiere']): ?>
-        <div><strong>Filière :</strong> <?= htmlspecialchars($eval['filiere']) ?></div>
-        <?php endif; ?>
-        <div><strong>Durée :</strong> <?= htmlspecialchars($eval['duree']) ?></div>
-        <div><strong>Note :</strong> /<?= (int)$eval['note_max'] ?> pts</div>
-        <?php if ($eval['annee']): ?>
-        <div><?= htmlspecialchars($eval['annee']) ?></div>
-        <?php endif; ?>
-    </div>
-</div>
-
-<!-- ── Informations stagiaire ── -->
-<div class="stagiaire-meta">
-    <div class="field">Nom et Prénom : ______________________________________________</div>
-    <div class="field narrow">Groupe : ______________</div>
-    <div class="field narrow">Date : ______________</div>
-</div>
-
-<?php
-// Récupérer les consignes depuis structure_json
-$struct = json_decode($eval['structure_json'] ?? '{}', true);
-$consignes = $struct['consignes'] ?? '';
+<?php foreach ($variantes as $lettre => $varParties):
+    $isLast  = ($lettre === 'C');
+    $qGlobal = 0;
 ?>
+<div class="exam-page <?= !$isLast ? 'page-break' : '' ?>">
 
-<?php if ($consignes): ?>
-<div class="consignes">
-    <strong>Consignes :</strong> <?= nl2br(htmlspecialchars($consignes)) ?>
-</div>
-<?php endif; ?>
-
-<!-- ── Parties ── -->
-<?php foreach ($parties as $p): ?>
-<div class="partie">
-    <div class="partie-header">
-        <span>Partie <?= (int)$p['numero'] ?> — <?= htmlspecialchars($p['titre']) ?></span>
-        <span class="pts"><?= rtrim(rtrim(number_format((float)$p['points'], 2, '.', ''), '0'), '.') ?> pts</span>
-    </div>
-    <div class="partie-body">
-        <?php if (!empty($struct['parties'][(int)$p['numero']-1]['contexte'])): ?>
-        <div class="contexte"><?= nl2br(htmlspecialchars($struct['parties'][(int)$p['numero']-1]['contexte'])) ?></div>
-        <?php endif; ?>
-        <?php foreach ($p['questions'] as $q): ?>
-        <div class="question">
-            <div class="qnum">Q<?= (int)$q['numero'] ?>.</div>
-            <div class="qtexte"><?= nl2br(htmlspecialchars($q['texte'])) ?></div>
-            <div class="qpts">(<?= rtrim(rtrim(number_format((float)$q['points'], 2, '.', ''), '0'), '.') ?> pts)</div>
+    <!-- En-tête identique à print_exams -->
+    <div class="header">
+        <div class="header-top">
+            <?php if ($logoB64): ?>
+            <img src="<?= $logoB64 ?>" class="header-logo" alt="OFPPT">
+            <?php endif; ?>
+            <div class="header-org">
+                <?= $eval['etablissement'] ? s($eval['etablissement']) : 'Direction R&eacute;gionale &mdash; OFPPT' ?>
+            </div>
         </div>
-        <?php endforeach; ?>
+        <div class="header-year">Ann&eacute;e de Formation <?= s($annee) ?></div>
     </div>
+
+    <div class="module-box">
+        <div class="label">Contr&ocirc;le de Note Pratique</div>
+        <div class="titre">
+            <?= $eval['module_code'] ? s($eval['module_code']) . ' &mdash; ' : '' ?><?= s($eval['module_intitule'] ?: $eval['titre']) ?>
+            <span class="variante-badge">Variante <?= $lettre ?></span>
+        </div>
+    </div>
+
+    <div class="info-row">
+        <span>Fili&egrave;re&nbsp;: <strong><?= s($eval['filiere']) ?></strong></span>
+        <span>Dur&eacute;e&nbsp;: <?= s($duree) ?></span>
+    </div>
+    <div class="info-row">
+        <span>Groupe&nbsp;: ___________________________</span>
+        <span>Note&nbsp;: _______ / <?= $noteMax ?></span>
+    </div>
+    <div class="info-row">
+        <span>Nom et Pr&eacute;nom&nbsp;: _______________________________________________</span>
+        <span>Date&nbsp;: _______________</span>
+    </div>
+
+    <?php if ($consignes): ?>
+    <div class="consignes-box">
+        <strong>Consignes&nbsp;:</strong> <?= nl2br(s($consignes)) ?>
+    </div>
+    <?php endif; ?>
+
+    <!-- Parties dans l'ordre de la variante -->
+    <?php foreach ($varParties as $p):
+        $numAff = $p['num_affichage'];
+        $pPts   = fpts((float)$p['points']);
+        // Contexte depuis le JSON original (indexé par numéro original -1)
+        $origIdx  = (int)$p['numero'] - 1;
+        $contexte = $struct['parties'][$origIdx]['contexte'] ?? '';
+    ?>
+    <div class="partie-titre">
+        <span>Partie <?= $numAff ?> &mdash; <?= s($p['titre']) ?></span>
+        <span><?= $pPts ?> pts</span>
+    </div>
+
+    <?php if ($contexte): ?>
+    <div class="partie-contexte"><?= nl2br(s($contexte)) ?></div>
+    <?php endif; ?>
+
+    <?php foreach ($p['questions'] as $q):
+        $qGlobal++;
+        $qPts     = fpts((float)$q['points']);
+        $criteres = json_decode($q['criteres'] ?? '[]', true);
+        $nbLignes = max(3, count($criteres) * 2);
+    ?>
+    <div class="question">
+        <div class="q-header">
+            <span class="q-num">Q<?= $qGlobal ?>.</span>
+            <span class="q-text"><?= nl2br(s($q['texte'])) ?></span>
+            <span class="q-pts"><?= $qPts ?> pts</span>
+        </div>
+        <div class="answer-lines">
+            <?php for ($l = 0; $l < $nbLignes; $l++): ?>
+            <div class="answer-line"></div>
+            <?php endfor; ?>
+        </div>
+    </div>
+    <?php endforeach; ?>
+
+    <?php endforeach; ?>
+
 </div>
 <?php endforeach; ?>
-
-<div class="page-footer">
-    <?= htmlspecialchars($eval['etablissement'] ?: 'OFPPT') ?>
-    <?= $eval['annee'] ? ' — ' . htmlspecialchars($eval['annee']) : '' ?>
-</div>
 
 <?php if ($tamponB64): ?>
 <img class="tampon-fixed" src="<?= $tamponB64 ?>" alt="Tampon OFPPT">
 <?php endif; ?>
 
+<script>
+if (new URLSearchParams(location.search).get('auto') === '1') window.print();
+</script>
 </body>
 </html>
