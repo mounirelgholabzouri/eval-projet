@@ -5,10 +5,10 @@
 - **PHP** : `C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe`
 - **MySQL** : `C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe`
 - **Serveur** : Apache Laragon port 80 — **ne jamais utiliser `php -S`** (mono-thread, bloque AJAX)
-- **Racine projet** : `C:\Users\Administrateur\Eval-Projet\`
+- **Racine projet** : `C:\Users\Administrateur\Desktop\Eval-Projet\`
 - **Lien Apache** : `C:\laragon\www\eval-projet\` → symlink vers la racine
 - **URL** : `http://localhost/`
-- **Worktree** : modifications dans `.claude\worktrees\<nom>\` → merger dans master via `git merge <branche>` depuis la racine projet
+- **Worktree** : modifications dans `.claude\worktrees\<nom>\` → **copier manuellement** vers la racine pour activer sur Apache
 - **VirtualHost** : `C:\laragon\etc\apache2\sites-enabled\00-default.conf`
 
 ## Docker (optionnel)
@@ -27,6 +27,33 @@
 - **GROUP BY** : mode `only_full_group_by` actif → colonnes non-agrégées dans GROUP BY ou MAX()/MIN()
 - **MySQL CLI pipe PowerShell** : `Get-Content fichier.sql | mysql.exe` (opérateur `<` bloqué)
 
+## Synchronisation 2 PCs
+
+- **PC local** : `C:\Users\Administrateur\Eval-Projet\`
+- **PC distant** : `Administrateur@192.168.1.178` → `C:/Users/Administrateur/Desktop/Eval-Projet`
+- **Script** : `sync_remote.sh` — sync bidirectionnelle sécurisée
+- **Automatique** : tâche Windows Scheduler `EvalProjet-SyncSession` (logon) — créée par `setup_autosync.ps1`
+- **Journal** : `sync_remote.log` à la racine du projet
+
+### Ce qui est synchronisé
+| Quoi | Comment |
+|------|---------|
+| Code | `git pull origin master` sur les 2 PCs |
+| Questions/modules | Export→Import bidirectionnel (fusion sans doublon) |
+| Migrations PHP | Détectées par marqueur `.done_*`, exécutées une seule fois |
+
+### Ce qui n'est JAMAIS synchronisé (données par PC)
+- `sessions_eval`, `reponses_stagiaires`, `stagiaires` — données d'examen locales
+- `config` — clé API Anthropic, paramètres locaux
+
+### Ajouter une migration
+Créer `db/migrations/nom_migration.php` (script PDO autonome).  
+La sync la détectera et l'exécutera automatiquement sur les 2 PCs au prochain logon.
+
+### ⚠ Ne jamais faire
+- Dump DB complet local → distant (`mysqldump | ssh mysql`) : **écrase les sessions d'examen distantes**
+- Modifier `config` via sync : chaque PC a sa propre clé API
+
 ## Commandes rapides
 
 ```bash
@@ -34,10 +61,7 @@
 "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" -l fichier.php
 
 # Exécuter un script
-"C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" "C:\Users\Administrateur\Eval-Projet\script.php"
-
-# Merger un worktree dans master
-git -C "C:\Users\Administrateur\Eval-Projet" merge claude/<nom-worktree> --no-edit
+"C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" "C:\Users\Administrateur\Desktop\Eval-Projet\script.php"
 ```
 
 ## Conventions critiques
@@ -66,7 +90,6 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - Partie `actif=0` → **totalement exclue** partout (quiz, index, toutes les impressions) → utiliser `getPartiesActives()` sauf interface admin
 - Suppression stagiaire : cascade manuelle `reponses_stagiaires → sessions_eval → stagiaire` (pas de FK CASCADE en DB)
 - Clé API Anthropic : table `config`, clé `anthropic_api_key` — crédits sur **console.anthropic.com** (≠ claude.ai)
-- Tables `eval_pratique`, `eval_pratique_parties`, `eval_pratique_questions` : créées via script PHP/PDO (schéma dans `db/schema.sql`)
 
 ## EFM — Impressions OFPPT
 
