@@ -588,6 +588,23 @@ function updateRowScore(sessionId, score, total, pct) {
     if (pctEl)   pctEl.textContent   = parseFloat(pct).toFixed(1) + '%';
 }
 
+// ── Toast notification ────────────────────────────────────────
+function showToast(message, type = 'success') {
+    let container = document.getElementById('toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.id = 'toast-container';
+        container.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:9999;display:flex;flex-direction:column;gap:8px;';
+        document.body.appendChild(container);
+    }
+    const t = document.createElement('div');
+    t.className = `alert alert-${type} alert-dismissible shadow mb-0 py-2 px-3`;
+    t.style.cssText = 'min-width:240px;font-size:13px;animation:fadeInUp .2s ease;';
+    t.innerHTML = message + `<button type="button" class="btn-close btn-sm" onclick="this.parentElement.remove()"></button>`;
+    container.appendChild(t);
+    setTimeout(() => t.remove(), 4000);
+}
+
 // ── Corriger IA une session ───────────────────────────────────
 async function corrigerSessionIA(sessionId, btn) {
     const orig = btn.innerHTML;
@@ -601,16 +618,27 @@ async function corrigerSessionIA(sessionId, btn) {
             body: 'session_id=' + sessionId
         });
         const data = await res.json();
-        if (!data.success) { alert('Erreur : ' + data.error); btn.innerHTML = orig; btn.disabled = false; return; }
+        if (!data.success) { showToast('<i class="bi bi-x-circle me-1"></i>' + data.error, 'danger'); btn.innerHTML = orig; btn.disabled = false; return; }
 
-        const cell    = document.getElementById('corr-cell-' + sessionId);
-        const nbTl    = parseInt(cell.dataset.nbTl || 0);
-        const corriges = data.corriges || 0;
-        updateCorrCell(sessionId, nbTl, corriges, corriges);
+        const cell  = document.getElementById('corr-cell-' + sessionId);
+        const nbTl  = parseInt(cell.dataset.nbTl || 0);
+        // corriges = réponses avec texte corrigées par IA
+        // les sans-réponse ont été validées à 0 (source=manuel) → nbCorrige = nbTl
+        const nbIa      = data.corriges || 0;
+        const nbCorrige = nbTl; // toutes sont maintenant traitées
+        updateCorrCell(sessionId, nbTl, nbCorrige, nbIa);
         updateRowScore(sessionId, data.score, data.total, data.pct);
 
+        const pts = parseFloat(data.score).toFixed(1);
+        const pct = parseFloat(data.pct).toFixed(1);
+        if (nbIa > 0) {
+            showToast(`<i class="bi bi-robot me-1"></i>Correction IA : ${nbIa} réponse(s) — ${pts} pts (${pct}%)`, 'info');
+        } else {
+            showToast(`<i class="bi bi-check-circle me-1"></i>Validé : aucune réponse saisie — 0 pt`, 'success');
+        }
+
     } catch (e) {
-        alert('Erreur réseau : ' + e.message);
+        showToast('<i class="bi bi-x-circle me-1"></i>Erreur réseau : ' + e.message, 'danger');
         btn.innerHTML = orig;
         btn.disabled  = false;
     }
@@ -629,17 +657,20 @@ async function validerSessionNotes(sessionId, btn) {
             body: 'session_id=' + sessionId
         });
         const data = await res.json();
-        if (!data.success) { alert('Erreur : ' + data.error); btn.innerHTML = orig; btn.disabled = false; return; }
+        if (!data.success) { showToast('<i class="bi bi-x-circle me-1"></i>' + data.error, 'danger'); btn.innerHTML = orig; btn.disabled = false; return; }
 
-        const cell    = document.getElementById('corr-cell-' + sessionId);
-        const nbTl    = parseInt(cell.dataset.nbTl    || 0);
-        const nbCorrige = parseInt(cell.dataset.nbCorrige || 0);
-        const nbIa    = parseInt(cell.dataset.nbIa    || 0);
-        updateCorrCell(sessionId, nbTl, nbCorrige, 0); // plus marqué IA après validation manuelle
+        const cell  = document.getElementById('corr-cell-' + sessionId);
+        const nbTl  = parseInt(cell.dataset.nbTl || 0);
+        // Après validation manuelle : toutes corrigées, aucune marquée IA
+        updateCorrCell(sessionId, nbTl, nbTl, 0);
         updateRowScore(sessionId, data.score, data.total, data.pct);
 
+        const pts = parseFloat(data.score).toFixed(1);
+        const pct = parseFloat(data.pct).toFixed(1);
+        showToast(`<i class="bi bi-check-all me-1"></i>${data.validees} note(s) validée(s) — ${pts} pts (${pct}%)`, 'success');
+
     } catch (e) {
-        alert('Erreur réseau : ' + e.message);
+        showToast('<i class="bi bi-x-circle me-1"></i>Erreur réseau : ' + e.message, 'danger');
         btn.innerHTML = orig;
         btn.disabled  = false;
     }
