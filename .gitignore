@@ -12,3 +12,6 @@ desktop.ini
 
 # Fichiers de config locaux sensibles
 .env
+
+# Dépendances Composer (à réinstaller via composer install)
+/vendor/
