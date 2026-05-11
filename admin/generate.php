@@ -210,6 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
                 </div>
                 <div class="card-body p-4">
                     <form method="POST" enctype="multipart/form-data" id="generateForm">
+                        <?= csrfField() ?>
                         <input type="hidden" name="generate" value="1">
 
                         <!-- Upload document -->
@@ -371,6 +372,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
             <?php if ($questionsGenerees): ?>
             <!-- Formulaire de sauvegarde -->
             <form method="POST" id="saveForm">
+                <?= csrfField() ?>
                 <input type="hidden" name="questions_json" value="<?= htmlspecialchars(json_encode($questionsGenerees)) ?>">
                 <input type="hidden" name="module_id_save" value="<?= $moduleIdCible ?>">
 

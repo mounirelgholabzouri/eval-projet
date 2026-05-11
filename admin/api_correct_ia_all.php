@@ -36,15 +36,9 @@ try {
                 ->execute([$r['id']]);
         }
 
-        $stmt2 = $pdo->prepare("SELECT COALESCE(SUM(points_obtenus),0) FROM reponses_stagiaires WHERE session_id = ?");
-        $stmt2->execute([$sessionId]);
-        $score = (float)$stmt2->fetchColumn();
-        $session = getSession($sessionId);
-        $total   = (float)$session['total_points'];
-        $pct     = $total > 0 ? round($score / $total * 100, 2) : 0;
-        $pdo->prepare("UPDATE sessions_eval SET score=?, pourcentage=? WHERE id=?")->execute([$score, $pct, $sessionId]);
+        $scoreData = updateSessionScore($sessionId);
 
-        echo json_encode(['success'=>true,'corriges'=>0,'erreurs'=>[],'resultats'=>[],'score'=>$score,'total'=>$total,'pct'=>$pct]);
+        echo json_encode(['success'=>true,'corriges'=>0,'erreurs'=>[],'resultats'=>[],'score'=>$scoreData['score'],'total'=>$scoreData['total'],'pct'=>$scoreData['pct']]);
         exit;
     }
 
@@ -71,26 +65,16 @@ try {
         }
     }
 
-    // Recalculer le score total de la session
-    $stmt2 = $pdo->prepare("SELECT COALESCE(SUM(points_obtenus),0) FROM reponses_stagiaires WHERE session_id = ?");
-    $stmt2->execute([$sessionId]);
-    $score = (float)$stmt2->fetchColumn();
-
-    $session = getSession($sessionId);
-    $total   = (float)$session['total_points'];
-    $pct     = $total > 0 ? round($score / $total * 100, 2) : 0;
-
-    $pdo->prepare("UPDATE sessions_eval SET score=?, pourcentage=? WHERE id=?")
-        ->execute([$score, $pct, $sessionId]);
+    $scoreData = updateSessionScore($sessionId);
 
     echo json_encode([
         'success'   => true,
         'corriges'  => count($resultats),
         'erreurs'   => $erreurs,
         'resultats' => $resultats,
-        'score'     => $score,
-        'total'     => $total,
-        'pct'       => $pct,
+        'score'     => $scoreData['score'],
+        'total'     => $scoreData['total'],
+        'pct'       => $scoreData['pct'],
     ]);
 
 } catch (Exception $e) {

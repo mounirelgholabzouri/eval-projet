@@ -283,6 +283,7 @@ $evals = $pdo->query("
             <div class="modal-footer border-0">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
                 <form method="POST" class="d-inline">
+                    <?= csrfField() ?>
                     <input type="hidden" name="delete_eval_id" id="deleteEvalId">
                     <button type="submit" class="btn btn-danger">Supprimer</button>
                 </form>

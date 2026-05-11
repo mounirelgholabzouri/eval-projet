@@ -199,6 +199,7 @@ if ($action === 'edit' && $id > 0) {
 <div class="modal fade" id="modalCreer" tabindex="-1">
     <div class="modal-dialog">
         <form method="POST" class="modal-content">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="creer">
             <div class="modal-header">
                 <h5 class="modal-title fw-bold"><i class="bi bi-person-plus me-2"></i>Nouveau formateur</h5>
@@ -248,6 +249,7 @@ if ($action === 'edit' && $id > 0) {
 <div class="modal fade" id="modalEditer" tabindex="-1">
     <div class="modal-dialog">
         <form method="POST" class="modal-content">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="modifier">
             <input type="hidden" name="id" value="<?= $editFormateur['id'] ?>">
             <div class="modal-header">
@@ -301,6 +303,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <!-- ── Form suppression (caché) ────────────────────────────── -->
 <form id="formSupprimer" method="POST" style="display:none">
+    <?= csrfField() ?>
     <input type="hidden" name="action" value="supprimer">
     <input type="hidden" name="id" id="supprimerId">
 </form>

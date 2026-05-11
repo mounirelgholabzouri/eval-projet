@@ -139,6 +139,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['json_file'])) {
             <li>Uploader le fichier ci-dessous → nouvelles questions ajoutées, doublons ignorés</li>
         </ol>
         <form method="POST" enctype="multipart/form-data">
+            <?= csrfField() ?>
             <div class="mb-3">
                 <label class="form-label fw-semibold">Fichier JSON (<code>questions_export_*.json</code>)</label>
                 <input type="file" name="json_file" accept=".json" class="form-control" required>

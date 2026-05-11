@@ -270,6 +270,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
 <div class="modal fade" id="modalCreer" tabindex="-1">
     <div class="modal-dialog">
         <form method="POST" class="modal-content">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="creer">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Ajouter un stagiaire</h5>
@@ -320,6 +321,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
 <div class="modal fade" id="modalModifier" tabindex="-1">
     <div class="modal-dialog">
         <form method="POST" class="modal-content">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="modifier">
             <input type="hidden" name="id" id="modif_id">
             <div class="modal-header">
@@ -377,6 +379,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
 <div class="modal fade" id="modalReset" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <form method="POST" class="modal-content">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="reset_password">
             <input type="hidden" name="id" id="reset_id">
             <div class="modal-header">
@@ -399,6 +402,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
 <div class="modal fade" id="modalSupprimer" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <form method="POST" class="modal-content">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="supprimer">
             <input type="hidden" name="id" id="suppr_id">
             <div class="modal-header bg-danger text-white">

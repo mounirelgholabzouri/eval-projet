@@ -75,6 +75,7 @@ $anneeDefaut = date('y') . '/' . (date('y') + 1);
         </div>
         <div class="card-body p-4">
             <form method="POST" class="row g-3 align-items-end">
+                <?= csrfField() ?>
                 <input type="hidden" name="select_module" value="1">
                 <div class="col-md-7">
                     <label class="form-label fw-semibold">Module</label>
@@ -99,6 +100,7 @@ $anneeDefaut = date('y') . '/' . (date('y') + 1);
     <?php if ($module): ?>
     <!-- ── Configuration EFM ── -->
     <form method="POST" id="efmForm">
+        <?= csrfField() ?>
         <input type="hidden" name="generer_efm" value="1">
         <input type="hidden" name="module_id" value="<?= $module['id'] ?>">
 

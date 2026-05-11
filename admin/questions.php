@@ -144,6 +144,7 @@ if (isset($flash['bulk_deleted']))   $msg = (int)$flash['count'] . " question(s)
     <div class="card border-0 shadow-sm rounded-4 mb-4">
         <div class="card-body p-3">
             <form method="POST" class="d-flex gap-3 align-items-center flex-wrap">
+                <?= csrfField() ?>
                 <label class="fw-semibold text-nowrap"><i class="bi bi-journal me-1"></i>Module :</label>
                 <select name="module_id" class="form-select" style="max-width:350px"
                         onchange="this.form.querySelector('[name=select_module]').click()">
@@ -176,6 +177,7 @@ if (isset($flash['bulk_deleted']))   $msg = (int)$flash['count'] . " question(s)
                 </div>
                 <div class="card-body p-4">
                     <form method="POST" action="questions.php?module_id=<?= $moduleId ?><?= $editQuestion ? '&action=edit&id='.$questionId : '' ?>">
+                        <?= csrfField() ?>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Question <span class="text-danger">*</span></label>
                             <textarea name="texte" class="form-control" rows="3" required><?= htmlspecialchars($editQuestion['texte'] ?? '') ?></textarea>

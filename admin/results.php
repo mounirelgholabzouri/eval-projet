@@ -469,6 +469,7 @@ $stats = getStatsGlobales();
             </div>
             <div class="modal-footer border-0">
                 <form method="POST" action="results.php?<?= http_build_query(array_filter(['module_id'=>$filterModule,'groupe'=>$filterGroupe,'statut'=>$filterStatut])) ?>">
+                    <?= csrfField() ?>
                     <input type="hidden" name="confirm_delete_session" value="1">
                     <input type="hidden" name="delete_id" id="delSessId">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>

@@ -116,6 +116,7 @@ if ($action === 'edit' && $id > 0) {
                 </div>
                 <div class="card-body p-4">
                     <form method="POST" action="modules.php?action=<?= $editModule ? 'edit&id='.$id : 'add' ?>">
+                        <?= csrfField() ?>
                         <div class="mb-3">
                             <label class="form-label fw-semibold">Nom du module <span class="text-danger">*</span></label>
                             <input type="text" name="nom" class="form-control" required
@@ -417,6 +418,7 @@ function bulkToggleStatus() {
             </div>
             <div class="modal-footer border-0">
                 <form method="POST" action="modules.php">
+                    <?= csrfField() ?>
                     <input type="hidden" name="confirm_delete_module" value="1">
                     <input type="hidden" name="delete_id" id="delModId">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>

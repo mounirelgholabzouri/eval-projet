@@ -117,6 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete'])) {
                     </div>
 
                     <form method="POST">
+                        <?= csrfField() ?>
                         <div class="d-flex gap-2 justify-content-end">
                             <a href="modules.php" class="btn btn-outline-secondary">
                                 <i class="bi bi-arrow-left me-1"></i>Annuler

@@ -189,6 +189,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
     <!-- ══════════════════════════════════════════════════════════ -->
     <div class="tab-pane fade <?= $activeTab === 'fusion' ? 'show active' : '' ?>" id="tab-fusion">
         <form method="POST" id="fusionForm">
+            <?= csrfField() ?>
             <input type="hidden" name="action_fusion" value="1">
             <div class="row g-4">
 
@@ -297,6 +298,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
     <!-- ══════════════════════════════════════════════════════════ -->
     <div class="tab-pane fade <?= $activeTab === 'efm' ? 'show active' : '' ?>" id="tab-efm">
         <form method="POST" id="efmForm">
+            <?= csrfField() ?>
             <input type="hidden" name="action_efm" value="1">
             <div class="row g-4">
 

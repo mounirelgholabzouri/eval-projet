@@ -32,23 +32,16 @@ try {
 
     if (!$resultat['success']) throw new Exception($resultat['error']);
 
-    // Recalculer score session
-    $s2 = $pdo->prepare("SELECT COALESCE(SUM(points_obtenus),0) FROM reponses_stagiaires WHERE session_id = ?");
-    $s2->execute([$sessionId]);
-    $score = (float)$s2->fetchColumn();
-    $session = getSession($sessionId);
-    $total   = (float)$session['total_points'];
-    $pct     = $total > 0 ? round($score / $total * 100, 2) : 0;
-    $pdo->prepare("UPDATE sessions_eval SET score=?, pourcentage=? WHERE id=?")->execute([$score, $pct, $sessionId]);
+    $scoreData = updateSessionScore($sessionId);
 
     echo json_encode([
         'success'  => true,
         'points'   => $resultat['points'],
         'niveau'   => $resultat['niveau'],
         'feedback' => $resultat['feedback'],
-        'score'    => $score,
-        'total'    => $total,
-        'pct'      => $pct,
+        'score'    => $scoreData['score'],
+        'total'    => $scoreData['total'],
+        'pct'      => $scoreData['pct'],
     ]);
 
 } catch (Exception $e) {

@@ -160,6 +160,7 @@ $questions = $stmt->fetchAll();
                 </div>
                 <div class="card-body p-4">
                     <form method="POST" id="moveForm">
+                        <?= csrfField() ?>
                         <div class="mb-3">
                             <label class="form-label fw-semibold small">Module cible <span class="text-danger">*</span></label>
                             <select name="target_module_id" class="form-select form-select-sm" id="targetModule" onchange="updateMoveButtonCount()">

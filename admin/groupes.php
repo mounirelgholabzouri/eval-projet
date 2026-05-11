@@ -215,6 +215,7 @@ if ($action === 'edit' && $id > 0) {
 <div class="modal fade" id="modalAjout" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <form method="POST" class="modal-content">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="ajouter">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Nouveau groupe</h5>
@@ -236,6 +237,7 @@ if ($action === 'edit' && $id > 0) {
 <div class="modal fade" id="modalModifier" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <form method="POST" action="groupes.php?action=edit&id=0" id="formModifier" class="modal-content">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="modifier">
             <div class="modal-header">
                 <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Modifier le groupe</h5>
@@ -257,6 +259,7 @@ if ($action === 'edit' && $id > 0) {
 <div class="modal fade" id="modalSupprimer" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <form method="POST" class="modal-content">
+            <?= csrfField() ?>
             <input type="hidden" name="action" value="supprimer">
             <input type="hidden" name="id" id="suppr_id">
             <div class="modal-header bg-danger text-white">

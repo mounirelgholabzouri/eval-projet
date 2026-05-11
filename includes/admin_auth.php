@@ -1,11 +1,20 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/functions.php';
 session_name(ADMIN_SESSION_NAME);
 if (session_status() === PHP_SESSION_NONE) session_start();
 
 if (empty($_SESSION['admin_id'])) {
     header('Location: ' . (strpos($_SERVER['PHP_SELF'], '/admin/') !== false ? '' : 'admin/') . 'login.php');
     exit;
+}
+
+// Vérification CSRF automatique sur tous les POST sauf les endpoints API
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $phpSelf = basename($_SERVER['PHP_SELF']);
+    if (strpos($phpSelf, 'api_') !== 0) {
+        verifyCsrfToken();
+    }
 }
 
 // ── Helpers de rôle ─────────────────────────────────────────────

@@ -1,6 +1,9 @@
 #!/bin/bash
 set -e
 
+# Répertoire des sessions PHP (requis pour CSRF)
+mkdir -p /var/lib/php/sessions && chown www-data:www-data /var/lib/php/sessions
+
 echo "⏳ Attente de MySQL..."
 until php -r "new PDO('mysql:host=${DB_HOST};dbname=${DB_NAME};charset=utf8mb4', '${DB_USER}', '${DB_PASS}');" 2>/dev/null; do
     sleep 2

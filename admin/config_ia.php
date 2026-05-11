@@ -93,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
     <div class="card border-0 shadow-sm rounded-4">
         <div class="card-body p-4">
             <form method="POST">
+                <?= csrfField() ?>
                 <!-- Clé API Anthropic -->
                 <div class="mb-4">
                     <label for="anthropic_api_key" class="form-label fw-semibold">
