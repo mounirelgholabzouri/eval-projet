@@ -4,6 +4,7 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/functions.php';
 
 // ============================================================
 // CONTEXT BUILDER — construit le contexte DB pour Claude
@@ -94,15 +95,8 @@ function agentGetRecentQuestionIds(array $moduleIds, int $groupeId = 0, int $day
 // APPEL CLAUDE API
 // ============================================================
 
-function agentGetApiKey(): string {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT valeur FROM config WHERE cle = 'anthropic_api_key'");
-    $stmt->execute();
-    return trim($stmt->fetchColumn() ?: '');
-}
-
 function agentCallClaude(string $systemPrompt, string $userPrompt): array {
-    $apiKey = agentGetApiKey();
+    $apiKey = getAnthropicApiKey();
     if (!$apiKey || str_starts_with($apiKey, 'VOTRE_')) {
         return ['error' => 'Clé API Anthropic non configurée.'];
     }
