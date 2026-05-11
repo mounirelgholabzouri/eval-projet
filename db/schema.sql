@@ -27,6 +27,7 @@ CREATE TABLE `admins` (
   `username` varchar(50) COLLATE utf8mb4_unicode_ci NOT NULL,
   `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `nom` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `role` enum('admin','formateur') NOT NULL DEFAULT 'admin',
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
@@ -326,6 +327,32 @@ INSERT INTO `stagiaires` VALUES (2,'AZZAB','ADM',6,'2025-2026','ADM.Z','$2y$10$M
 /*!40000 ALTER TABLE `stagiaires` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
+
+--
+-- Table structure for table `module_formateurs`
+--
+
+CREATE TABLE IF NOT EXISTS `module_formateurs` (
+  `id`           INT AUTO_INCREMENT PRIMARY KEY,
+  `formateur_id` INT NOT NULL,
+  `module_id`    INT NOT NULL,
+  UNIQUE KEY `uq_mf` (`formateur_id`, `module_id`),
+  CONSTRAINT `fk_mf_formateur` FOREIGN KEY (`formateur_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_mf_module`    FOREIGN KEY (`module_id`)    REFERENCES `modules` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
+-- Table structure for table `formateur_groupes`
+--
+
+CREATE TABLE IF NOT EXISTS `formateur_groupes` (
+  `id`           INT AUTO_INCREMENT PRIMARY KEY,
+  `formateur_id` INT NOT NULL,
+  `groupe_id`    INT NOT NULL,
+  UNIQUE KEY `uq_fg` (`formateur_id`, `groupe_id`),
+  CONSTRAINT `fk_fg_formateur` FOREIGN KEY (`formateur_id`) REFERENCES `admins` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_fg_groupe`    FOREIGN KEY (`groupe_id`)    REFERENCES `groupes` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 --
 -- Table structure for table `modules_efm_meta`
