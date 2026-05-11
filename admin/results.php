@@ -189,6 +189,9 @@ $stats = getStatsGlobales();
             </a>
             <?php endif; ?>
             <?php endif; ?>
+            <button type="button" class="btn btn-info" id="btn-valider-tout" onclick="validerTousVisible()">
+                <i class="bi bi-check-all me-1"></i>Valider toutes notes IA
+            </button>
             <a href="export_excel.php?<?= $filterModule ? "module_id=$filterModule" : '' ?><?= $filterGroupe ? "&groupe_id=".urlencode($filterGroupe) : '' ?>"
                class="btn btn-success">
                 <i class="bi bi-file-earmark-excel me-2"></i>Exporter Excel
@@ -288,10 +291,16 @@ $stats = getStatsGlobales();
     <div class="card border-0 shadow-sm rounded-4">
         <!-- Barre d'actions en masse -->
         <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display: none;">
-            <div class="d-flex gap-2 align-items-center">
+            <div class="d-flex gap-2 align-items-center flex-wrap">
                 <span class="text-muted">
                     <span id="bulkCount">0</span> sélectionné(s)
                 </span>
+                <button type="button" class="btn btn-outline-info btn-sm" onclick="bulkCorrigerIA()">
+                    <i class="bi bi-robot me-1"></i>Corriger IA
+                </button>
+                <button type="button" class="btn btn-outline-success btn-sm" onclick="bulkValiderNotes()">
+                    <i class="bi bi-check-all me-1"></i>Valider notes IA
+                </button>
                 <button type="button" class="btn btn-outline-danger btn-sm" onclick="bulkDeleteResults()">
                     <i class="bi bi-trash me-1"></i>Supprimer
                 </button>
@@ -322,7 +331,7 @@ $stats = getStatsGlobales();
                 </thead>
                 <tbody>
                     <?php if (empty($sessions)): ?>
-                    <tr><td colspan="11" class="text-center text-muted py-4">Aucun résultat trouvé</td></tr>
+                    <tr><td colspan="12" class="text-center text-muted py-4">Aucun résultat trouvé</td></tr>
                     <?php endif; ?>
                     <?php foreach ($sessions as $s): ?>
                     <?php $mention = getMention((float)$s['pourcentage']); ?>
@@ -336,12 +345,12 @@ $stats = getStatsGlobales();
                         <td class="small text-muted"><?= htmlspecialchars($s['groupe_nom'] ?? '—') ?></td>
                         <td class="small"><?= htmlspecialchars($s['module_nom']) ?></td>
                         <td class="small text-muted"><?= date('d/m/Y H:i', strtotime($s['date_debut'])) ?></td>
-                        <td class="text-center small fw-semibold">
+                        <td class="text-center small fw-semibold" id="score-<?= $s['id'] ?>">
                             <?= $s['statut'] === 'termine'
                                 ? number_format($s['score'], 1) . ' / ' . number_format($s['total_points'], 1)
                                 : '—' ?>
                         </td>
-                        <td class="text-center">
+                        <td class="text-center" id="pct-<?= $s['id'] ?>">
                             <?= $s['statut'] === 'termine'
                                 ? number_format($s['pourcentage'], 1) . '%'
                                 : '—' ?>
@@ -358,12 +367,19 @@ $stats = getStatsGlobales();
                                 <span class="badge bg-warning-subtle text-warning border border-warning-subtle small">En cours</span>
                             <?php endif; ?>
                         </td>
-                        <td class="text-center">
-                            <?php
-                            $nbTl       = (int)($s['nb_tl'] ?? 0);
-                            $nbCorrige  = (int)($s['nb_tl_corrige'] ?? 0);
-                            $nbIa       = (int)($s['nb_tl_ia'] ?? 0);
-                            if ($nbTl === 0): ?>
+                        <?php
+                        $nbTl      = (int)($s['nb_tl'] ?? 0);
+                        $nbCorrige = (int)($s['nb_tl_corrige'] ?? 0);
+                        $nbIa      = (int)($s['nb_tl_ia'] ?? 0);
+                        ?>
+                        <td class="text-center correction-cell"
+                            id="corr-cell-<?= $s['id'] ?>"
+                            data-session-id="<?= $s['id'] ?>"
+                            data-nb-tl="<?= $nbTl ?>"
+                            data-nb-corrige="<?= $nbCorrige ?>"
+                            data-nb-ia="<?= $nbIa ?>">
+                            <div id="corr-badge-<?= $s['id'] ?>">
+                            <?php if ($nbTl === 0): ?>
                                 <span class="text-muted small">—</span>
                             <?php elseif ($nbCorrige === 0): ?>
                                 <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Non corrigée</span>
@@ -373,6 +389,29 @@ $stats = getStatsGlobales();
                                 <span class="badge bg-primary-subtle text-primary border border-primary-subtle small"><i class="bi bi-robot me-1"></i>Corrigée IA</span>
                             <?php else: ?>
                                 <span class="badge bg-success-subtle text-success border border-success-subtle small">Corrigée</span>
+                            <?php endif; ?>
+                            </div>
+                            <?php if ($nbTl > 0): ?>
+                            <div class="mt-1 d-flex gap-1 justify-content-center" id="corr-btns-<?= $s['id'] ?>">
+                                <?php if ($nbCorrige < $nbTl): ?>
+                                <button type="button" class="btn btn-outline-info py-0 px-1" style="font-size:11px;"
+                                        title="Corriger avec IA"
+                                        onclick="corrigerSessionIA(<?= $s['id'] ?>, this)">
+                                    <i class="bi bi-robot"></i>
+                                </button>
+                                <?php endif; ?>
+                                <?php if ($nbIa > 0): ?>
+                                <button type="button" class="btn btn-outline-success py-0 px-1" style="font-size:11px;"
+                                        title="Valider notes IA"
+                                        onclick="validerSessionNotes(<?= $s['id'] ?>, this)">
+                                    <i class="bi bi-check-all"></i>
+                                </button>
+                                <?php endif; ?>
+                                <a href="detail.php?id=<?= $s['id'] ?>" class="btn btn-outline-warning py-0 px-1" style="font-size:11px;"
+                                   title="Correction manuelle">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                            </div>
                             <?php endif; ?>
                         </td>
                         <td class="text-center">
@@ -507,6 +546,155 @@ function bulkDeleteResults() {
         document.body.appendChild(form);
         form.submit();
     }
+}
+
+// ── Rendu badge correction ────────────────────────────────────
+function renderBadge(nbTl, nbCorrige, nbIa) {
+    if (nbTl === 0) return '<span class="text-muted small">—</span>';
+    if (nbCorrige === 0) return '<span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Non corrigée</span>';
+    if (nbCorrige < nbTl) return '<span class="badge bg-warning-subtle text-warning border border-warning-subtle small">Partielle</span>';
+    if (nbIa === nbTl)   return '<span class="badge bg-primary-subtle text-primary border border-primary-subtle small"><i class="bi bi-robot me-1"></i>Corrigée IA</span>';
+    return '<span class="badge bg-success-subtle text-success border border-success-subtle small">Corrigée</span>';
+}
+
+function renderCorrBtns(sessionId, nbTl, nbCorrige, nbIa) {
+    if (nbTl === 0) return '';
+    let btns = '';
+    if (nbCorrige < nbTl) {
+        btns += `<button type="button" class="btn btn-outline-info py-0 px-1" style="font-size:11px;" title="Corriger avec IA" onclick="corrigerSessionIA(${sessionId}, this)"><i class="bi bi-robot"></i></button>`;
+    }
+    if (nbIa > 0) {
+        btns += `<button type="button" class="btn btn-outline-success py-0 px-1" style="font-size:11px;" title="Valider notes IA" onclick="validerSessionNotes(${sessionId}, this)"><i class="bi bi-check-all"></i></button>`;
+    }
+    btns += `<a href="detail.php?id=${sessionId}" class="btn btn-outline-warning py-0 px-1" style="font-size:11px;" title="Correction manuelle"><i class="bi bi-pencil"></i></a>`;
+    return btns;
+}
+
+function updateCorrCell(sessionId, nbTl, nbCorrige, nbIa) {
+    const cell = document.getElementById('corr-cell-' + sessionId);
+    if (!cell) return;
+    cell.dataset.nbTl      = nbTl;
+    cell.dataset.nbCorrige = nbCorrige;
+    cell.dataset.nbIa      = nbIa;
+    document.getElementById('corr-badge-' + sessionId).innerHTML = renderBadge(nbTl, nbCorrige, nbIa);
+    const btnsEl = document.getElementById('corr-btns-' + sessionId);
+    if (btnsEl) btnsEl.innerHTML = renderCorrBtns(sessionId, nbTl, nbCorrige, nbIa);
+}
+
+function updateRowScore(sessionId, score, total, pct) {
+    const scoreEl = document.getElementById('score-' + sessionId);
+    const pctEl   = document.getElementById('pct-'   + sessionId);
+    if (scoreEl) scoreEl.textContent = parseFloat(score).toFixed(1) + ' / ' + parseFloat(total).toFixed(1);
+    if (pctEl)   pctEl.textContent   = parseFloat(pct).toFixed(1) + '%';
+}
+
+// ── Corriger IA une session ───────────────────────────────────
+async function corrigerSessionIA(sessionId, btn) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+
+    try {
+        const res  = await fetch('api_correct_ia_all.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'session_id=' + sessionId
+        });
+        const data = await res.json();
+        if (!data.success) { alert('Erreur : ' + data.error); btn.innerHTML = orig; btn.disabled = false; return; }
+
+        const cell    = document.getElementById('corr-cell-' + sessionId);
+        const nbTl    = parseInt(cell.dataset.nbTl || 0);
+        const corriges = data.corriges || 0;
+        updateCorrCell(sessionId, nbTl, corriges, corriges);
+        updateRowScore(sessionId, data.score, data.total, data.pct);
+
+    } catch (e) {
+        alert('Erreur réseau : ' + e.message);
+        btn.innerHTML = orig;
+        btn.disabled  = false;
+    }
+}
+
+// ── Valider notes IA une session ─────────────────────────────
+async function validerSessionNotes(sessionId, btn) {
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+
+    try {
+        const res  = await fetch('api_validate_all_notes.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: 'session_id=' + sessionId
+        });
+        const data = await res.json();
+        if (!data.success) { alert('Erreur : ' + data.error); btn.innerHTML = orig; btn.disabled = false; return; }
+
+        const cell    = document.getElementById('corr-cell-' + sessionId);
+        const nbTl    = parseInt(cell.dataset.nbTl    || 0);
+        const nbCorrige = parseInt(cell.dataset.nbCorrige || 0);
+        const nbIa    = parseInt(cell.dataset.nbIa    || 0);
+        updateCorrCell(sessionId, nbTl, nbCorrige, 0); // plus marqué IA après validation manuelle
+        updateRowScore(sessionId, data.score, data.total, data.pct);
+
+    } catch (e) {
+        alert('Erreur réseau : ' + e.message);
+        btn.innerHTML = orig;
+        btn.disabled  = false;
+    }
+}
+
+// ── Bulk IA ───────────────────────────────────────────────────
+async function bulkCorrigerIA() {
+    const ids = [...document.querySelectorAll('.result-checkbox:checked')].map(cb => parseInt(cb.value));
+    if (!ids.length) { alert('Sélectionnez au moins un résultat.'); return; }
+    if (!confirm('Corriger avec IA les ' + ids.length + ' session(s) sélectionnée(s) ?')) return;
+
+    for (const id of ids) {
+        const cell = document.getElementById('corr-cell-' + id);
+        if (!cell || parseInt(cell.dataset.nbTl) === 0) continue;
+        const fakeBtn = { innerHTML: '', disabled: false };
+        await corrigerSessionIA(id, fakeBtn);
+    }
+}
+
+async function bulkValiderNotes() {
+    const ids = [...document.querySelectorAll('.result-checkbox:checked')].map(cb => parseInt(cb.value));
+    if (!ids.length) { alert('Sélectionnez au moins un résultat.'); return; }
+    if (!confirm('Valider les notes IA pour les ' + ids.length + ' session(s) sélectionnée(s) ?')) return;
+
+    for (const id of ids) {
+        const cell = document.getElementById('corr-cell-' + id);
+        if (!cell || parseInt(cell.dataset.nbIa) === 0) continue;
+        const fakeBtn = { innerHTML: '', disabled: false };
+        await validerSessionNotes(id, fakeBtn);
+    }
+}
+
+// ── Valider toutes les sessions visibles ──────────────────────
+async function validerTousVisible() {
+    const cells = document.querySelectorAll('.correction-cell[data-nb-ia]');
+    const toValidate = [...cells].filter(c => parseInt(c.dataset.nbIa) > 0);
+    if (!toValidate.length) { alert('Aucune session avec correction IA à valider.'); return; }
+    if (!confirm('Valider les notes IA pour ' + toValidate.length + ' session(s) ?')) return;
+
+    const btn  = document.getElementById('btn-valider-tout');
+    const orig = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Validation en cours...';
+
+    let done = 0;
+    for (const cell of toValidate) {
+        const id = parseInt(cell.dataset.sessionId);
+        const fakeBtn = { innerHTML: '', disabled: false };
+        await validerSessionNotes(id, fakeBtn);
+        done++;
+        btn.innerHTML = `<i class="bi bi-hourglass-split me-1"></i>${done}/${toValidate.length}...`;
+    }
+
+    btn.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${done} validée(s)`;
+    setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 3000);
 }
 </script>
 </body>
