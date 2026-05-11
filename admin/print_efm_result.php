@@ -286,7 +286,7 @@ $tamponB64  = file_exists($tamponPath)
             </tr>
             <!-- Ligne 2 : Titre EFM -->
             <tr>
-                <td class="h-efm">Évaluation de Fin de Module</td>
+                <td class="h-efm">EXAMEN DE FIN DE MODULE</td>
             </tr>
             <!-- Ligne 3 : Code module + Intitulé (pleine largeur) -->
             <tr>

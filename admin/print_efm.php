@@ -357,7 +357,7 @@ $tamponB64  = file_exists($tamponPath)
             <!-- Ligne 2 : Titre EFM -->
             <tr>
                 <td class="h-efm">
-                    Évaluation de Fin de Module
+                    EXAMEN DE FIN DE MODULE
                     <?php if ($corrige): ?><span class="badge-corrige">CORRIGÉ</span><?php endif; ?>
                 </td>
             </tr>

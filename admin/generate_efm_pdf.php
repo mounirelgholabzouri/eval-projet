@@ -196,7 +196,7 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
             </td>
         </tr>
         <tr>
-            <td class="h-efm">Évaluation de Fin de Module</td>
+            <td class="h-efm">EXAMEN DE FIN DE MODULE</td>
         </tr>
         <tr>
             <td colspan="2" class="h-code">
