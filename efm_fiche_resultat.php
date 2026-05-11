@@ -458,7 +458,16 @@ $tamponB64  = file_exists($tamponPath)
 </div>
 
 <?php if ($tamponB64): ?>
-<img class="tampon-ofppt" src="<?= $tamponB64 ?>" alt="Tampon OFPPT">
+<img class="tampon-ofppt" id="tampon-img" src="<?= $tamponB64 ?>" alt="Tampon OFPPT">
+<div id="print-toolbar">
+    <label><input type="checkbox" id="showTampon" checked onchange="document.getElementById('tampon-img').style.display=this.checked?'':'none'"> Tampon OFPPT</label>
+    <button onclick="window.print()">🖨 Imprimer</button>
+</div>
+<style>
+#print-toolbar{position:fixed;top:10px;right:10px;background:#fff;border:1px solid #ccc;border-radius:8px;padding:8px 14px;box-shadow:0 2px 8px rgba(0,0,0,.2);z-index:9999;display:flex;align-items:center;gap:12px;font-family:sans-serif;font-size:13px;}
+#print-toolbar button{background:#4f46e5;color:#fff;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:13px;}
+@media print{#print-toolbar{display:none!important;}}
+</style>
 <?php endif; ?>
 </body>
 </html>
