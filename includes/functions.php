@@ -948,12 +948,13 @@ function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte
         $pdo = getDB();
         $pdo->prepare("
             UPDATE reponses_stagiaires
-            SET points_obtenus              = ?,
-                is_correct                  = ?,
-                correction_ia_feedback      = ?,
+            SET points_obtenus                = ?,
+                is_correct                    = ?,
+                correction_ia_feedback        = ?,
                 correction_ia_points_suggeres = ?,
-                correction_ia_niveau        = ?,
-                correction_ia_date          = NOW()
+                correction_ia_niveau          = ?,
+                correction_ia_date            = NOW(),
+                source_correction             = 'ia'
             WHERE id = ?
         ")->execute([$points, $isCorrect, $feedback, $points, $niveau, $repId]);
 

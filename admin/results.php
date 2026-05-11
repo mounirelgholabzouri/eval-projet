@@ -31,9 +31,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
 }
 
 // Filtres
-$filterModule = (int)($_GET['module_id'] ?? 0);
-$filterGroupe = trim($_GET['groupe'] ?? '');
-$filterStatut = $_GET['statut'] ?? '';
+$filterModule    = (int)($_GET['module_id'] ?? 0);
+$filterGroupe    = trim($_GET['groupe'] ?? '');
+$filterStatut    = $_GET['statut'] ?? '';
+$filterCorrection = $_GET['correction'] ?? '';
 
 // Export CSV
 if (isset($_GET['export'])) {
@@ -82,13 +83,30 @@ if ($filterModule > 0) { $where[] = 's.module_id = ?'; $params[] = $filterModule
 if ($filterGroupe)     { $where[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $params[] = "%$filterGroupe%"; $params[] = "%$filterGroupe%"; }
 if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
 
+// Filtre correction
+if ($filterCorrection === 'non_corrigee') {
+    $where[] = "EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL AND rs2.reponse_texte IS NOT NULL AND rs2.reponse_texte != '')";
+} elseif ($filterCorrection === 'corrigee_ia') {
+    $where[] = "NOT EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL AND rs2.reponse_texte IS NOT NULL AND rs2.reponse_texte != '')
+                AND EXISTS (SELECT 1 FROM reponses_stagiaires rs3 JOIN questions q3 ON q3.id=rs3.question_id WHERE rs3.session_id=s.id AND q3.type='texte_libre' AND rs3.source_correction='ia')";
+} elseif ($filterCorrection === 'corrigee') {
+    $where[] = "NOT EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL AND rs2.reponse_texte IS NOT NULL AND rs2.reponse_texte != '')
+                AND EXISTS (SELECT 1 FROM reponses_stagiaires rs3 JOIN questions q3 ON q3.id=rs3.question_id WHERE rs3.session_id=s.id AND q3.type='texte_libre' AND rs3.source_correction IS NOT NULL)";
+}
+
 $whereStr = implode(' AND ', $where);
 $stmt = $pdo->prepare("
     SELECT s.*,
            COALESCE(st.nom,    s.nom)    AS nom,
            COALESCE(st.prenom, s.prenom) AS prenom,
            m.nom AS module_nom, m.type AS module_type,
-           COALESCE(g.nom, s.groupe_libre) AS groupe_nom
+           COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
+           (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
+            WHERE rs.session_id=s.id AND q.type='texte_libre' AND rs.reponse_texte IS NOT NULL AND rs.reponse_texte != '') AS nb_tl,
+           (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
+            WHERE rs.session_id=s.id AND q.type='texte_libre' AND rs.source_correction IS NOT NULL) AS nb_tl_corrige,
+           (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
+            WHERE rs.session_id=s.id AND q.type='texte_libre' AND rs.source_correction='ia') AS nb_tl_ia
     FROM sessions_eval s
     JOIN modules m ON m.id = s.module_id
     LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
@@ -247,6 +265,15 @@ $stats = getStatsGlobales();
                         <option value="en_cours" <?= $filterStatut === 'en_cours' ? 'selected' : '' ?>>En cours</option>
                     </select>
                 </div>
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Correction</label>
+                    <select name="correction" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <option value="">Toutes</option>
+                        <option value="non_corrigee"  <?= $filterCorrection === 'non_corrigee'  ? 'selected' : '' ?>>Non corrigée</option>
+                        <option value="corrigee"      <?= $filterCorrection === 'corrigee'      ? 'selected' : '' ?>>Corrigée</option>
+                        <option value="corrigee_ia"   <?= $filterCorrection === 'corrigee_ia'   ? 'selected' : '' ?>>Corrigée par IA</option>
+                    </select>
+                </div>
                 <div class="d-flex gap-2">
                     <button type="submit" class="btn btn-primary btn-sm">
                         <i class="bi bi-funnel me-1"></i>Filtrer
@@ -288,6 +315,7 @@ $stats = getStatsGlobales();
                         <th class="text-center">%</th>
                         <th class="text-center">Mention</th>
                         <th class="text-center">Statut</th>
+                        <th class="text-center">Correction</th>
                         <th class="text-center">Détail</th>
                         <th class="text-center">Suppr.</th>
                     </tr>
@@ -328,6 +356,23 @@ $stats = getStatsGlobales();
                                 <span class="badge bg-success-subtle text-success border border-success-subtle small">Terminé</span>
                             <?php else: ?>
                                 <span class="badge bg-warning-subtle text-warning border border-warning-subtle small">En cours</span>
+                            <?php endif; ?>
+                        </td>
+                        <td class="text-center">
+                            <?php
+                            $nbTl       = (int)($s['nb_tl'] ?? 0);
+                            $nbCorrige  = (int)($s['nb_tl_corrige'] ?? 0);
+                            $nbIa       = (int)($s['nb_tl_ia'] ?? 0);
+                            if ($nbTl === 0): ?>
+                                <span class="text-muted small">—</span>
+                            <?php elseif ($nbCorrige === 0): ?>
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle small">Non corrigée</span>
+                            <?php elseif ($nbCorrige < $nbTl): ?>
+                                <span class="badge bg-warning-subtle text-warning border border-warning-subtle small">Partielle</span>
+                            <?php elseif ($nbIa === $nbTl): ?>
+                                <span class="badge bg-primary-subtle text-primary border border-primary-subtle small"><i class="bi bi-robot me-1"></i>Corrigée IA</span>
+                            <?php else: ?>
+                                <span class="badge bg-success-subtle text-success border border-success-subtle small">Corrigée</span>
                             <?php endif; ?>
                         </td>
                         <td class="text-center">
