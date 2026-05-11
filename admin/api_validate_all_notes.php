@@ -26,12 +26,11 @@ try {
 
     $validees = 0;
 
-    // Valider les corrections IA existantes
+    // Valider les corrections IA : confirmer les points et passer source à 'manuel'
     foreach ($reponses as $r) {
         $points    = (float)$r['points_obtenus'];
-        $max       = (float)$r['points'];
         $isCorrect = $points > 0 ? 1 : 0;
-        $pdo->prepare("UPDATE reponses_stagiaires SET is_correct=? WHERE id=?")
+        $pdo->prepare("UPDATE reponses_stagiaires SET is_correct=?, source_correction='manuel' WHERE id=?")
             ->execute([$isCorrect, (int)$r['id']]);
         $validees++;
     }
