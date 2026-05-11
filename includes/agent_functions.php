@@ -157,14 +157,12 @@ function agentCallClaude(string $systemPrompt, string $userPrompt): array {
 // ============================================================
 
 function agentGenererEvalContinue(int $moduleId, int $groupeId, int $nbQuestions, int $dureeMin, int $noteMax): array {
-    $context  = agentBuildContext([$moduleId]);
-    $exclus   = agentGetRecentQuestionIds([$moduleId], $groupeId, 30);
-    $groupe   = agentGetGroupeNom($groupeId);
+    $context = agentBuildContext([$moduleId]);
+    $groupe  = agentGetGroupeNom($groupeId);
 
     if (empty($context)) return ['error' => 'Module introuvable.'];
 
     $contextJson = json_encode($context[0], JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    $exclusJson  = json_encode($exclus);
 
     $system = "Tu es un expert en création d'évaluations pédagogiques OFPPT. Tu réponds UNIQUEMENT avec du JSON valide, sans texte avant ni après.";
 
@@ -175,16 +173,14 @@ Crée une évaluation continue pour :
 - Durée : {$dureeMin} minutes
 - Nombre de questions demandé : {$nbQuestions}
 - Note maximale : {$noteMax}
-- Questions à EXCLURE (utilisées ces 30 derniers jours) : {$exclusJson}
 
 Voici toutes les questions disponibles par partie :
 {$contextJson}
 
 Contraintes :
-1. Sélectionne exactement {$nbQuestions} questions (ou moins si stock insuffisant après exclusions).
-2. Équilibre les types (qcm, vrai_faux, texte_libre) et couvre toutes les parties.
-3. Évite les questions dont l'id est dans la liste d'exclusion.
-4. Adapte la difficulté au niveau du groupe : {$groupe}.
+1. Sélectionne exactement {$nbQuestions} questions (ou moins si stock insuffisant).
+2. Couvre toutes les parties du module.
+3. Adapte la difficulté au niveau du groupe : {$groupe}.
 
 Retourne ce JSON (et rien d'autre) :
 {
@@ -215,13 +211,11 @@ PROMPT;
 
 function agentGenererEFM(array $moduleIds, int $groupeId, int $nbQuestions, string $codeModule, string $filiere, string $etablissement, string $annee): array {
     $context = agentBuildContext($moduleIds);
-    $exclus  = agentGetRecentQuestionIds($moduleIds, $groupeId, 30);
     $groupe  = agentGetGroupeNom($groupeId);
 
     if (empty($context)) return ['error' => 'Aucun module valide.'];
 
     $contextJson = json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    $exclusJson  = json_encode($exclus);
     $nbMods      = count($context);
     $nbParMod    = max(1, (int)round($nbQuestions / $nbMods));
 
@@ -235,7 +229,6 @@ Crée un EFM (Examen de Fin de Module) pour :
 - Établissement : {$etablissement}
 - Année : {$annee}
 - Nombre total de questions : {$nbQuestions} (environ {$nbParMod} par module)
-- Questions à EXCLURE : {$exclusJson}
 
 Voici toutes les questions disponibles par module :
 {$contextJson}
@@ -243,8 +236,7 @@ Voici toutes les questions disponibles par module :
 Contraintes :
 1. Couvre tous les modules de façon équilibrée.
 2. Évite les redondances inter-modules.
-3. Équilibre les types de questions dans chaque partie.
-4. Adapte la difficulté au groupe : {$groupe}.
+3. Adapte la difficulté au groupe : {$groupe}.
 
 Retourne ce JSON (et rien d'autre) :
 {
