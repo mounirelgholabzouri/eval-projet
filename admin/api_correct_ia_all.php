@@ -23,8 +23,29 @@ try {
     $stmt->execute([$sessionId]);
     $reponses = $stmt->fetchAll();
 
+    // Si aucune réponse saisie : valider les questions texte libre avec 0 pt
     if (empty($reponses)) {
-        throw new Exception('Aucune réponse texte libre à corriger');
+        $stmtAll = $pdo->prepare("
+            SELECT rs.id FROM reponses_stagiaires rs
+            JOIN questions q ON q.id = rs.question_id
+            WHERE rs.session_id = ? AND q.type = 'texte_libre' AND rs.source_correction IS NULL
+        ");
+        $stmtAll->execute([$sessionId]);
+        foreach ($stmtAll->fetchAll() as $r) {
+            $pdo->prepare("UPDATE reponses_stagiaires SET points_obtenus=0, is_correct=0, source_correction='manuel' WHERE id=?")
+                ->execute([$r['id']]);
+        }
+
+        $stmt2 = $pdo->prepare("SELECT COALESCE(SUM(points_obtenus),0) FROM reponses_stagiaires WHERE session_id = ?");
+        $stmt2->execute([$sessionId]);
+        $score = (float)$stmt2->fetchColumn();
+        $session = getSession($sessionId);
+        $total   = (float)$session['total_points'];
+        $pct     = $total > 0 ? round($score / $total * 100, 2) : 0;
+        $pdo->prepare("UPDATE sessions_eval SET score=?, pourcentage=? WHERE id=?")->execute([$score, $pct, $sessionId]);
+
+        echo json_encode(['success'=>true,'corriges'=>0,'erreurs'=>[],'resultats'=>[],'score'=>$score,'total'=>$total,'pct'=>$pct]);
+        exit;
     }
 
     $resultats = [];
