@@ -102,7 +102,7 @@ function agentCallClaude(string $systemPrompt, string $userPrompt): array {
     }
 
     $payload = json_encode([
-        'model'      => 'claude-sonnet-4-6',
+        'model'      => getAIModel(),
         'max_tokens' => 4096,
         'system'     => $systemPrompt,
         'messages'   => [['role' => 'user', 'content' => $userPrompt]],
@@ -115,9 +115,9 @@ function agentCallClaude(string $systemPrompt, string $userPrompt): array {
         CURLOPT_POSTFIELDS     => $payload,
         CURLOPT_TIMEOUT        => 120,
         CURLOPT_HTTPHEADER     => [
+            'Content-Type: application/json',
             'x-api-key: ' . $apiKey,
             'anthropic-version: 2023-06-01',
-            'content-type: application/json',
         ],
     ]);
 
