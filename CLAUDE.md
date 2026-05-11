@@ -25,7 +25,7 @@
 - **Migrations** : via script PHP/PDO uniquement, jamais le CLI MySQL
 - **ALTER TABLE IF NOT EXISTS** non supporté par MySQL 8.4 → vérifier via `SHOW COLUMNS` en PHP avant d'ajouter
 - **GROUP BY** : mode `only_full_group_by` actif → colonnes non-agrégées dans GROUP BY ou MAX()/MIN()
-- **MySQL CLI pipe PowerShell** : `Get-Content fichier.sql | mysql.exe` (opérateur `<` bloqué)
+- **Import dump** : utiliser **Bash** avec `mysql ... < fichier.sql` — PowerShell (`Get-Content | mysql`) corrompt les accents en `??` (CP850), **même avec utf8mb4**
 
 ## Synchronisation 2 PCs
 
@@ -79,9 +79,20 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - SQL : PDO préparé uniquement — jamais de concaténation
 - `form.submit()` JS n'envoie pas les boutons submit → ajouter `<input type="hidden" name="submit_final" value="1">`
 
-### Encodage
+### Encodage — RÈGLE D'OR
+
+> **Ne jamais importer un dump SQL via PowerShell.**  
+> `Get-Content fichier.sql | mysql.exe` corrompt silencieusement les accents (CP850 → `??` irréversibles).
+
+| Contexte | Commande correcte |
+|----------|-------------------|
+| Import dump (Bash) | `mysql --default-character-set=utf8mb4 -u root db_name < fichier.sql` |
+| Insertion / migration | Script PHP/PDO uniquement (`charset=utf8mb4` dans le DSN) |
+| Lecture rapide CLI | `mysql --default-character-set=utf8mb4 -u root -e "SELECT ..."` |
+
 - Fichiers PHP : UTF-8 sans BOM
 - Données historiques corrompues (CP850) : corriger via `iconv('UTF-8','CP850//IGNORE', $str)`
+- Si corruption détectée en masse : script `db/restore_encoding.php` (import dump → DB temp → UPDATE sélectif)
 
 ## Invariants métier
 
