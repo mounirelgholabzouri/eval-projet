@@ -5,10 +5,10 @@
 - **PHP** : `C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe`
 - **MySQL** : `C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe`
 - **Serveur** : Apache Laragon port 80 — **ne jamais utiliser `php -S`** (mono-thread, bloque AJAX)
-- **Racine projet** : `C:\Users\Administrateur\Desktop\Eval-Projet\`
+- **Racine projet** : `C:\Users\Administrateur\Eval-Projet\`
 - **Lien Apache** : `C:\laragon\www\eval-projet\` → symlink vers la racine
 - **URL** : `http://localhost/`
-- **Worktree** : modifications dans `.claude\worktrees\<nom>\` → **copier manuellement** vers la racine pour activer sur Apache
+- **Worktree** : modifications dans `.claude\worktrees\<nom>\` → merger dans master via `git merge <branche>` depuis la racine projet
 - **VirtualHost** : `C:\laragon\etc\apache2\sites-enabled\00-default.conf`
 
 ## Docker (optionnel)
@@ -34,7 +34,10 @@
 "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" -l fichier.php
 
 # Exécuter un script
-"C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" "C:\Users\Administrateur\Desktop\Eval-Projet\script.php"
+"C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" "C:\Users\Administrateur\Eval-Projet\script.php"
+
+# Merger un worktree dans master
+git -C "C:\Users\Administrateur\Eval-Projet" merge claude/<nom-worktree> --no-edit
 ```
 
 ## Conventions critiques
@@ -63,6 +66,7 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - Partie `actif=0` → **totalement exclue** partout (quiz, index, toutes les impressions) → utiliser `getPartiesActives()` sauf interface admin
 - Suppression stagiaire : cascade manuelle `reponses_stagiaires → sessions_eval → stagiaire` (pas de FK CASCADE en DB)
 - Clé API Anthropic : table `config`, clé `anthropic_api_key` — crédits sur **console.anthropic.com** (≠ claude.ai)
+- Tables `eval_pratique`, `eval_pratique_parties`, `eval_pratique_questions` : créées via script PHP/PDO (schéma dans `db/schema.sql`)
 
 ## EFM — Impressions OFPPT
 
