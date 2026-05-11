@@ -15,3 +15,9 @@ desktop.ini
 
 # Dépendances Composer (à réinstaller via composer install)
 /vendor/
+
+# Fichiers internes Claude Code
+.claude/
+
+# Exports base de données
+db_export_*.sql
