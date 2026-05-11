@@ -393,13 +393,11 @@ $stats = getStatsGlobales();
                             </div>
                             <?php if ($nbTl > 0): ?>
                             <div class="mt-1 d-flex gap-1 justify-content-center" id="corr-btns-<?= $s['id'] ?>">
-                                <?php if ($nbCorrige < $nbTl): ?>
                                 <button type="button" class="btn btn-outline-info py-0 px-1" style="font-size:11px;"
-                                        title="Corriger avec IA"
+                                        title="<?= $nbCorrige > 0 ? 'Recorriger avec IA' : 'Corriger avec IA' ?>"
                                         onclick="corrigerSessionIA(<?= $s['id'] ?>, this)">
                                     <i class="bi bi-robot"></i>
                                 </button>
-                                <?php endif; ?>
                                 <?php if ($nbIa > 0): ?>
                                 <button type="button" class="btn btn-outline-success py-0 px-1" style="font-size:11px;"
                                         title="Valider notes IA"
@@ -560,9 +558,8 @@ function renderBadge(nbTl, nbCorrige, nbIa) {
 function renderCorrBtns(sessionId, nbTl, nbCorrige, nbIa) {
     if (nbTl === 0) return '';
     let btns = '';
-    if (nbCorrige < nbTl) {
-        btns += `<button type="button" class="btn btn-outline-info py-0 px-1" style="font-size:11px;" title="Corriger avec IA" onclick="corrigerSessionIA(${sessionId}, this)"><i class="bi bi-robot"></i></button>`;
-    }
+    const titleIA = nbCorrige > 0 ? 'Recorriger avec IA' : 'Corriger avec IA';
+    btns += `<button type="button" class="btn btn-outline-info py-0 px-1" style="font-size:11px;" title="${titleIA}" onclick="corrigerSessionIA(${sessionId}, this)"><i class="bi bi-robot"></i></button>`;
     if (nbIa > 0) {
         btns += `<button type="button" class="btn btn-outline-success py-0 px-1" style="font-size:11px;" title="Valider notes IA" onclick="validerSessionNotes(${sessionId}, this)"><i class="bi bi-check-all"></i></button>`;
     }
