@@ -328,6 +328,20 @@ UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 --
+-- Table structure for table `modules_efm_meta`
+--
+
+CREATE TABLE IF NOT EXISTS `modules_efm_meta` (
+  `id`            INT AUTO_INCREMENT PRIMARY KEY,
+  `module_id`     INT NOT NULL UNIQUE,
+  `code_module`   VARCHAR(100) DEFAULT '',
+  `filiere`       VARCHAR(100) DEFAULT '',
+  `etablissement` VARCHAR(200) DEFAULT '',
+  `annee`         VARCHAR(20)  DEFAULT '',
+  CONSTRAINT `fk_mem_module` FOREIGN KEY (`module_id`) REFERENCES `modules` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+--
 -- Table structure for table `eval_pratique`
 --
 
