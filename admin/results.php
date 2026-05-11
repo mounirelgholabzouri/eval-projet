@@ -85,12 +85,12 @@ if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
 
 // Filtre correction
 if ($filterCorrection === 'non_corrigee') {
-    $where[] = "EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL AND rs2.reponse_texte IS NOT NULL AND rs2.reponse_texte != '')";
+    $where[] = "EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL)";
 } elseif ($filterCorrection === 'corrigee_ia') {
-    $where[] = "NOT EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL AND rs2.reponse_texte IS NOT NULL AND rs2.reponse_texte != '')
+    $where[] = "NOT EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL)
                 AND EXISTS (SELECT 1 FROM reponses_stagiaires rs3 JOIN questions q3 ON q3.id=rs3.question_id WHERE rs3.session_id=s.id AND q3.type='texte_libre' AND rs3.source_correction='ia')";
 } elseif ($filterCorrection === 'corrigee') {
-    $where[] = "NOT EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL AND rs2.reponse_texte IS NOT NULL AND rs2.reponse_texte != '')
+    $where[] = "NOT EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL)
                 AND EXISTS (SELECT 1 FROM reponses_stagiaires rs3 JOIN questions q3 ON q3.id=rs3.question_id WHERE rs3.session_id=s.id AND q3.type='texte_libre' AND rs3.source_correction IS NOT NULL)";
 }
 
@@ -102,7 +102,7 @@ $stmt = $pdo->prepare("
            m.nom AS module_nom, m.type AS module_type,
            COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
            (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
-            WHERE rs.session_id=s.id AND q.type='texte_libre' AND rs.reponse_texte IS NOT NULL AND rs.reponse_texte != '') AS nb_tl,
+            WHERE rs.session_id=s.id AND q.type='texte_libre') AS nb_tl,
            (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
             WHERE rs.session_id=s.id AND q.type='texte_libre' AND rs.source_correction IS NOT NULL) AS nb_tl_corrige,
            (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
