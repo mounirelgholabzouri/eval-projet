@@ -173,8 +173,8 @@ $questions = $stmt->fetchAll();
                         </div>
 
                         <div class="d-grid gap-2">
-                            <button type="submit" name="move_questions" class="btn btn-primary btn-sm"
-                                    id="moveBtn" disabled>
+                            <button type="button" name="move_questions" class="btn btn-primary btn-sm"
+                                    id="moveBtn" disabled onclick="submitMove()">
                                 <i class="bi bi-arrow-right me-1"></i>Déplacer (0 sélectionnée)
                             </button>
                         </div>
@@ -288,6 +288,25 @@ document.querySelectorAll('.question-checkbox').forEach(cb => {
 });
 
 updateMoveButtonCount();
+
+function submitMove() {
+    // Supprimer les anciens hidden inputs
+    document.querySelectorAll('#moveForm input[name="question_ids"]').forEach(el => el.remove());
+    // Injecter les IDs cochés
+    document.querySelectorAll('.question-checkbox:checked').forEach(cb => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'question_ids[]';
+        input.value = cb.value;
+        document.getElementById('moveForm').appendChild(input);
+    });
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'move_questions';
+    hidden.value = '1';
+    document.getElementById('moveForm').appendChild(hidden);
+    document.getElementById('moveForm').submit();
+}
 </script>
 
 </body>
