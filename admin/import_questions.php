@@ -1,89 +1,96 @@
 <?php
+/**
+ * Import de questions depuis un JSON exporté par le PC distant
+ * Matching par (texte + partie_nom + module_nom) — pas par ID, 0 conflit
+ */
 require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-$pdo = getDB();
-$msg = '';
-$msgType = 'success';
-$moduleId = (int)($_GET['module_id'] ?? 0);
-$allModules = getAllModules();
+$pdo    = getDB();
+$msg    = '';
+$errors = [];
+$stats  = [];
 
-// Traitement import
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['import_file'])) {
-    $file = $_FILES['import_file'];
-    $moduleId = (int)($_POST['module_id'] ?? 0);
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['json_file'])) {
+    $content = file_get_contents($_FILES['json_file']['tmp_name']);
+    $data    = json_decode($content, true);
 
-    if ($moduleId <= 0) {
-        $msg = "Sélectionnez un module.";
-        $msgType = 'danger';
-    } elseif ($file['error'] !== UPLOAD_ERR_OK) {
-        $uploadErrors = [
-            UPLOAD_ERR_INI_SIZE => 'Fichier dépasse la limite (php.ini)',
-            UPLOAD_ERR_FORM_SIZE => 'Fichier dépasse la limite (formulaire)',
-            UPLOAD_ERR_PARTIAL => 'Upload incomplet',
-            UPLOAD_ERR_NO_FILE => 'Aucun fichier',
-            UPLOAD_ERR_NO_TMP_DIR => 'Dossier temporaire manquant',
-            UPLOAD_ERR_CANT_WRITE => 'Erreur écriture disque',
-            UPLOAD_ERR_EXTENSION => 'Extension non autorisée'
-        ];
-        $msg = "Erreur d'upload : " . ($uploadErrors[$file['error']] ?? "Erreur inconnue ({$file['error']})");
-        $msgType = 'danger';
+    if (!$data || !isset($data['questions'])) {
+        $errors[] = 'Fichier JSON invalide.';
     } else {
-        $tmpFile = $file['tmp_name'];
-        $fileName = $file['name'];
-        $ext = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $nbTotal   = 0;
+        $nbImporte = 0;
+        $nbSkip    = 0;
 
+        $pdo->beginTransaction();
         try {
-            $questions = [];
+            foreach ($data['questions'] as $q) {
+                $nbTotal++;
 
-            if (!file_exists($tmpFile)) {
-                $msg = "Erreur : fichier temporaire non trouvé.";
-                $msgType = 'danger';
-            } elseif (empty($ext)) {
-                $msg = "Erreur : extension de fichier manquante.";
-                $msgType = 'danger';
-            } else {
-                // Déterminer le format et parser
-                if ($ext === 'xlsx' || $ext === 'csv') {
-                    $questions = parseExcelFile($tmpFile);
-                } elseif ($ext === 'docx') {
-                    $questions = parseDocxFile($tmpFile);
-                } elseif ($ext === 'pdf') {
-                    $questions = parsePdfFile($tmpFile);
-                } elseif ($ext === 'md') {
-                    $content = file_get_contents($tmpFile);
-                    if ($content === false) {
-                        $msg = "Erreur : impossible de lire le fichier Markdown.";
-                        $msgType = 'danger';
-                    } elseif (strlen($content) === 0) {
-                        $msg = "Erreur : fichier Markdown vide.";
-                        $msgType = 'danger';
-                    } else {
-                        $questions = extractQuestionsFromMarkdown($content);
-                    }
-                } else {
-                    $msg = "Format non supporté. Utilisez : Excel (.xlsx, .csv), Word (.docx), PDF ou Markdown (.md)";
-                    $msgType = 'danger';
+                // 1. Trouver ou créer le module
+                $stmtM = $pdo->prepare("SELECT id FROM modules WHERE nom = ? AND type = ?");
+                $stmtM->execute([$q['module_nom'], $q['module_type']]);
+                $moduleId = $stmtM->fetchColumn();
+                if (!$moduleId) {
+                    $pdo->prepare("INSERT INTO modules (nom, type, actif) VALUES (?, ?, 1)")
+                        ->execute([$q['module_nom'], $q['module_type']]);
+                    $moduleId = $pdo->lastInsertId();
                 }
 
-                if (empty($msg)) {
-                    if (!empty($questions)) {
-                        $result = importQuestionsToModule($questions, $moduleId);
-                        $msg = "{$result['imported']} question(s) importée(s).";
-                        $msgType = 'success';
-                        if (!empty($result['errors'])) {
-                            $msg .= " " . count($result['errors']) . " erreur(s) : " . implode(' | ', array_slice($result['errors'], 0, 3));
-                            $msgType = 'warning';
-                        }
-                    } else {
-                        $msg = "Aucune question trouvée dans le fichier.";
-                        $msgType = 'warning';
-                    }
+                // 2. Trouver ou créer la partie
+                $stmtP = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND nom = ?");
+                $stmtP->execute([$moduleId, $q['partie_nom']]);
+                $partieId = $stmtP->fetchColumn();
+                if (!$partieId) {
+                    $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, ?, ?, 1)")
+                        ->execute([$moduleId, $q['partie_nom'], $q['partie_ordre']]);
+                    $partieId = $pdo->lastInsertId();
                 }
+
+                // 3. Vérifier si la question existe déjà (même texte dans même partie)
+                $stmtQ = $pdo->prepare("SELECT id FROM questions WHERE partie_id = ? AND texte = ?");
+                $stmtQ->execute([$partieId, $q['texte']]);
+                if ($stmtQ->fetchColumn()) {
+                    $nbSkip++;
+                    continue;
+                }
+
+                // 4. Insérer la question avec nouveau ID (auto-increment local)
+                $pdo->prepare("INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
+                               VALUES (?, ?, ?, ?, ?, ?, ?)")
+                    ->execute([
+                        $moduleId,
+                        $partieId,
+                        $q['texte'],
+                        $q['type'],
+                        $q['points'],
+                        $q['ordre'],
+                        $q['image_path'] ?? null,
+                    ]);
+                $questionId = $pdo->lastInsertId();
+
+                // 5. Insérer les choix de réponse
+                foreach ($q['choix'] ?? [] as $c) {
+                    $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?, ?, ?, ?)")
+                        ->execute([$questionId, $c['texte'], (int)$c['is_correct'], (int)$c['ordre']]);
+                }
+
+                $nbImporte++;
             }
-        } catch (Throwable $e) {
-            $msg = "Erreur lors de l'import : " . $e->getMessage();
-            $msgType = 'danger';
+
+            $pdo->commit();
+            $stats = [
+                'total'    => $nbTotal,
+                'importe'  => $nbImporte,
+                'skip'     => $nbSkip,
+                'machine'  => $data['machine'] ?? '?',
+                'exported' => $data['exported_at'] ?? '?',
+            ];
+            $msg = "Import terminé : {$nbImporte} question(s) importée(s), {$nbSkip} déjà présente(s).";
+
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $errors[] = 'Erreur BD : ' . $e->getMessage();
         }
     }
 }
@@ -91,180 +98,65 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['import_file'])) {
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Importer des questions — Administration</title>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Import questions — PC distant</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="../assets/css/style.css" rel="stylesheet">
-    <style>
-        .format-info { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; }
-        .upload-zone { border: 2px dashed #dee2e6; border-radius: 8px; padding: 30px; text-align: center; cursor: pointer; transition: all 0.3s; }
-        .upload-zone:hover { border-color: #0d6efd; background: #f8f9fa; }
-        .upload-zone.dragover { border-color: #0d6efd; background: #e7f1ff; }
-    </style>
 </head>
 <body class="bg-light">
 <?php include __DIR__ . '/partials/navbar.php'; ?>
-
-<div class="container-fluid py-4 px-4">
+<div class="container py-5" style="max-width:660px">
     <h2 class="h4 fw-bold mb-4">
-        <i class="bi bi-cloud-upload me-2 text-primary"></i>Importer des questions
+        <i class="bi bi-cloud-download me-2 text-primary"></i>Import questions depuis PC distant
     </h2>
 
-    <?php if ($msg): ?>
-        <div class="alert alert-<?= $msgType ?> alert-dismissible fade show rounded-3">
-            <i class="bi bi-<?= $msgType === 'success' ? 'check-circle' : ($msgType === 'danger' ? 'exclamation-circle' : 'info-circle') ?> me-2"></i>
-            <?= htmlspecialchars($msg) ?>
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        </div>
+    <?php if ($errors): ?>
+    <div class="alert alert-danger">
+        <?php foreach ($errors as $e): ?><div><?= htmlspecialchars($e) ?></div><?php endforeach; ?>
+    </div>
     <?php endif; ?>
 
-    <div class="row g-4">
-        <!-- Formulaire import -->
-        <div class="col-lg-7">
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-0 py-3 px-4">
-                    <h5 class="mb-0 fw-bold">
-                        <i class="bi bi-upload me-2"></i>Télécharger un fichier
-                    </h5>
-                </div>
-                <div class="card-body p-4">
-                    <form method="POST" enctype="multipart/form-data">
-                        <div class="mb-4">
-                            <label class="form-label fw-semibold">Module cible <span class="text-danger">*</span></label>
-                            <select name="module_id" class="form-select" required>
-                                <option value="">— Choisir un module —</option>
-                                <?php foreach ($allModules as $m): ?>
-                                <option value="<?= $m['id'] ?>" <?= $m['id'] == $moduleId ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($m['nom']) ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
+    <?php if ($msg): ?>
+    <div class="alert alert-success">
+        <i class="bi bi-check-circle me-2"></i><?= htmlspecialchars($msg) ?>
+        <?php if ($stats): ?>
+        <ul class="mb-0 mt-2 small">
+            <li>Exporté depuis : <strong><?= htmlspecialchars($stats['machine']) ?></strong> le <?= htmlspecialchars($stats['exported']) ?></li>
+            <li>Total dans le fichier : <?= $stats['total'] ?></li>
+            <li>Importées : <strong class="text-success"><?= $stats['importe'] ?></strong></li>
+            <li>Déjà présentes (ignorées) : <?= $stats['skip'] ?></li>
+        </ul>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
-                        <div class="mb-4">
-                            <label class="form-label fw-semibold">Fichier <span class="text-danger">*</span></label>
-                            <div class="upload-zone" onclick="document.getElementById('fileInput').click()" id="uploadZone">
-                                <i class="bi bi-cloud-arrow-up" style="font-size: 32px; color: #0d6efd; display: block; margin-bottom: 10px;"></i>
-                                <p class="mb-1"><strong>Cliquez pour télécharger</strong></p>
-                                <p class="text-muted small mb-0">ou glissez votre fichier</p>
-                            </div>
-                            <input type="file" id="fileInput" name="import_file" class="form-control mt-3"
-                                   accept=".xlsx,.csv,.docx,.pdf,.md" required style="display: none;">
-                            <small class="text-muted d-block mt-2">
-                                Formats acceptés : Excel (.xlsx, .csv), Word (.docx), PDF, Markdown (.md)
-                            </small>
-                        </div>
-
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-cloud-upload me-1"></i>Importer
-                            </button>
-                        </div>
-                    </form>
-                </div>
+    <div class="card border-0 shadow-sm rounded-4 p-4 mb-3">
+        <h5 class="fw-semibold mb-3">Workflow de synchronisation</h5>
+        <ol class="small text-muted mb-4">
+            <li class="mb-1">Sur le <strong>PC distant</strong> : ouvrir <code>admin/export_questions.php</code> → télécharge un fichier JSON</li>
+            <li class="mb-1">Copier le fichier JSON sur ce PC (réseau, clé USB…)</li>
+            <li>Uploader le fichier ci-dessous → nouvelles questions ajoutées, doublons ignorés</li>
+        </ol>
+        <form method="POST" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="form-label fw-semibold">Fichier JSON (<code>questions_export_*.json</code>)</label>
+                <input type="file" name="json_file" accept=".json" class="form-control" required>
             </div>
-        </div>
+            <button type="submit" class="btn btn-primary w-100">
+                <i class="bi bi-upload me-2"></i>Importer les questions
+            </button>
+        </form>
+    </div>
 
-        <!-- Guide des formats -->
-        <div class="col-lg-5">
-            <div class="card border-0 shadow-sm rounded-4">
-                <div class="card-header bg-white border-0 py-3 px-4">
-                    <h5 class="mb-0 fw-bold">
-                        <i class="bi bi-info-circle me-2"></i>Formats acceptés
-                    </h5>
-                </div>
-                <div class="card-body p-4">
-                    <!-- Excel -->
-                    <div class="format-info mb-3">
-                        <h6 class="fw-bold mb-2"><i class="bi bi-file-earmark-spreadsheet me-2 text-success"></i>Excel (.xlsx, .csv)</h6>
-                        <p class="small mb-2">Format recommandé pour les données structurées.</p>
-                        <div class="small text-muted">
-                            <p class="mb-1"><strong>Colonnes :</strong></p>
-                            <ul class="mb-2" style="padding-left: 20px;">
-                                <li>texte (obligatoire)</li>
-                                <li>type (qcm, vrai_faux, texte_libre)</li>
-                                <li>points</li>
-                                <li>choix_1, choix_2, etc.</li>
-                            </ul>
-                        </div>
-                    </div>
-
-                    <!-- Word -->
-                    <div class="format-info mb-3">
-                        <h6 class="fw-bold mb-2"><i class="bi bi-file-earmark-word me-2 text-primary"></i>Word (.docx)</h6>
-                        <p class="small mb-2">Détecte les questions et réponses automatiquement.</p>
-                        <div class="small text-muted">
-                            Format : <br>
-                            <code>1) Question</code><br>
-                            <code>a) Réponse 1</code><br>
-                            <code>*b) Réponse correcte</code>
-                        </div>
-                    </div>
-
-                    <!-- PDF -->
-                    <div class="format-info mb-3">
-                        <h6 class="fw-bold mb-2"><i class="bi bi-file-earmark-pdf me-2 text-danger"></i>PDF</h6>
-                        <p class="small mb-2">Extraction simple du texte.</p>
-                        <div class="small text-muted">
-                            Format similaire à Word : numéros suivis de questions.
-                        </div>
-                    </div>
-
-                    <!-- Markdown -->
-                    <div class="format-info">
-                        <h6 class="fw-bold mb-2"><i class="bi bi-markdown me-2 text-secondary"></i>Markdown (.md)</h6>
-                        <p class="small mb-2">Format texte avec support Markdown.</p>
-                        <div class="small text-muted">
-                            <code>## Question</code><br>
-                            <code>- Réponse 1</code><br>
-                            <code>- **Réponse correcte**</code>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+    <div class="text-center">
+        <a href="export_questions.php" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-download me-1"></i>Exporter les questions de CE PC
+        </a>
+        <a href="index.php" class="btn btn-outline-secondary btn-sm ms-2">
+            <i class="bi bi-arrow-left me-1"></i>Retour
+        </a>
     </div>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-// Drag and drop
-const uploadZone = document.getElementById('uploadZone');
-const fileInput = document.getElementById('fileInput');
-
-uploadZone.addEventListener('dragover', (e) => {
-    e.preventDefault();
-    uploadZone.classList.add('dragover');
-});
-
-uploadZone.addEventListener('dragleave', () => {
-    uploadZone.classList.remove('dragover');
-});
-
-uploadZone.addEventListener('drop', (e) => {
-    e.preventDefault();
-    uploadZone.classList.remove('dragover');
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-        const dt = new DataTransfer();
-        dt.items.add(files[0]);
-        fileInput.files = dt.files;
-        updateFileName();
-    }
-});
-
-fileInput.addEventListener('change', updateFileName);
-
-function updateFileName() {
-    const fileName = fileInput.files[0]?.name;
-    if (fileName) {
-        uploadZone.innerHTML = `<i class="bi bi-check-circle" style="font-size: 32px; color: #28a745; display: block; margin-bottom: 10px;"></i>
-                                <p class="mb-1"><strong>${fileName}</strong></p>
-                                <p class="text-muted small mb-0">Cliquez pour changer</p>`;
-    }
-}
-</script>
 </body>
 </html>
