@@ -1,43 +1,91 @@
 services:
-
   app:
-    image: elgholabzouri1968/eval-projet:allinone
-    build: .
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: eval_app
+    image: eval-projet:latest
+    restart: unless-stopped
     ports:
       - "8080:80"
     volumes:
-      - .:/var/www/html
+      # Mount source code for development
+      - ./:/var/www/html
+      # Named volume for vendor (avoid mounting node_modules equivalent)
+      - vendor_data:/var/www/html/vendor
+      # Mount for session persistence
+      - sessions_data:/var/lib/php/sessions
     environment:
       DB_HOST: db
       DB_NAME: ${DB_NAME:-eval_online}
-      DB_USER: ${DB_USER:-root}
-      DB_PASS: ${DB_PASS:-root}
+      DB_USER: ${DB_USER:-eval_user}
+      DB_PASS: ${DB_PASS:-eval_password}
+      DB_PORT: 3306
+      # PHP environment
+      PHP_ENV: ${PHP_ENV:-development}
+      COMPOSER_ALLOW_SUPERUSER: 1
     depends_on:
       db:
         condition: service_healthy
     networks:
       - eval_net
+    labels:
+      com.example.description: "EFM Evaluation Tool"
+      com.example.version: "1.0"
+    # Limit resources in production
+    deploy:
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
 
   db:
     image: mysql:8.4
     container_name: eval_db
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_PASS:-root}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-root_password}
       MYSQL_DATABASE: ${DB_NAME:-eval_online}
+      MYSQL_USER: ${DB_USER:-eval_user}
+      MYSQL_PASSWORD: ${DB_PASS:-eval_password}
     volumes:
+      # Persistent data volume
       - mysql_data:/var/lib/mysql
-      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      # Initialize database schema
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql
+    # Port 3306 non exposé en externe (connexion interne Docker uniquement)
+    # Décommenter si accès local DB nécessaire : - "3307:3306"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-proot"]
-      interval: 5s
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 30s
     networks:
       - eval_net
+    security_opt:
+      - no-new-privileges:true
+    # Limit resources
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1024M
+        reservations:
+          cpus: '1'
+          memory: 512M
 
 volumes:
   mysql_data:
+    driver: local
+  vendor_data:
+    driver: local
+  sessions_data:
+    driver: local
 
 networks:
   eval_net:
+    driver: bridge
