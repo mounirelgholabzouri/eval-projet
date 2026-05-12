@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/ai_provider.php';
 
 // ============================================================
 // Fonctions utilitaires générales
@@ -16,27 +17,6 @@ function redirect(string $url): void {
 
 function generateToken(int $length = 32): string {
     return bin2hex(random_bytes($length));
-}
-
-// ── CSRF ─────────────────────────────────────────────────────
-
-function csrfToken(): string {
-    if (empty($_SESSION['csrf_token'])) {
-        $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-    }
-    return $_SESSION['csrf_token'];
-}
-
-function csrfField(): string {
-    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(csrfToken(), ENT_QUOTES, 'UTF-8') . '">';
-}
-
-function verifyCsrfToken(): void {
-    $token = $_POST['csrf_token'] ?? '';
-    if (!$token || !hash_equals(csrfToken(), $token)) {
-        http_response_code(403);
-        exit('Token CSRF invalide. Rechargez la page et réessayez.');
-    }
 }
 
 function formatDuration(int $minutes): string {
@@ -892,9 +872,11 @@ function niveauToPoints(int $niveau, float $pointsMax): float {
 }
 
 function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte, float $pointsMax): array {
-    $apiKey = getAnthropicApiKey();
+    $provider = getAIProvider();
+    $apiKey   = getAPIKeyForProvider($provider);
     if (empty($apiKey)) {
-        return ['success' => false, 'error' => 'Clé API Anthropic non configurée'];
+        $labels = ['anthropic' => 'Anthropic', 'openai' => 'OpenAI', 'google' => 'Google'];
+        return ['success' => false, 'error' => 'Clé API ' . ($labels[$provider] ?? $provider) . ' non configurée'];
     }
 
     try {
@@ -917,41 +899,20 @@ function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte
 **Format JSON strict (rien d'autre) :**
 {\"niveau\": <0|1|2|3>, \"feedback\": \"<feedback en français>\"}";
 
-        $headers = [
-            'Content-Type: application/json',
-            'x-api-key: ' . $apiKey,
-            'anthropic-version: 2023-06-01',
-        ];
+        $result = callAIUnified(
+            $provider,
+            $apiKey,
+            getAIModel(),
+            '',
+            [['role' => 'user', 'content' => $prompt]],
+            400
+        );
 
-        $payload = json_encode([
-            'model'      => getAIModel(),
-            'max_tokens' => 400,
-            'messages'   => [['role' => 'user', 'content' => $prompt]]
-        ]);
-
-        $ch = curl_init('https://api.anthropic.com/v1/messages');
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER     => $headers,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $payload,
-            CURLOPT_TIMEOUT        => 30
-        ]);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($httpCode !== 200) {
-            return ['success' => false, 'error' => 'Erreur API Claude (HTTP ' . $httpCode . ')'];
+        if (!$result['success']) {
+            return ['success' => false, 'error' => $result['error']];
         }
 
-        $data = json_decode($response, true);
-        if (!isset($data['content'][0]['text'])) {
-            return ['success' => false, 'error' => 'Réponse API invalide'];
-        }
-
-        $contenu = trim($data['content'][0]['text']);
+        $contenu = trim($result['text']);
 
         // Extraire niveau et feedback
         preg_match('/"niveau"\s*:\s*([0123])/', $contenu, $nm);
@@ -969,13 +930,12 @@ function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte
         $pdo = getDB();
         $pdo->prepare("
             UPDATE reponses_stagiaires
-            SET points_obtenus                = ?,
-                is_correct                    = ?,
-                correction_ia_feedback        = ?,
+            SET points_obtenus              = ?,
+                is_correct                  = ?,
+                correction_ia_feedback      = ?,
                 correction_ia_points_suggeres = ?,
-                correction_ia_niveau          = ?,
-                correction_ia_date            = NOW(),
-                source_correction             = 'ia'
+                correction_ia_niveau        = ?,
+                correction_ia_date          = NOW()
             WHERE id = ?
         ")->execute([$points, $isCorrect, $feedback, $points, $niveau, $repId]);
 
@@ -989,16 +949,4 @@ function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte
     } catch (Exception $e) {
         return ['success' => false, 'error' => 'Erreur : ' . $e->getMessage()];
     }
-}
-
-function updateSessionScore(int $sessionId): array {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(points_obtenus),0) FROM reponses_stagiaires WHERE session_id = ?");
-    $stmt->execute([$sessionId]);
-    $score = (float)$stmt->fetchColumn();
-    $session = getSession($sessionId);
-    $total   = (float)$session['total_points'];
-    $pct     = $total > 0 ? round($score / $total * 100, 2) : 0;
-    $pdo->prepare("UPDATE sessions_eval SET score=?, pourcentage=? WHERE id=?")->execute([$score, $pct, $sessionId]);
-    return ['score' => $score, 'total' => $total, 'pct' => $pct];
 }
