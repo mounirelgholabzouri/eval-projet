@@ -42,6 +42,25 @@ services:
           cpus: '0.5'
           memory: 256M
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: eval_ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - eval_net
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '1'
+          memory: 2G
+
   db:
     image: mysql:8.4
     container_name: eval_db
@@ -84,6 +103,8 @@ volumes:
   vendor_data:
     driver: local
   sessions_data:
+    driver: local
+  ollama_data:
     driver: local
 
 networks:

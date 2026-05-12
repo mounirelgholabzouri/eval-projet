@@ -19,21 +19,23 @@ if (!in_array($activeTab, ['generate', 'config'])) $activeTab = 'generate';
 $providers       = getProvidersConfig();
 $currentProvider = getAIProvider();
 $currentModel    = getAIModel();
-$apiKeys = ['anthropic' => '', 'openai' => '', 'google' => ''];
+$apiKeys = ['anthropic' => '', 'openai' => '', 'google' => '', 'ollama' => ''];
 try {
     $stmt = $pdo->query("SELECT cle, valeur FROM config WHERE cle IN
-        ('anthropic_api_key','openai_api_key','google_api_key','ai_provider','ai_model')");
+        ('anthropic_api_key','openai_api_key','google_api_key','ai_provider','ai_model','ollama_base_url')");
     $cfgs = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
     $apiKeys['anthropic'] = $cfgs['anthropic_api_key'] ?? '';
     $apiKeys['openai']    = $cfgs['openai_api_key']    ?? '';
     $apiKeys['google']    = $cfgs['google_api_key']    ?? '';
+    // Ollama : pas de clé API — considéré comme "configuré" si l'URL est définie (ou valeur par défaut)
+    $apiKeys['ollama']    = $cfgs['ollama_base_url'] ?? 'http://ollama:11434';
 } catch (Exception $e) {
     $erreur = "Erreur lecture config : " . $e->getMessage();
 }
 
-// Si aucune clé configurée → forcer onglet config
-$activeApiKey = $apiKeys[$currentProvider] ?? '';
-$noApiKeyWarning = !$activeApiKey; // afficher avertissement dans l'onglet génération sans forcer la redirection
+// Ollama n'a pas besoin de clé — on vérifie juste si le provider actif en a une
+$activeApiKey    = $currentProvider === 'ollama' ? 'ok' : ($apiKeys[$currentProvider] ?? '');
+$noApiKeyWarning = !$activeApiKey;
 
 // Message après redirection
 if (isset($_GET['saved'])) $msg = "Configuration sauvegardée avec succès";
@@ -60,6 +62,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
                         ->execute([$dbKey, $keyValue, $keyValue]);
                     $apiKeys[$prov] = $keyValue;
                 }
+            }
+            // Ollama : sauvegarder l'URL de base (pas de clé API)
+            $ollamaUrl = trim($_POST['ollama_base_url_input'] ?? '');
+            if ($ollamaUrl !== '') {
+                $pdo->prepare("INSERT INTO config (cle, valeur) VALUES (?,?) ON DUPLICATE KEY UPDATE valeur=?")
+                    ->execute(['ollama_base_url', $ollamaUrl, $ollamaUrl]);
             }
             foreach (['ai_provider' => $newProvider, 'ai_model' => $newModel] as $k => $v) {
                 $pdo->prepare("INSERT INTO config (cle, valeur) VALUES (?,?) ON DUPLICATE KEY UPDATE valeur=?")
@@ -608,7 +616,11 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
                                  data-provider="<?= $provId ?>">
                                 <i class="bi <?= $prov['icon'] ?> fs-2 text-<?= $prov['color'] ?> mb-2"></i>
                                 <div class="fw-semibold small"><?= htmlspecialchars($prov['label']) ?></div>
-                                <?php if ($apiKeys[$provId]): ?>
+                                <?php if ($provId === 'ollama'): ?>
+                                <span class="badge bg-success mt-2">
+                                    <i class="bi bi-house-fill me-1"></i>Local · Gratuit
+                                </span>
+                                <?php elseif ($apiKeys[$provId]): ?>
                                 <span class="badge bg-success mt-2">
                                     <i class="bi bi-check-circle me-1"></i>Clé configurée
                                 </span>
@@ -627,15 +639,39 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
             <div class="provider-section <?= $currentProvider === $provId ? 'active' : '' ?>"
                  data-section="<?= $provId ?>">
                 <div class="card border-0 shadow-sm rounded-4 mb-4">
-                    <div class="card-header bg-white border-0 py-3 px-4">
-                        <h6 class="mb-0 fw-bold">
+                    <div class="card-header bg-white border-0 py-3 px-4 d-flex align-items-center gap-2">
+                        <h6 class="mb-0 fw-bold flex-grow-1">
                             <i class="bi <?= $prov['icon'] ?> me-2 text-<?= $prov['color'] ?>"></i>
                             <?= htmlspecialchars($prov['label']) ?>
                         </h6>
+                        <?php if (!empty($prov['local'])): ?>
+                        <span class="badge bg-success-subtle text-success border border-success-subtle">
+                            <i class="bi bi-house-fill me-1"></i>100% local · Gratuit
+                        </span>
+                        <?php endif; ?>
                     </div>
                     <div class="card-body px-4 pb-4 pt-2">
 
-                        <!-- Clé API -->
+                        <?php if ($provId === 'ollama'): ?>
+                        <!-- Ollama : URL au lieu de clé API -->
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">
+                                <i class="bi bi-link-45deg me-2 text-secondary"></i>URL du serveur Ollama
+                            </label>
+                            <input type="text" name="ollama_base_url_input"
+                                   class="form-control form-control-lg font-monospace"
+                                   placeholder="http://ollama:11434"
+                                   value="<?= htmlspecialchars(getOllamaBaseUrl()) ?>">
+                            <small class="text-muted d-block mt-2"><?= $prov['key_help'] ?></small>
+                        </div>
+                        <div class="alert alert-secondary py-2 px-3 rounded-3 mb-3">
+                            <small><i class="bi bi-info-circle me-1"></i>
+                                Ollama doit tourner dans Docker : <code>docker compose up -d ollama</code><br>
+                                Puis télécharger le modèle : <code>docker exec eval_ollama ollama pull llama3.2</code>
+                            </small>
+                        </div>
+                        <?php else: ?>
+                        <!-- Clé API cloud -->
                         <div class="mb-4">
                             <label class="form-label fw-semibold">
                                 <i class="bi bi-key me-2 text-warning"></i><?= htmlspecialchars($prov['key_label']) ?>
@@ -646,6 +682,7 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
                                    value="<?= htmlspecialchars($apiKeys[$provId] ?? '') ?>">
                             <small class="text-muted d-block mt-2"><?= $prov['key_help'] ?></small>
                         </div>
+                        <?php endif; ?>
 
                         <!-- Modèle -->
                         <div class="mb-3">

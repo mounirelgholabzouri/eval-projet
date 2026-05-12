@@ -1,7 +1,7 @@
 <?php
 /**
  * Wrapper unifié multi-fournisseurs IA
- * Supporte : Anthropic (Claude), OpenAI (GPT), Google (Gemini)
+ * Supporte : Anthropic (Claude), OpenAI (GPT), Google (Gemini), Ollama (local)
  */
 
 function getAIProvider(): string {
@@ -17,6 +17,8 @@ function getAIProvider(): string {
 
 function getAPIKeyForProvider(string $provider): string {
     $pdo = getDB();
+    // Ollama n'a pas de clé API — on retourne une chaîne vide (autorisée)
+    if ($provider === 'ollama') return '';
     $cle = match($provider) {
         'openai' => 'openai_api_key',
         'google' => 'google_api_key',
@@ -31,49 +33,81 @@ function getAPIKeyForProvider(string $provider): string {
     }
 }
 
+function getOllamaBaseUrl(): string {
+    $pdo = getDB();
+    try {
+        $stmt = $pdo->prepare("SELECT valeur FROM config WHERE cle = 'ollama_base_url' LIMIT 1");
+        $stmt->execute();
+        $url = trim($stmt->fetchColumn() ?: '');
+        return $url !== '' ? rtrim($url, '/') : 'http://ollama:11434';
+    } catch (Exception $e) {
+        return 'http://ollama:11434';
+    }
+}
+
 function getProvidersConfig(): array {
     return [
         'anthropic' => [
-            'label'       => 'Anthropic (Claude)',
-            'icon'        => 'bi-robot',
-            'color'       => 'warning',
-            'key_label'   => 'Clé API Anthropic',
+            'label'           => 'Anthropic (Claude)',
+            'icon'            => 'bi-robot',
+            'color'           => 'warning',
+            'key_label'       => 'Clé API Anthropic',
             'key_placeholder' => 'sk-ant-...',
-            'key_help'    => 'Obtenir sur <a href="https://console.anthropic.com/keys" target="_blank" rel="noopener">console.anthropic.com</a>',
-            'models'      => [
-                'claude-opus-4-7'          => 'Claude Opus 4.7 (Plus puissant)',
+            'key_help'        => 'Obtenir sur <a href="https://console.anthropic.com/keys" target="_blank" rel="noopener">console.anthropic.com</a>',
+            'local'           => false,
+            'models'          => [
+                'claude-opus-4-7'           => 'Claude Opus 4.7 (Plus puissant)',
                 'claude-sonnet-4-20250514'  => 'Claude Sonnet 4 (Recommandé)',
                 'claude-haiku-4-5-20251001' => 'Claude Haiku (Plus rapide)',
             ],
-            'default_model' => 'claude-sonnet-4-20250514',
+            'default_model'   => 'claude-sonnet-4-20250514',
         ],
         'openai' => [
-            'label'       => 'OpenAI (GPT)',
-            'icon'        => 'bi-stars',
-            'color'       => 'success',
-            'key_label'   => 'Clé API OpenAI',
+            'label'           => 'OpenAI (GPT)',
+            'icon'            => 'bi-stars',
+            'color'           => 'success',
+            'key_label'       => 'Clé API OpenAI',
             'key_placeholder' => 'sk-...',
-            'key_help'    => 'Obtenir sur <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>',
-            'models'      => [
+            'key_help'        => 'Obtenir sur <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com</a>',
+            'local'           => false,
+            'models'          => [
                 'gpt-4o'      => 'GPT-4o (Recommandé)',
                 'gpt-4o-mini' => 'GPT-4o Mini (Rapide, moins cher)',
                 'gpt-4-turbo' => 'GPT-4 Turbo',
             ],
-            'default_model' => 'gpt-4o',
+            'default_model'   => 'gpt-4o',
         ],
         'google' => [
-            'label'       => 'Google (Gemini)',
-            'icon'        => 'bi-google',
-            'color'       => 'info',
-            'key_label'   => 'Clé API Google AI',
+            'label'           => 'Google (Gemini)',
+            'icon'            => 'bi-google',
+            'color'           => 'info',
+            'key_label'       => 'Clé API Google AI',
             'key_placeholder' => 'AIza...',
-            'key_help'    => 'Obtenir sur <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>',
-            'models'      => [
-                'gemini-2.0-flash'   => 'Gemini 2.0 Flash (Rapide)',
-                'gemini-1.5-pro'     => 'Gemini 1.5 Pro (Puissant)',
-                'gemini-1.5-flash'   => 'Gemini 1.5 Flash (Économique)',
+            'key_help'        => 'Obtenir sur <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>',
+            'local'           => false,
+            'models'          => [
+                'gemini-2.0-flash' => 'Gemini 2.0 Flash (Rapide)',
+                'gemini-1.5-pro'   => 'Gemini 1.5 Pro (Puissant)',
+                'gemini-1.5-flash' => 'Gemini 1.5 Flash (Économique)',
             ],
-            'default_model' => 'gemini-2.0-flash',
+            'default_model'   => 'gemini-2.0-flash',
+        ],
+        'ollama' => [
+            'label'           => 'Ollama (Local)',
+            'icon'            => 'bi-cpu',
+            'color'           => 'secondary',
+            'key_label'       => 'URL du serveur Ollama',
+            'key_placeholder' => 'http://ollama:11434',
+            'key_help'        => 'Adresse du serveur Ollama — <code>http://ollama:11434</code> dans Docker, <code>http://localhost:11434</code> en local',
+            'local'           => true,
+            'models'          => [
+                'llama3.2:latest'  => 'Llama 3.2 (Recommandé)',
+                'llama3.1:latest'  => 'Llama 3.1',
+                'mistral:latest'   => 'Mistral 7B',
+                'qwen2.5:latest'   => 'Qwen 2.5',
+                'phi3:latest'      => 'Phi-3 Mini',
+            ],
+            'default_model'   => 'llama3.2:latest',
         ],
     ];
 }
@@ -93,6 +127,7 @@ function callAIUnified(
     return match($provider) {
         'openai' => _callOpenAI($apiKey, $model, $systemPrompt, $messages, $maxTokens),
         'google' => _callGemini($apiKey, $model, $systemPrompt, $messages, $maxTokens),
+        'ollama' => _callOllama($model, $systemPrompt, $messages, $maxTokens),
         default  => _callAnthropic($apiKey, $model, $systemPrompt, $messages, $maxTokens),
     };
 }
@@ -123,7 +158,7 @@ function _callAnthropic(string $apiKey, string $model, string $systemPrompt, arr
     $curlErr  = curl_error($ch);
     curl_close($ch);
 
-    if ($curlErr)        return ['success' => false, 'error' => "Erreur réseau : $curlErr", 'text' => ''];
+    if ($curlErr)          return ['success' => false, 'error' => "Erreur réseau : $curlErr", 'text' => ''];
     if ($httpCode !== 200) {
         $errData = json_decode($response, true);
         $errMsg  = $errData['error']['message'] ?? "HTTP $httpCode";
@@ -136,7 +171,7 @@ function _callAnthropic(string $apiKey, string $model, string $systemPrompt, arr
     return ['success' => true, 'text' => $text, 'error' => ''];
 }
 
-function _callOpenAI(string $apiKey, string $model, string $systemPrompt, array $messages, int $maxTokens): array {
+function _callOpenAI(string $apiKey, string $model, string $systemPrompt, array $messages, int $maxTokens, string $baseUrl = 'https://api.openai.com'): array {
     $oaiMessages = [];
     if ($systemPrompt !== '') {
         $oaiMessages[] = ['role' => 'system', 'content' => $systemPrompt];
@@ -156,15 +191,16 @@ function _callOpenAI(string $apiKey, string $model, string $systemPrompt, array 
         $oaiMessages[] = ['role' => $msg['role'], 'content' => $content];
     }
 
-    $ch = curl_init('https://api.openai.com/v1/chat/completions');
+    $ch = curl_init(rtrim($baseUrl, '/') . '/v1/chat/completions');
+    $headers = ['Content-Type: application/json'];
+    if ($apiKey !== '') {
+        $headers[] = 'Authorization: Bearer ' . $apiKey;
+    }
     curl_setopt_array($ch, [
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_POST           => true,
         CURLOPT_POSTFIELDS     => json_encode(['model' => $model, 'max_tokens' => $maxTokens, 'messages' => $oaiMessages]),
-        CURLOPT_HTTPHEADER     => [
-            'Content-Type: application/json',
-            'Authorization: Bearer ' . $apiKey,
-        ],
+        CURLOPT_HTTPHEADER     => $headers,
         CURLOPT_TIMEOUT        => 120,
         CURLOPT_SSL_VERIFYPEER => true,
     ]);
@@ -174,7 +210,7 @@ function _callOpenAI(string $apiKey, string $model, string $systemPrompt, array 
     $curlErr  = curl_error($ch);
     curl_close($ch);
 
-    if ($curlErr)        return ['success' => false, 'error' => "Erreur réseau : $curlErr", 'text' => ''];
+    if ($curlErr)          return ['success' => false, 'error' => "Erreur réseau : $curlErr", 'text' => ''];
     if ($httpCode !== 200) {
         $errData = json_decode($response, true);
         $errMsg  = $errData['error']['message'] ?? "HTTP $httpCode";
@@ -229,7 +265,7 @@ function _callGemini(string $apiKey, string $model, string $systemPrompt, array 
     $curlErr  = curl_error($ch);
     curl_close($ch);
 
-    if ($curlErr)        return ['success' => false, 'error' => "Erreur réseau : $curlErr", 'text' => ''];
+    if ($curlErr)          return ['success' => false, 'error' => "Erreur réseau : $curlErr", 'text' => ''];
     if ($httpCode !== 200) {
         $errData = json_decode($response, true);
         $errMsg  = $errData['error']['message'] ?? "HTTP $httpCode";
@@ -240,4 +276,27 @@ function _callGemini(string $apiKey, string $model, string $systemPrompt, array 
     $text = $data['candidates'][0]['content']['parts'][0]['text'] ?? '';
     if ($text === '') return ['success' => false, 'error' => 'Réponse Google invalide ou vide', 'text' => ''];
     return ['success' => true, 'text' => $text, 'error' => ''];
+}
+
+/**
+ * Appel Ollama — API compatible OpenAI, pas de clé requise.
+ * Utilise l'URL configurée dans la table config (ollama_base_url).
+ */
+function _callOllama(string $model, string $systemPrompt, array $messages, int $maxTokens): array {
+    $baseUrl = getOllamaBaseUrl();
+
+    // Test de connectivité rapide
+    $chTest = curl_init($baseUrl . '/api/tags');
+    curl_setopt_array($chTest, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 5, CURLOPT_SSL_VERIFYPEER => false]);
+    curl_exec($chTest);
+    $testCode = curl_getinfo($chTest, CURLINFO_HTTP_CODE);
+    $testErr  = curl_error($chTest);
+    curl_close($chTest);
+
+    if ($testErr || $testCode === 0) {
+        return ['success' => false, 'error' => "Ollama inaccessible à $baseUrl — vérifiez que le container eval_ollama est démarré", 'text' => ''];
+    }
+
+    // Appel via l'API OpenAI-compatible d'Ollama
+    return _callOpenAI('', $model, $systemPrompt, $messages, $maxTokens, $baseUrl);
 }
