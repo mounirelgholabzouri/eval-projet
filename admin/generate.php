@@ -33,7 +33,7 @@ try {
 
 // Si aucune clé configurée → forcer onglet config
 $activeApiKey = $apiKeys[$currentProvider] ?? '';
-if (!$activeApiKey && $activeTab === 'generate') $activeTab = 'config';
+$noApiKeyWarning = !$activeApiKey; // afficher avertissement dans l'onglet génération sans forcer la redirection
 
 // Message après redirection
 if (isset($_GET['saved'])) $msg = "Configuration sauvegardée avec succès";
@@ -279,6 +279,16 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
          ONGLET : GÉNÉRATION
     ════════════════════════════════════════════════════════ -->
     <div <?= $activeTab !== 'generate' ? 'style="display:none"' : '' ?> id="tabGenerate">
+
+    <?php if ($noApiKeyWarning): ?>
+    <div class="alert alert-warning d-flex align-items-center gap-2 mb-4 rounded-3" role="alert">
+        <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+        <div>Aucune clé API configurée pour le fournisseur actuel.
+            <a href="?tab=config" class="alert-link ms-1">Configurer une clé API →</a>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <div class="row g-4">
 
         <!-- ── Panneau gauche : formulaire ─────────────────── -->
