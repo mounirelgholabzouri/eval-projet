@@ -125,49 +125,6 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         }
         .h-code div { line-height: 1.6; }
 
-        /* ── En-tête QCM ordinaire ── */
-        .qcm-header {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 0;
-            font-size: 10pt;
-        }
-        .qcm-header td { vertical-align: top; }
-        .h-qcm-org {
-            width: 55%;
-            border: 1px solid #000;
-            padding: 2mm 3mm;
-            vertical-align: middle;
-        }
-        .h-qcm-org-inner { display: flex; align-items: center; gap: 3mm; }
-        .h-qcm-org-inner img { height: 16mm; }
-        .h-qcm-titre {
-            border: 1px solid #000;
-            border-top: none;
-            padding: 3mm;
-            text-align: center;
-            font-size: 13pt;
-            font-weight: bold;
-            vertical-align: middle;
-        }
-        .h-qcm-identity {
-            width: 45%;
-            border: 1px solid #000;
-            padding: 4mm 5mm;
-            vertical-align: top;
-            font-weight: bold;
-        }
-        .h-qcm-identity div { margin-bottom: 3mm; }
-        .h-qcm-identity div:last-child { margin-bottom: 0; }
-        .h-qcm-module {
-            border: 1px solid #000;
-            border-top: none;
-            text-align: center;
-            padding: 2mm 3mm;
-            font-size: 10.5pt;
-        }
-        .h-qcm-module div { line-height: 1.6; }
-
         /* ── Tableau infos ── */
         .info-table {
             width: 100%;
@@ -317,7 +274,10 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
                         <?php if ($logoB64): ?>
                         <img src="<?= $logoB64 ?>" alt="OFPPT">
                         <?php endif; ?>
-                        <div class="h-org"><?= $etabl ?></div>
+                        <div class="h-org">
+                            <div>Direction Régionale Rabat – Salé – Kénitra</div>
+                            <div>ISTA HAY RIAD RABAT</div>
+                        </div>
                     </div>
                 </td>
                 <td rowspan="2" class="h-identity">
@@ -357,35 +317,40 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
     </table>
 
 <?php else: ?>
-    <!-- ══ EN-TÊTE ÉVALUATION ORDINAIRE ══ -->
-    <table class="qcm-header">
+    <!-- ══ EN-TÊTE CONTRÔLE CONTINU ══ -->
+    <table class="efm-header">
         <colgroup>
             <col style="width:55%">
             <col style="width:45%">
         </colgroup>
         <tbody>
             <tr>
-                <td class="h-qcm-org">
-                    <div class="h-qcm-org-inner">
+                <td class="h-logo">
+                    <div class="h-logo-inner">
                         <?php if ($logoB64): ?>
                         <img src="<?= $logoB64 ?>" alt="OFPPT">
                         <?php endif; ?>
-                        <div class="h-org"><?= $etabl ?></div>
+                        <div class="h-org">
+                            <div>Direction Régionale Rabat – Salé – Kénitra</div>
+                            <div>ISTA HAY RIAD RABAT</div>
+                        </div>
                     </div>
                 </td>
-                <td rowspan="2" class="h-qcm-identity">
+                <td rowspan="2" class="h-identity">
                     <div>Nom : ……………………………………………………………</div>
                     <div>Prénom : ………………………………………………………</div>
                     <div>Groupe : ………………………………………………………</div>
-                    <div>Date : ……………………………………………………………</div>
+                    <div>Date : ………………………………………………………………</div>
                 </td>
             </tr>
             <tr>
-                <td class="h-qcm-titre">Évaluation</td>
+                <td class="h-efm" style="font-style:normal;font-weight:bold">
+                    Contrôle Continue N°&nbsp;<span style="display:inline-block;min-width:12mm;border-bottom:1px solid #000">&nbsp;</span>
+                </td>
             </tr>
             <tr>
-                <td colspan="2" class="h-qcm-module">
-                    <div>Module : <?= $intitule ?></div>
+                <td colspan="2" class="h-code">
+                    <div>Intitulé du module : <?= $intitule ?></div>
                 </td>
             </tr>
         </tbody>
@@ -403,7 +368,7 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
             <td class="label">Année</td>
             <td class="sep">:</td>
             <td><?= $annee ?></td>
-            <td class="label">Note maximale</td>
+            <td class="label">Note finale</td>
             <td class="val-r">: &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;/ <?= $noteMax ?></td>
         </tr>
     </table>

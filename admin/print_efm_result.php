@@ -31,6 +31,9 @@ $nom    = $session['nom']    ?? '';
 $prenom = $session['prenom'] ?? '';
 $groupe = $session['groupe_nom'] ?? '';
 
+preg_match('/^([A-Za-zÀ-ÿ]+)/u', $groupe, $fm);
+$filiere = isset($fm[1]) ? strtoupper($fm[1]) : ($filiere ?: '');
+
 $score      = (float)$session['score'];
 $totalPts   = (float)$session['total_points'];
 $noteFinale = $totalPts > 0 ? round($score / $totalPts * $noteMax, 2) : 0;

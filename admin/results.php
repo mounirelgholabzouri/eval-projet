@@ -99,7 +99,7 @@ $stmt = $pdo->prepare("
     SELECT s.*,
            COALESCE(st.nom,    s.nom)    AS nom,
            COALESCE(st.prenom, s.prenom) AS prenom,
-           m.nom AS module_nom, m.type AS module_type,
+           m.nom AS module_nom, m.type AS module_type, COALESCE(m.note_max, 20) AS note_max,
            COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
            (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
             WHERE rs.session_id=s.id AND q.type='texte_libre') AS nb_tl,
@@ -346,9 +346,12 @@ $stats = getStatsGlobales();
                         <td class="small"><?= htmlspecialchars($s['module_nom']) ?></td>
                         <td class="small text-muted"><?= date('d/m/Y H:i', strtotime($s['date_debut'])) ?></td>
                         <td class="text-center small fw-semibold" id="score-<?= $s['id'] ?>">
-                            <?= $s['statut'] === 'termine'
-                                ? number_format($s['score'], 1) . ' / ' . number_format($s['total_points'], 1)
-                                : '—' ?>
+                            <?php if ($s['statut'] === 'termine'):
+                                $nm = (int)($s['note_max'] ?? 20);
+                                $sc = $s['total_points'] > 0 ? round($s['score'] / $s['total_points'] * $nm, 2) : 0;
+                            ?>
+                                <?= number_format($sc, 2) ?> / <?= $nm ?>
+                            <?php else: ?>—<?php endif; ?>
                         </td>
                         <td class="text-center" id="pct-<?= $s['id'] ?>">
                             <?= $s['statut'] === 'termine'

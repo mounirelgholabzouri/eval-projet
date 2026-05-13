@@ -8,6 +8,11 @@ if (!$id) { header('Location: results.php'); exit; }
 $session  = getSession($id);
 if (!$session) { header('Location: results.php'); exit; }
 
+$module   = getModule((int)$session['module_id']);
+$noteMax  = (int)($module['note_max'] ?? 20);
+$totalPts = (float)$session['total_points'];
+$scoreSur = $totalPts > 0 ? round((float)$session['score'] / $totalPts * $noteMax, 2) : 0;
+
 $reponses = getReponsesSession($id);
 $mention  = getMention((float)$session['pourcentage']);
 $groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
@@ -73,7 +78,7 @@ $groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
                 </div>
                 <div class="text-end">
                     <div class="h3 fw-bold mb-0">
-                        <?= number_format($session['score'], 1) ?> / <?= number_format($session['total_points'], 1) ?>
+                        <?= number_format($scoreSur, 2) ?> / <?= $noteMax ?>
                     </div>
                     <div class="h5 opacity-75 mb-0"><?= number_format($session['pourcentage'], 1) ?>% — <?= $mention['label'] ?></div>
                 </div>

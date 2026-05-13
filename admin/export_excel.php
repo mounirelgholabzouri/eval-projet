@@ -230,7 +230,7 @@ echo '<?mso-application progid="Excel.Sheet"?>' . "\n";
     xlCell('Module',     'String', 'header'),
     xlCell('Date',       'String', 'header'),
     xlCell('Score brut', 'String', 'header'),
-    xlCell('Note /20',   'String', 'header'),
+    xlCell('Note',       'String', 'header'),
     xlCell('%',          'String', 'header'),
     xlCell('Mention',    'String', 'header'),
   ]) ?>

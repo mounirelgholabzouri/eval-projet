@@ -81,8 +81,20 @@ function s($str): string {
     return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
 }
 
-$annee = '2025/2026';
-$logoPath = '../assets/img/ofppt_logo.png';
+$annee    = '2025/2026';
+$isEfm    = ($module['type'] ?? 'qcm') === 'efm';
+$noteMax  = (int)($module['note_max'] ?? 20);
+$filiere  = $module['efm_filiere'] ?? '';
+$codeModule = $module['efm_code_module'] ?? '';
+$etabl    = $module['efm_etablissement'] ?: 'Direction Régionale RABAT-SALÉ-KENITRA';
+$dureeMin = (int)($module['duree_minutes'] ?? 0);
+$dureeStr = $dureeMin ? $dureeMin . ' min' : '';
+
+$logoPath = __DIR__ . '/../assets/img/logo_efm.png';
+$logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
+
+$tamponPath = __DIR__ . '/../assets/img/tampon_ofppt.png';
+$tamponB64  = file_exists($tamponPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($tamponPath)) : '';
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -90,47 +102,69 @@ $logoPath = '../assets/img/ofppt_logo.png';
     <meta charset="UTF-8">
     <title>Impression — <?= s($module['nom']) ?></title>
     <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; background: #fff; }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Calibri', Arial, sans-serif; font-size: 11pt; color: #000; background: #e0e0e0; }
 
-        /* ---- En-tête ---- */
-        .header { border-bottom: 2px solid #000; padding-bottom: 6px; margin-bottom: 8px; }
-        .header-top { display: flex; align-items: center; gap: 12px; }
-        .header-logo { width: 70px; height: auto; flex-shrink: 0; }
-        .header-org { font-size: 9pt; font-style: italic; font-weight: bold; flex-grow: 1; text-align: center; }
-        .header-year { text-align: center; font-size: 9pt; margin-top: 4px; }
-        .module-box { border: 1px solid #000; padding: 4px 8px; margin: 6px 0; text-align: center; }
-        .module-box .label  { font-size: 8pt; }
-        .module-box .titre  { font-size: 10pt; font-weight: bold; }
-        .info-row { display: flex; justify-content: space-between; font-size: 10pt; margin: 3px 0; border-bottom: 1px solid #000; padding-bottom: 2px; }
-        .info-row span { font-weight: normal; }
+        /* ── En-tête OFPPT ── */
+        .efm-header { width: 100%; border-collapse: collapse; font-size: 10pt; }
+        .efm-header td { vertical-align: top; }
+        .h-logo { width: 55%; border: 1px solid #000; padding: 2mm 3mm; vertical-align: middle; }
+        .h-logo-inner { display: flex; align-items: center; gap: 3mm; }
+        .h-logo-inner img { height: 16mm; }
+        .h-org { font-size: 9.5pt; line-height: 1.4; }
+        .h-efm { border: 1px solid #000; border-top: none; padding: 3mm; text-align: center; font-size: 13pt; font-style: italic; vertical-align: middle; }
+        .h-identity { width: 45%; border: 1px solid #000; padding: 4mm 5mm; vertical-align: top; font-weight: bold; }
+        .h-identity div { margin-bottom: 3mm; }
+        .h-identity div:last-child { margin-bottom: 0; }
+        .h-code { border: 1px solid #000; border-top: none; text-align: center; padding: 2mm 3mm; font-size: 10.5pt; }
+        .h-code div { line-height: 1.6; }
 
-        /* ---- Questions ---- */
+        /* ── Infos module ── */
+        .info-table { width: 100%; border-collapse: collapse; margin-top: -1px; margin-bottom: 3mm; font-size: 10pt; }
+        .info-table td { border: 1px solid #000; padding: 1.5mm 2.5mm; vertical-align: middle; }
+        .info-table .label { font-weight: bold; white-space: nowrap; }
+        .info-table .sep   { text-align: center; width: 8mm; }
+        .info-table .val-r { text-align: center; }
+
+        /* ── Page A4 ── */
+        .exam-page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 20px auto;
+            padding: 10mm 12mm 15mm 12mm;
+            background: #fff;
+            box-shadow: 0 4px 20px rgba(0,0,0,.2);
+        }
+
+        /* ── Questions ── */
+        hr.section-sep { border: none; border-top: 2px solid #000; margin: 2mm 0 3mm; }
         .partie-titre { font-weight: bold; font-size: 10pt; background: #f0f0f0; padding: 3px 6px; margin: 10px 0 4px; border-left: 3px solid #000; }
         .question { margin: 6px 0; padding: 5px 8px; border: 1px solid #ccc; page-break-inside: avoid; }
-
         .q-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
         .q-num  { font-weight: bold; font-size: 10pt; flex-shrink: 0; }
         .q-text { flex-grow: 1; font-size: 10pt; }
         .q-pts  { font-size: 9pt; font-weight: bold; flex-shrink: 0; white-space: nowrap; }
-
         .q-answer { margin-top: 4px; font-size: 9.5pt; padding-left: 16px; }
         .lbl { color: #333; }
         .ans { font-weight: bold; }
 
-        /* ---- Score final ---- */
+        /* ── Score final ── */
         .score-box { margin-top: 10px; padding: 6px 10px; border: 2px solid #000; display: flex; justify-content: space-between; align-items: center; }
         .score-box .total { font-size: 13pt; font-weight: bold; }
         .score-box .mention { font-size: 11pt; font-weight: bold; padding: 2px 10px; border: 2px solid #000; }
 
-        /* ---- Séparateur de pages ---- */
+        /* ── Tampon ── */
+        .tampon-ofppt { position: fixed; bottom: 14mm; right: 14mm; width: 38mm; opacity: 0.88; pointer-events: none; z-index: 100; }
+
+        /* ── Séparateur de pages ── */
         .page-break { page-break-after: always; break-after: page; }
 
-        /* ---- Barre d'outils (masquée à l'impression) ---- */
+        /* ── Barre d'outils ── */
         @page { size: A4; margin: 0; }
         @media print {
+            body { background: #fff; }
             .no-print { display: none !important; }
-            body { font-size: 10.5pt; padding: 12mm 14mm; }
+            .exam-page { margin: 0; padding: 10mm 12mm 15mm 12mm; box-shadow: none; width: 100%; }
             .question { page-break-inside: avoid; }
         }
         .toolbar { background: #2c3e50; color: #fff; padding: 10px 20px; display: flex; gap: 12px; align-items: center; }
@@ -156,43 +190,82 @@ $logoPath = '../assets/img/ofppt_logo.png';
     $reponses   = $allReponses[$session['id']] ?? [];
     $mention    = getMention((float)$session['pourcentage']);
     $groupe     = s($session['groupe_nom'] ?: '—');
-    $nomComplet = s($session['prenom'] . ' ' . $session['nom']);
-
+    $nomPrenom  = s(strtoupper($session['nom']) . ' ' . $session['prenom']);
+    $totalPts   = (float)$session['total_points'];
+    $noteSur    = $totalPts > 0 ? round((float)$session['score'] / $totalPts * $noteMax, 2) : 0;
     $qNum = 0;
-
-    // Score direct = note /20 (40 q × 0.5 pt = 20 pts)
-    $note20 = number_format((float)$session['score'], 2);
+    preg_match('/^([A-Za-zÀ-ÿ]+)/u', $session['groupe_nom'] ?? '', $fm);
+    $sessionFiliere = isset($fm[1]) ? strtoupper($fm[1]) : ($filiere ?: '');
 ?>
 
 <div class="exam-page <?= $idx < count($sessions) - 1 ? 'page-break' : '' ?>">
-    <!-- En-tête identique au modèle -->
-    <div class="header">
-        <div class="header-top">
-            <?php if (file_exists(__DIR__ . '/' . $logoPath)): ?>
-            <img src="<?= $logoPath ?>" class="header-logo" alt="OFPPT">
-            <?php endif; ?>
-            <div class="header-org">Direction Régionale Rabat – Salé – Kénitra</div>
-        </div>
-        <div class="header-year">Année de Formation <?= s($annee) ?></div>
-    </div>
 
-    <div class="module-box">
-        <div class="label">Contrôle</div>
-        <div class="titre"><?= s($module['nom']) ?></div>
-    </div>
+    <!-- ══ EN-TÊTE OFPPT ══ -->
+    <table class="efm-header">
+        <colgroup>
+            <col style="width:55%">
+            <col style="width:45%">
+        </colgroup>
+        <tbody>
+            <tr>
+                <td class="h-logo">
+                    <div class="h-logo-inner">
+                        <?php if ($logoB64): ?>
+                        <img src="<?= $logoB64 ?>" alt="OFPPT">
+                        <?php endif; ?>
+                        <div class="h-org">
+                            <div>Direction Régionale Rabat – Salé – Kénitra</div>
+                            <div>ISTA HAY RIAD RABAT</div>
+                        </div>
+                    </div>
+                </td>
+                <td rowspan="2" class="h-identity">
+                    <div>Nom : <?= s(strtoupper($session['nom'])) ?></div>
+                    <div>Prénom : <?= s($session['prenom']) ?></div>
+                    <div>Groupe : <?= $groupe ?></div>
+                    <?php if ($isEfm): ?>
+                    <div>Etablissement : ISTA HAY RIAD RABAT</div>
+                    <?php else: ?>
+                    <div>Date : ………………………………………………………………</div>
+                    <?php endif; ?>
+                </td>
+            </tr>
+            <tr>
+                <?php if ($isEfm): ?>
+                <td class="h-efm">EXAMEN DE FIN DE MODULE</td>
+                <?php else: ?>
+                <td class="h-efm" style="font-style:normal;font-weight:bold">
+                    Contrôle Continue N°&nbsp;<span style="display:inline-block;min-width:12mm;border-bottom:1px solid #000">&nbsp;</span>
+                </td>
+                <?php endif; ?>
+            </tr>
+            <tr>
+                <td colspan="2" class="h-code">
+                    <?php if ($codeModule): ?><div>Code module : <?= s($codeModule) ?></div><?php endif; ?>
+                    <div>Intitulé du module : <?= s($module['nom']) ?></div>
+                </td>
+            </tr>
+        </tbody>
+    </table>
 
-    <div class="info-row">
-        <span>Filière/Groupe&nbsp;: <strong><?= $groupe ?></strong></span>
-        <span>Durée&nbsp;: <?= (int)$module['duree_minutes'] ?> min</span>
-    </div>
-    <div class="info-row">
-        <span>Niveau&nbsp;: 2</span>
-        <span>Note&nbsp;: <strong><?= $note20 ?></strong> / 20</span>
-    </div>
-    <div class="info-row">
-        <span>Nom et Prénom&nbsp;: <strong><?= $nomComplet ?></strong></span>
-        <span>Date&nbsp;: <?= date('d/m/Y', strtotime($session['date_debut'])) ?></span>
-    </div>
+    <table class="info-table">
+        <tr>
+            <td class="label" style="width:13%">Filière</td>
+            <td class="sep">:</td>
+            <td style="width:47%"><?= $sessionFiliere ?: '………………………………………' ?></td>
+            <td class="label" style="width:18%">Durée</td>
+            <td class="val-r" style="width:17%">: <?= $dureeStr ?: '…… min' ?></td>
+        </tr>
+        <tr>
+            <td class="label">Année</td>
+            <td class="sep">:</td>
+            <td><?= $annee ?></td>
+            <td class="label">Note finale</td>
+            <td class="val-r">: <?= number_format($noteSur, 2) ?> / <?= $noteMax ?></td>
+        </tr>
+    </table>
+
+    <hr class="section-sep">
 
     <!-- Questions et réponses -->
     <?php if (empty($reponses)): ?>
@@ -228,8 +301,11 @@ $logoPath = '../assets/img/ofppt_logo.png';
 
 <?php endforeach; ?>
 
+<?php if ($tamponB64): ?>
+<img src="<?= $tamponB64 ?>" class="tampon-ofppt" alt="">
+<?php endif; ?>
+
 <script>
-// Auto-print si param ?auto=1
 if (new URLSearchParams(location.search).get('auto') === '1') window.print();
 </script>
 </body>

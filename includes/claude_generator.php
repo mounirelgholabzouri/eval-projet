@@ -258,6 +258,16 @@ function extractJsonFromText(string $text): string {
 function sauvegarderQuestionsGenerees(array $questions, int $moduleId): int {
     $pdo = getDB();
 
+    // Récupérer ou créer la partie "Général" du module
+    $stmtP = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre, id LIMIT 1");
+    $stmtP->execute([$moduleId]);
+    $partieId = (int)$stmtP->fetchColumn();
+    if (!$partieId) {
+        $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?, 'Général', 1)")
+            ->execute([$moduleId]);
+        $partieId = (int)$pdo->lastInsertId();
+    }
+
     // Ordre de départ
     $stmt = $pdo->prepare("SELECT COALESCE(MAX(ordre), 0) FROM questions WHERE module_id = ?");
     $stmt->execute([$moduleId]);
@@ -270,9 +280,9 @@ function sauvegarderQuestionsGenerees(array $questions, int $moduleId): int {
         $points = max(0.5, (float)($q['points'] ?? 1));
 
         $stmt = $pdo->prepare(
-            "INSERT INTO questions (module_id, texte, type, points, ordre) VALUES (?,?,?,?,?)"
+            "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre) VALUES (?,?,?,?,?,?)"
         );
-        $stmt->execute([$moduleId, trim($q['texte']), $type, $points, $ordre]);
+        $stmt->execute([$moduleId, $partieId, trim($q['texte']), $type, $points, $ordre]);
         $questionId = (int)$pdo->lastInsertId();
 
         // Choix de réponses
