@@ -21,3 +21,6 @@ desktop.ini
 
 # Exports base de données
 db_export_*.sql
+
+# PDFs générés (résultats stagiaires — données personnelles)
+pdfs/
