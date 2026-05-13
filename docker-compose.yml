@@ -52,14 +52,8 @@ services:
       - ollama_data:/root/.ollama
     networks:
       - eval_net
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-        reservations:
-          cpus: '1'
-          memory: 2G
+    # Pas de limite mémoire : llama3.2 (3.2B params) consomme ~3 GB en runtime
+    # + overhead Docker Desktop WSL2 → laisser le container utiliser ce qui est dispo
 
   db:
     image: mysql:8.4

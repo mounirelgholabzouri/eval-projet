@@ -187,7 +187,9 @@ SYSTEM;
     }
 
     // Appel API unifié
-    $result = callAIUnified($provider, $apiKey, $model, $systemPrompt, $messages, 8192);
+    // Ollama (CPU) est ~50× plus lent que les API cloud → on réduit max_tokens
+    $maxOut = $provider === 'ollama' ? 2000 : 8192;
+    $result = callAIUnified($provider, $apiKey, $model, $systemPrompt, $messages, $maxOut);
 
     if (!$result['success']) {
         throw new RuntimeException($result['error']);
@@ -230,6 +232,16 @@ function extractJsonFromText(string $text): string {
 function sauvegarderQuestionsGenerees(array $questions, int $moduleId): int {
     $pdo = getDB();
 
+    // Garantir qu'une partie « Général » existe pour ce module (invariant métier)
+    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre ASC, id ASC LIMIT 1");
+    $stmt->execute([$moduleId]);
+    $partieId = (int)$stmt->fetchColumn();
+    if ($partieId === 0) {
+        $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, 'Général', 1, 1)")
+            ->execute([$moduleId]);
+        $partieId = (int)$pdo->lastInsertId();
+    }
+
     // Ordre de départ
     $stmt = $pdo->prepare("SELECT COALESCE(MAX(ordre), 0) FROM questions WHERE module_id = ?");
     $stmt->execute([$moduleId]);
@@ -242,9 +254,9 @@ function sauvegarderQuestionsGenerees(array $questions, int $moduleId): int {
         $points = max(0.5, (float)($q['points'] ?? 1));
 
         $stmt = $pdo->prepare(
-            "INSERT INTO questions (module_id, texte, type, points, ordre) VALUES (?,?,?,?,?)"
+            "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre) VALUES (?,?,?,?,?,?)"
         );
-        $stmt->execute([$moduleId, trim($q['texte']), $type, $points, $ordre]);
+        $stmt->execute([$moduleId, $partieId, trim($q['texte']), $type, $points, $ordre]);
         $questionId = (int)$pdo->lastInsertId();
 
         // Choix de réponses

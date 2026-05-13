@@ -116,7 +116,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $hasFile   = !empty($_FILES['document']['name']) && $_FILES['document']['error'] === UPLOAD_ERR_OK;
     $hasPrompt = $prompt !== '';
 
-    if (!$apiKey) {
+    // Ollama ne nécessite pas de clé API (serveur local)
+    if (!$apiKey && $provider !== 'ollama') {
         $erreur    = "Clé API non configurée pour le fournisseur « " . ($providers[$provider]['label'] ?? $provider) . " ». Configurez-la dans l'onglet Configuration.";
         $activeTab = 'config';
     } elseif ($moduleIdCible <= 0) {
