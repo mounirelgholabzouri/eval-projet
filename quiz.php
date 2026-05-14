@@ -15,7 +15,8 @@ if (!$session || $session['statut'] === 'termine') {
     redirect('result.php');
 }
 
-$questions = getQuestionsModule((int)$session['module_id']);
+$sessionQIds = !empty($session['questions_ids']) ? json_decode($session['questions_ids'], true) : null;
+$questions = getQuestionsModule((int)$session['module_id'], $sessionQIds);
 $nbQ = count($questions);
 
 // Group questions by partie

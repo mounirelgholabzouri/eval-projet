@@ -15,17 +15,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $duree    = (int)($_POST['duree_minutes'] ?? 30);
     $noteMax  = in_array((int)($_POST['note_max'] ?? 20), [20, 40]) ? (int)$_POST['note_max'] : 20;
     $actif    = isset($_POST['actif']) ? 1 : 0;
+    $nbQCtrl  = trim($_POST['nb_questions_controle'] ?? '') !== '' ? max(1, (int)$_POST['nb_questions_controle']) : null;
 
     if (strlen($nom) < 2) {
         $erreur = "Le nom du module est requis.";
     } else {
         if ($action === 'edit' && $id > 0) {
-            $stmt = $pdo->prepare("UPDATE modules SET nom=?, description=?, duree_minutes=?, note_max=?, actif=? WHERE id=?");
-            $stmt->execute([$nom, $desc, $duree, $noteMax, $actif, $id]);
+            $stmt = $pdo->prepare("UPDATE modules SET nom=?, description=?, duree_minutes=?, note_max=?, actif=?, nb_questions_controle=? WHERE id=?");
+            $stmt->execute([$nom, $desc, $duree, $noteMax, $actif, $nbQCtrl, $id]);
             $msg = "Module mis à jour avec succès.";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO modules (nom, description, duree_minutes, note_max, actif) VALUES (?,?,?,?,?)");
-            $stmt->execute([$nom, $desc, $duree, $noteMax, $actif]);
+            $stmt = $pdo->prepare("INSERT INTO modules (nom, description, duree_minutes, note_max, actif, nb_questions_controle) VALUES (?,?,?,?,?,?)");
+            $stmt->execute([$nom, $desc, $duree, $noteMax, $actif, $nbQCtrl]);
             $msg = "Module créé avec succès.";
         }
         $action = 'list';
@@ -145,6 +146,13 @@ if ($action === 'edit' && $id > 0) {
                                     <label class="form-check-label" for="nm40">Sur 40</label>
                                 </div>
                             </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Questions par contrôle</label>
+                            <input type="number" name="nb_questions_controle" class="form-control" min="1" max="500"
+                                   placeholder="Laisser vide = toutes"
+                                   value="<?= $editModule['nb_questions_controle'] !== null ? (int)$editModule['nb_questions_controle'] : '' ?>">
+                            <div class="form-text">Nombre de questions tirées aléatoirement à chaque lancement. Vide = toutes les questions.</div>
                         </div>
                         <div class="mb-3 form-check">
                             <input type="checkbox" name="actif" class="form-check-input" id="actif"

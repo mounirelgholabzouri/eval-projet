@@ -94,13 +94,56 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - Données historiques corrompues (CP850) : corriger via `iconv('UTF-8','CP850//IGNORE', $str)`
 - Si corruption détectée en masse : script `db/restore_encoding.php` (import dump → DB temp → UPDATE sélectif)
 
+## Modules consolidés (après ménage 2026-05-14)
+
+| ID | Nom | Type | Questions | Quota contrôle |
+|----|-----|------|-----------|----------------|
+| 31 | M205 | qcm | 63 | **20** (tirage aléatoire par session) |
+| 32 | M206 | qcm | 105 | toutes |
+| 33 | Culture et techniques avancées du numérique | qcm | 70 | toutes |
+
+- `modules.nb_questions_controle` (INT NULL) : nb de questions tirées aléatoirement à chaque session. NULL = toutes.
+- `sessions_eval.questions_ids` (TEXT NULL) : JSON array des IDs tirés pour la session (figé à la création, inchangé jusqu'à la fin).
+- Tirage dans `creerSession()` via `ORDER BY RAND()` + `array_slice()`.
+- `getQuestionsModule($moduleId, $questionIds)` accepte un tableau d'IDs optionnel.
+
+## Vues admin
+
+| Page | Rôle |
+|------|------|
+| `admin/sessions_view.php` | Sessions groupées par module + date — clic → liste des stagiaires avec scores |
+| `admin/results.php` | Liste plate de toutes les sessions (filtrée) |
+| `admin/detail.php` | Détail question par question d'une session |
+
 ## Invariants métier
 
-- Chaque module a ≥1 partie (« Général » par défaut via `ensurePartieDefault()`)
-- Chaque question appartient à une partie (`partie_id NOT NULL`, ON DELETE RESTRICT)
+- Chaque module a ≥1 partie (« Général » par défaut — auto-créée à l'insertion via SELECT/INSERT inline, **pas** de fonction `ensurePartieDefault()`)
+- Chaque question appartient à une partie (`partie_id NOT NULL`, ON DELETE RESTRICT) → **toujours passer `partie_id` dans INSERT INTO questions**
 - Partie `actif=0` → **totalement exclue** partout (quiz, index, toutes les impressions) → utiliser `getPartiesActives()` sauf interface admin
 - Suppression stagiaire : cascade manuelle `reponses_stagiaires → sessions_eval → stagiaire` (pas de FK CASCADE en DB)
-- Clé API Anthropic : table `config`, clé `anthropic_api_key` — crédits sur **console.anthropic.com** (≠ claude.ai)
+- Clés API : table `config` — `anthropic_api_key`, `openai_api_key`, `google_api_key`, `ollama_base_url`
+- Provider IA actif : `config.ai_provider` ∈ {`anthropic`, `openai`, `google`, `ollama`}
+- **Résultats visibles admin uniquement** — stagiaire ne voit pas l'historique de ses sessions après `result.php`
+
+## IA multi-providers (`includes/ai_provider.php`)
+
+- **Point d'entrée unique** : `callAIUnified($provider, $apiKey, $model, $systemPrompt, $messages, $maxTokens)`
+- **Anthropic** : `/v1/messages` — header `x-api-key` + `anthropic-version: 2023-06-01` — supporte PDF natif via `anthropic-beta: pdfs-2024-09-25`
+- **OpenAI** : `/v1/chat/completions` — header `Authorization: Bearer` — `_callOpenAI()` accepte un `$baseUrl` custom (réutilisé pour Ollama)
+- **Google Gemini** : `/v1beta/models/{model}:generateContent?key=` — payload en `contents[].parts[]`
+- **Ollama** (local Docker) : utilise l'**API native `/api/chat`** (pas OpenAI-compat) pour pouvoir définir `options.num_ctx` (sinon limité à 2048 → réponses tronquées)
+  - **Fallback URLs** : essaie en cascade `ollama_base_url` → `ollama:11434` → `host.docker.internal:11434` → `localhost:11434` → `127.0.0.1:11434` (fonctionne sur Docker, Laragon et VM sans config)
+  - **Pas de clé API** → check `if (!$apiKey && $provider !== 'ollama')` partout
+  - **CPU = ~10 tokens/s** → `max_tokens` limité à 2000 pour Ollama (vs 8192 pour cloud) sinon timeout 5 min
+  - Container `eval_ollama` dans `docker-compose.yml`, image `ollama/ollama:latest`, port 11434
+  - **Docker Desktop RAM** : `settings-store.json` (`MemoryMiB`) **écrasé au boot** → modifier via GUI Settings > Resources (32 GB host → mettre 8 GB suffisent pour llama3.2:3b)
+
+### Modèles Ollama recommandés (selon RAM Docker dispo)
+| Modèle | Taille runtime | RAM requise |
+|---|---|---|
+| `qwen2.5:0.5b` | ~500 MB | 1 GB |
+| `llama3.2:1b` | ~1.3 GB | 2 GB |
+| `llama3.2:latest` (3B) | ~2.4 GB | 4 GB |
 
 ## EFM — Impressions OFPPT
 

@@ -32,16 +32,11 @@ try {
 
     if (!$resultat['success']) throw new Exception($resultat['error']);
 
-    $scoreData = updateSessionScore($sessionId);
-
     echo json_encode([
-        'success'  => true,
-        'points'   => $resultat['points'],
-        'niveau'   => $resultat['niveau'],
-        'feedback' => $resultat['feedback'],
-        'score'    => $scoreData['score'],
-        'total'    => $scoreData['total'],
-        'pct'      => $scoreData['pct'],
+        'success'    => true,
+        'suggestion' => $resultat['suggestion'],
+        'niveau'     => $resultat['niveau'],
+        'feedback'   => $resultat['feedback'],
     ]);
 
 } catch (Exception $e) {

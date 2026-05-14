@@ -373,6 +373,7 @@ function bulkDeleteQuestions() {
     if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' question(s) ?\nCette action est irréversible.')) {
         const form = document.createElement('form');
         form.method = 'POST';
+        const csrfInput = document.createElement('input'); csrfInput.type = 'hidden'; csrfInput.name = 'csrf_token'; csrfInput.value = document.querySelector('input[name="csrf_token"]')?.value ?? ''; form.appendChild(csrfInput);
         const moduleId = new URLSearchParams(window.location.search).get('module_id');
         const input1 = document.createElement('input');
         input1.type = 'hidden';

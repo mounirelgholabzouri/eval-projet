@@ -45,6 +45,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'sessions_view.php' ? 'active' : '' ?>"
+                       href="sessions_view.php">
+                        <i class="bi bi-calendar-check me-1"></i>Sessions
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'results.php' ? 'active' : '' ?>"
                        href="results.php">
                         <i class="bi bi-bar-chart me-1"></i>Résultats
@@ -63,27 +69,15 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'agent_eval.php' ? 'active' : '' ?>"
-                       href="agent_eval.php">
-                        <i class="bi bi-robot me-1"></i>Agent IA
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['fusion.php','print_efm_result.php']) ? 'active' : '' ?>"
                        href="fusion.php">
                         <i class="bi bi-intersect me-1"></i>Fusion / EFM
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'generate.php' ? 'active' : '' ?>"
+                    <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['generate.php','config_ia.php']) ? 'active' : '' ?>"
                        href="generate.php">
-                        <i class="bi bi-stars me-1"></i>Génération IA
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['eval_pratique.php','print_grille_pratique.php','print_sujet_pratique.php']) ? 'active' : '' ?>"
-                       href="eval_pratique.php">
-                        <i class="bi bi-clipboard2-check me-1"></i>Eval. Pratique
+                        <i class="bi bi-robot me-1"></i>IA
                     </a>
                 </li>
             </ul>

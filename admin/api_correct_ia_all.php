@@ -23,22 +23,8 @@ try {
     $stmt->execute([$sessionId]);
     $reponses = $stmt->fetchAll();
 
-    // Si aucune réponse saisie : valider les questions texte libre avec 0 pt
     if (empty($reponses)) {
-        $stmtAll = $pdo->prepare("
-            SELECT rs.id FROM reponses_stagiaires rs
-            JOIN questions q ON q.id = rs.question_id
-            WHERE rs.session_id = ? AND q.type = 'texte_libre' AND rs.source_correction IS NULL
-        ");
-        $stmtAll->execute([$sessionId]);
-        foreach ($stmtAll->fetchAll() as $r) {
-            $pdo->prepare("UPDATE reponses_stagiaires SET points_obtenus=0, is_correct=0, source_correction='manuel' WHERE id=?")
-                ->execute([$r['id']]);
-        }
-
-        $scoreData = updateSessionScore($sessionId);
-
-        echo json_encode(['success'=>true,'corriges'=>0,'erreurs'=>[],'resultats'=>[],'score'=>$scoreData['score'],'total'=>$scoreData['total'],'pct'=>$scoreData['pct']]);
+        echo json_encode(['success'=>true,'corriges'=>0,'erreurs'=>[],'resultats'=>[]]);
         exit;
     }
 
@@ -55,26 +41,21 @@ try {
 
         if ($res['success']) {
             $resultats[] = [
-                'rep_id'   => (int)$r['id'],
-                'points'   => $res['points'],
-                'niveau'   => $res['niveau'],
-                'feedback' => $res['feedback'],
+                'rep_id'     => (int)$r['id'],
+                'suggestion' => $res['suggestion'],
+                'niveau'     => $res['niveau'],
+                'feedback'   => $res['feedback'],
             ];
         } else {
             $erreurs[] = 'Q#' . $r['id'] . ' : ' . $res['error'];
         }
     }
 
-    $scoreData = updateSessionScore($sessionId);
-
     echo json_encode([
         'success'   => true,
         'corriges'  => count($resultats),
         'erreurs'   => $erreurs,
         'resultats' => $resultats,
-        'score'     => $scoreData['score'],
-        'total'     => $scoreData['total'],
-        'pct'       => $scoreData['pct'],
     ]);
 
 } catch (Exception $e) {

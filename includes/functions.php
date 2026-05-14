@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/ai_provider.php';
 
 // ============================================================
 // Fonctions utilitaires générales
@@ -109,14 +110,20 @@ function getGroupes(): array {
 // Fonctions questions
 // ============================================================
 
-function getQuestionsModule(int $moduleId): array {
+/**
+ * @param int        $moduleId
+ * @param int[]|null $questionIds  Si fourni, ne charge que ces IDs (tirage aléatoire déjà fait)
+ */
+function getQuestionsModule(int $moduleId, ?array $questionIds = null): array {
     $pdo = getDB();
-    $stmt = $pdo->prepare("
-        SELECT q.* FROM questions q
-        WHERE q.module_id = ?
-        ORDER BY q.ordre, q.id
-    ");
-    $stmt->execute([$moduleId]);
+    if ($questionIds !== null && count($questionIds) > 0) {
+        $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
+        $stmt = $pdo->prepare("SELECT q.* FROM questions q WHERE q.id IN ($placeholders) ORDER BY q.ordre, q.id");
+        $stmt->execute($questionIds);
+    } else {
+        $stmt = $pdo->prepare("SELECT q.* FROM questions q WHERE q.module_id = ? ORDER BY q.ordre, q.id");
+        $stmt->execute([$moduleId]);
+    }
     $questions = $stmt->fetchAll();
 
     foreach ($questions as &$q) {
@@ -128,14 +135,16 @@ function getQuestionsModule(int $moduleId): array {
 }
 
 
-function getTotalPoints(int $moduleId): float {
+function getTotalPoints(int $moduleId, ?array $questionIds = null): float {
     $pdo = getDB();
-    $stmt = $pdo->prepare("
-        SELECT COALESCE(SUM(q.points), 0) AS total
-        FROM questions q
-        WHERE q.module_id = ?
-    ");
-    $stmt->execute([$moduleId]);
+    if ($questionIds !== null && count($questionIds) > 0) {
+        $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(points), 0) FROM questions WHERE id IN ($placeholders)");
+        $stmt->execute($questionIds);
+    } else {
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(q.points), 0) AS total FROM questions q WHERE q.module_id = ?");
+        $stmt->execute([$moduleId]);
+    }
     return (float)$stmt->fetchColumn();
 }
 
@@ -174,11 +183,26 @@ function supprimerModule(int $moduleId): void {
 function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId, ?int $stagiaireId = null): array {
     $pdo = getDB();
     $token = generateToken();
-    $totalPoints = getTotalPoints($moduleId);
 
-    $stmt = $pdo->prepare("INSERT INTO sessions_eval (token, nom, prenom, groupe_id, groupe_libre, module_id, total_points, stagiaire_id)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$token, $nom, $prenom, $groupeId ?: null, $groupeLibre, $moduleId, $totalPoints, $stagiaireId]);
+    // Tirage aléatoire si le module a un quota configuré
+    $module = $pdo->prepare("SELECT nb_questions_controle FROM modules WHERE id = ?");
+    $module->execute([$moduleId]);
+    $nbMax = $module->fetchColumn();
+
+    $questionsIds = null;
+    if ($nbMax !== false && $nbMax !== null && (int)$nbMax > 0) {
+        $allIds = $pdo->prepare("SELECT id FROM questions WHERE module_id = ? ORDER BY RAND()");
+        $allIds->execute([$moduleId]);
+        $ids = $allIds->fetchAll(PDO::FETCH_COLUMN);
+        $questionsIds = array_slice($ids, 0, (int)$nbMax);
+    }
+
+    $totalPoints = getTotalPoints($moduleId, $questionsIds);
+    $questionsJson = $questionsIds !== null ? json_encode($questionsIds) : null;
+
+    $stmt = $pdo->prepare("INSERT INTO sessions_eval (token, nom, prenom, groupe_id, groupe_libre, module_id, total_points, stagiaire_id, questions_ids)
+                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt->execute([$token, $nom, $prenom, $groupeId ?: null, $groupeLibre, $moduleId, $totalPoints, $stagiaireId, $questionsJson]);
 
     return ['id' => (int)$pdo->lastInsertId(), 'token' => $token];
 }
@@ -892,9 +916,11 @@ function niveauToPoints(int $niveau, float $pointsMax): float {
 }
 
 function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte, float $pointsMax): array {
-    $apiKey = getAnthropicApiKey();
+    $provider = getAIProvider();
+    $apiKey   = getAPIKeyForProvider($provider);
     if (empty($apiKey)) {
-        return ['success' => false, 'error' => 'Clé API Anthropic non configurée'];
+        $labels = ['anthropic' => 'Anthropic', 'openai' => 'OpenAI', 'google' => 'Google'];
+        return ['success' => false, 'error' => 'Clé API ' . ($labels[$provider] ?? $provider) . ' non configurée'];
     }
 
     try {
@@ -917,41 +943,20 @@ function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte
 **Format JSON strict (rien d'autre) :**
 {\"niveau\": <0|1|2|3>, \"feedback\": \"<feedback en français>\"}";
 
-        $headers = [
-            'Content-Type: application/json',
-            'x-api-key: ' . $apiKey,
-            'anthropic-version: 2023-06-01',
-        ];
+        $result = callAIUnified(
+            $provider,
+            $apiKey,
+            getAIModel(),
+            '',
+            [['role' => 'user', 'content' => $prompt]],
+            400
+        );
 
-        $payload = json_encode([
-            'model'      => getAIModel(),
-            'max_tokens' => 400,
-            'messages'   => [['role' => 'user', 'content' => $prompt]]
-        ]);
-
-        $ch = curl_init('https://api.anthropic.com/v1/messages');
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER     => $headers,
-            CURLOPT_POST           => true,
-            CURLOPT_POSTFIELDS     => $payload,
-            CURLOPT_TIMEOUT        => 30
-        ]);
-
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        curl_close($ch);
-
-        if ($httpCode !== 200) {
-            return ['success' => false, 'error' => 'Erreur API Claude (HTTP ' . $httpCode . ')'];
+        if (!$result['success']) {
+            return ['success' => false, 'error' => $result['error']];
         }
 
-        $data = json_decode($response, true);
-        if (!isset($data['content'][0]['text'])) {
-            return ['success' => false, 'error' => 'Réponse API invalide'];
-        }
-
-        $contenu = trim($data['content'][0]['text']);
+        $contenu = trim($result['text']);
 
         // Extraire niveau et feedback
         preg_match('/"niveau"\s*:\s*([0123])/', $contenu, $nm);

@@ -8,14 +8,13 @@ if (!$id) { header('Location: results.php'); exit; }
 $session  = getSession($id);
 if (!$session) { header('Location: results.php'); exit; }
 
+$reponses = getReponsesSession($id);
+$mention  = getMention((float)$session['pourcentage']);
+$groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
 $module   = getModule((int)$session['module_id']);
 $noteMax  = (int)($module['note_max'] ?? 20);
 $totalPts = (float)$session['total_points'];
 $scoreSur = $totalPts > 0 ? round((float)$session['score'] / $totalPts * $noteMax, 2) : 0;
-
-$reponses = getReponsesSession($id);
-$mention  = getMention((float)$session['pourcentage']);
-$groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -44,12 +43,12 @@ $groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
             }
             ?>
             <?php if ($hasTexteLibre): ?>
-            <button type="button" id="btn-correct-all" class="btn btn-sm btn-info rounded-3"
+            <button type="button" id="btn-correct-all" class="btn btn-sm btn-outline-info rounded-3"
                     onclick="corrigerToutAvecIA(<?= $id ?>)">
-                <i class="bi bi-robot me-1"></i>Corriger tout avec IA
+                <i class="bi bi-robot me-1"></i>Suggestion IA (tout)
             </button>
             <button type="button" id="btn-validate-all" class="btn btn-sm btn-success rounded-3"
-                    onclick="validerToutesLesNotes(<?= $id ?>)" style="display:none;">
+                    onclick="validerToutesLesNotes(<?= $id ?>)">
                 <i class="bi bi-check-all me-1"></i>Valider toutes les notes
             </button>
             <?php endif; ?>
@@ -147,21 +146,23 @@ $groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
                                     <div class="mt-2">
                                         <button type="button" class="btn btn-sm btn-outline-info"
                                                 onclick="corrigerAvecIA(<?= $r['id'] ?>, <?= $id ?>, this)">
-                                            <i class="bi bi-arrow-repeat me-1"></i><?= $r['correction_ia_feedback'] ? 'Recorriger' : 'Corriger' ?> avec IA
+                                            <i class="bi bi-robot me-1"></i><?= $r['correction_ia_feedback'] ? 'Re-suggérer IA' : 'Suggestion IA' ?>
                                         </button>
                                     </div>
                                 </div>
 
-                                <!-- Note manuelle -->
-                                <div class="d-flex align-items-center gap-2 flex-wrap" id="note-section-<?= $r['id'] ?>">
+                                <!-- Note (IA ou manuelle) -->
+                                <div class="d-flex align-items-center gap-2 flex-wrap mt-2" id="note-section-<?= $r['id'] ?>">
+                                    <label class="text-muted small mb-0">Note :</label>
                                     <input type="number" step="0.5" min="0" max="<?= $r['points_max'] ?>"
                                            id="points-input-<?= $r['id'] ?>"
-                                           class="form-control form-control-sm" style="width:80px"
+                                           data-rep-id="<?= $r['id'] ?>"
+                                           class="form-control form-control-sm points-input" style="width:80px"
                                            value="<?= number_format($r['points_obtenus'], 1) ?>">
-                                    <span class="text-muted">/ <?= number_format($r['points_max'], 1) ?> pt(s)</span>
-                                    <button type="button" class="btn btn-sm btn-warning"
+                                    <span class="text-muted small">/ <?= number_format($r['points_max'], 1) ?> pt(s)</span>
+                                    <button type="button" class="btn btn-sm btn-success"
                                             onclick="validerNoteManuelle(<?= $r['id'] ?>, <?= $id ?>, this)">
-                                        <i class="bi bi-check me-1"></i>Valider note
+                                        <i class="bi bi-check-circle me-1"></i>Valider
                                     </button>
                                     <span id="note-status-<?= $r['id'] ?>" class="small"></span>
                                 </div>
@@ -195,40 +196,15 @@ const NIVEAU_INFO = {
     2: { label: 'Partiel',     cls: 'warning' },
     3: { label: 'Correct',     cls: 'success' },
 };
+const NOTE_MAX = <?= $noteMax ?>;
 
-function renderIASection(repId, sessionId, data) {
-    const ni  = NIVEAU_INFO[data.niveau] ?? { label: '?', cls: 'secondary' };
-    const now = new Date().toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-    document.getElementById('ia-section-' + repId).innerHTML = `
-        <div class="d-flex align-items-center gap-2 mb-1">
-            <small class="fw-semibold text-info"><i class="bi bi-robot"></i> Correction IA</small>
-            <span class="badge bg-${ni.cls} rounded-pill">Niveau ${data.niveau} — ${ni.label}</span>
-            <small class="text-muted ms-auto">${now}</small>
-        </div>
-        <small class="text-muted d-block mb-1">${data.feedback}</small>
-        <div class="mt-2">
-            <button type="button" class="btn btn-sm btn-outline-info"
-                    onclick="corrigerAvecIA(${repId}, ${sessionId}, this)">
-                <i class="bi bi-arrow-repeat me-1"></i>Recorriger avec IA
-            </button>
-        </div>
-    `;
-
-    // Sync input note + affichage score
-    const input = document.getElementById('points-input-' + repId);
-    if (input) {
-        input.value = parseFloat(data.points).toFixed(1);
-        input.style.outline = '2px solid #0dcaf0';
-        setTimeout(() => input.style.outline = '', 2000);
-    }
-    updateScoreDisplay(data.score, data.total, data.pct);
-}
-
+// Met à jour le résumé score en haut de page
 function updateScoreDisplay(score, total, pct) {
     const scoreEl = document.querySelector('.h3.fw-bold.mb-0');
     const pctEl   = document.querySelector('.h5.opacity-75.mb-0');
     if (scoreEl && score !== undefined) {
-        scoreEl.textContent = parseFloat(score).toFixed(1) + ' / ' + parseFloat(total).toFixed(1);
+        const sur = total > 0 ? (score / total * NOTE_MAX).toFixed(2) : '0.00';
+        scoreEl.textContent = sur + ' / ' + NOTE_MAX;
     }
     if (pctEl && pct !== undefined) {
         const mentions = [[90,'Excellent'],[75,'Très bien'],[60,'Bien'],[50,'Passable'],[0,'Insuffisant']];
@@ -237,11 +213,53 @@ function updateScoreDisplay(score, total, pct) {
     }
 }
 
+// Affiche le feedback IA et remplit l'input avec la suggestion (sans sauvegarder)
+function renderIASuggestion(repId, sessionId, data) {
+    const ni  = NIVEAU_INFO[data.niveau] ?? { label: '?', cls: 'secondary' };
+    const now = new Date().toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    document.getElementById('ia-section-' + repId).innerHTML = `
+        <div class="d-flex align-items-center gap-2 mb-1">
+            <small class="fw-semibold text-info"><i class="bi bi-robot"></i> Suggestion IA</small>
+            <span class="badge bg-${ni.cls} rounded-pill">Niveau ${data.niveau} — ${ni.label}</span>
+            <small class="text-muted ms-auto">${now}</small>
+        </div>
+        <small class="text-muted d-block mb-1">${data.feedback}</small>
+        <div class="mt-1">
+            <small class="text-info"><i class="bi bi-info-circle me-1"></i>Note suggérée : <strong>${parseFloat(data.suggestion).toFixed(1)} pt(s)</strong> — modifiable ci-dessous avant validation.</small>
+        </div>
+        <div class="mt-2">
+            <button type="button" class="btn btn-sm btn-outline-info"
+                    onclick="corrigerAvecIA(${repId}, ${sessionId}, this)">
+                <i class="bi bi-robot me-1"></i>Re-suggérer IA
+            </button>
+        </div>
+    `;
+
+    // Pré-remplir l'input avec la suggestion
+    const input = document.getElementById('points-input-' + repId);
+    if (input) {
+        input.value = parseFloat(data.suggestion).toFixed(1);
+        input.style.outline = '2px solid #0dcaf0';
+        setTimeout(() => input.style.outline = '', 3000);
+    }
+    // Remettre le bouton Valider en état initial si besoin
+    const btn = document.querySelector(`#note-section-${repId} button`);
+    if (btn) {
+        btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Valider';
+        btn.classList.remove('btn-outline-success');
+        btn.classList.add('btn-success');
+        btn.disabled = false;
+    }
+    document.getElementById('note-status-' + repId).innerHTML =
+        '<span class="text-info small"><i class="bi bi-pencil me-1"></i>Suggestion IA — cliquez Valider pour confirmer</span>';
+}
+
+// Suggestion IA pour une question
 async function corrigerAvecIA(repId, sessionId, btnElement) {
     const btn = btnElement;
     const orig = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Correction...';
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Analyse...';
 
     try {
         const res  = await fetch('api_correct_ia.php', {
@@ -250,16 +268,8 @@ async function corrigerAvecIA(repId, sessionId, btnElement) {
             body: 'rep_id=' + repId + '&session_id=' + sessionId
         });
         const data = await res.json();
-
-        if (!data.success) {
-            alert('Erreur : ' + data.error);
-            btn.innerHTML = orig;
-            btn.disabled = false;
-            return;
-        }
-
-        renderIASection(repId, sessionId, data);
-
+        if (!data.success) { alert('Erreur : ' + data.error); btn.innerHTML = orig; btn.disabled = false; return; }
+        renderIASuggestion(repId, sessionId, data);
     } catch (err) {
         alert('Erreur réseau : ' + err.message);
         btn.innerHTML = orig;
@@ -267,6 +277,7 @@ async function corrigerAvecIA(repId, sessionId, btnElement) {
     }
 }
 
+// Valider une note (IA ou manuelle) — seul point de sauvegarde
 async function validerNoteManuelle(repId, sessionId, btnElement) {
     const btn    = btnElement;
     const input  = document.getElementById('points-input-' + repId);
@@ -287,23 +298,17 @@ async function validerNoteManuelle(repId, sessionId, btnElement) {
         });
         const data = await res.json();
 
-        if (!data.success) {
-            alert('Erreur : ' + data.error);
-            btn.innerHTML = orig;
-            btn.disabled = false;
-            return;
-        }
+        if (!data.success) { alert('Erreur : ' + data.error); btn.innerHTML = orig; btn.disabled = false; return; }
 
         btn.innerHTML = '<i class="bi bi-check-circle-fill me-1"></i>Validé';
-        btn.classList.replace('btn-warning', 'btn-success');
-        status.innerHTML = `<span class="text-success">${parseFloat(data.points).toFixed(1)} / ${parseFloat(data.points_max).toFixed(1)} pt(s) enregistré</span>`;
+        btn.classList.replace('btn-success', 'btn-outline-success');
+        status.innerHTML = `<span class="text-success small"><i class="bi bi-check-circle me-1"></i>${parseFloat(data.points).toFixed(1)} / ${parseFloat(data.points_max).toFixed(1)} pt(s) enregistré</span>`;
         updateScoreDisplay(data.score, data.total, data.pct);
 
         setTimeout(() => {
-            btn.innerHTML = orig;
-            btn.classList.replace('btn-success', 'btn-warning');
+            btn.innerHTML = '<i class="bi bi-check-circle me-1"></i>Valider';
+            btn.classList.replace('btn-outline-success', 'btn-success');
             btn.disabled = false;
-            status.innerHTML = '';
         }, 3000);
 
     } catch (err) {
@@ -313,11 +318,12 @@ async function validerNoteManuelle(repId, sessionId, btnElement) {
     }
 }
 
+// Suggestion IA pour toutes les questions
 async function corrigerToutAvecIA(sessionId) {
     const btn  = document.getElementById('btn-correct-all');
     const orig = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Correction en cours...';
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Analyse en cours...';
 
     try {
         const res  = await fetch('api_correct_ia_all.php', {
@@ -327,24 +333,12 @@ async function corrigerToutAvecIA(sessionId) {
         });
         const data = await res.json();
 
-        if (!data.success) {
-            alert('Erreur : ' + data.error);
-            btn.innerHTML = orig;
-            btn.disabled = false;
-            return;
-        }
+        if (!data.success) { alert('Erreur : ' + data.error); btn.innerHTML = orig; btn.disabled = false; return; }
 
-        data.resultats.forEach(r => renderIASection(r.rep_id, sessionId, r));
-        updateScoreDisplay(data.score, data.total, data.pct);
+        data.resultats.forEach(r => renderIASuggestion(r.rep_id, sessionId, r));
 
-        btn.innerHTML = `<i class="bi bi-check-circle me-1"></i>${data.corriges} corrigée(s)`;
-        btn.classList.replace('btn-info', 'btn-success');
-
-        // Afficher le bouton "Valider toutes les notes"
-        const btnValidateAll = document.getElementById('btn-validate-all');
-        if (btnValidateAll) {
-            btnValidateAll.style.display = 'inline-block';
-        }
+        btn.innerHTML = `<i class="bi bi-robot me-1"></i>${data.corriges} suggérée(s)`;
+        setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 4000);
 
         if (data.erreurs.length) alert('⚠ ' + data.erreurs.join('\n'));
 
@@ -355,35 +349,48 @@ async function corrigerToutAvecIA(sessionId) {
     }
 }
 
+// Valider toutes les notes d'un coup (lit les inputs actuels)
 async function validerToutesLesNotes(sessionId) {
     const btn  = document.getElementById('btn-validate-all');
     const orig = btn.innerHTML;
+
+    // Collecter toutes les valeurs d'input
+    const inputs = document.querySelectorAll('.points-input[data-rep-id]');
+    let body = 'session_id=' + sessionId;
+    let count = 0;
+    inputs.forEach(input => {
+        const pts = parseFloat(input.value);
+        if (!isNaN(pts) && pts >= 0) {
+            body += `&notes[${input.dataset.repId}]=${pts}`;
+            count++;
+        }
+    });
+
+    if (count === 0) { alert('Aucune note à valider.'); return; }
+
     btn.disabled = true;
-    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Validation en cours...';
+    btn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>Enregistrement...';
 
     try {
         const res  = await fetch('api_validate_all_notes.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'session_id=' + sessionId
+            body
         });
         const data = await res.json();
 
-        if (!data.success) {
-            alert('Erreur : ' + data.error);
-            btn.innerHTML = orig;
-            btn.disabled = false;
-            return;
-        }
+        if (!data.success) { alert('Erreur : ' + data.error); btn.innerHTML = orig; btn.disabled = false; return; }
 
         updateScoreDisplay(data.score, data.total, data.pct);
+        btn.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${data.validees} note(s) enregistrée(s)`;
 
-        btn.innerHTML = `<i class="bi bi-check-circle-fill me-1"></i>${data.validees} validée(s)`;
+        // Mettre à jour les statuts affichés
+        inputs.forEach(input => {
+            const status = document.getElementById('note-status-' + input.dataset.repId);
+            if (status) status.innerHTML = '<span class="text-success small"><i class="bi bi-check-circle me-1"></i>Enregistré</span>';
+        });
 
-        setTimeout(() => {
-            btn.innerHTML = orig;
-            btn.disabled = false;
-        }, 3000);
+        setTimeout(() => { btn.innerHTML = orig; btn.disabled = false; }, 3000);
 
     } catch (err) {
         alert('Erreur réseau : ' + err.message);

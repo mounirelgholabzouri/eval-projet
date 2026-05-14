@@ -1,8 +1,9 @@
 <?php
 /**
- * Génération de questions via l'API Claude (Anthropic)
+ * Génération de questions via IA (Anthropic, OpenAI, Google)
  * Utilise cURL natif PHP — aucune dépendance externe requise.
  */
+require_once __DIR__ . '/ai_provider.php';
 
 // ── Extraction de texte depuis un document uploadé ───────────
 
@@ -93,7 +94,8 @@ function genererQuestionsAvecClaude(
     int    $noteMax,
     string $apiKey,
     string $prompt = '',
-    string $model = 'claude-sonnet-4-20250514'
+    string $model = 'claude-sonnet-4-20250514',
+    string $provider = 'anthropic'
 ): array {
     $typesStr = implode(', ', $types);
 
@@ -179,50 +181,20 @@ SYSTEM;
         ];
     }
 
-    // Appel API
-    $payload = json_encode([
-        'model'      => $model,
-        'max_tokens' => 8192,
-        'system'     => $systemPrompt,
-        'messages'   => $messages,
-    ]);
-
-    $headers = [
-        'Content-Type: application/json',
-        'x-api-key: ' . $apiKey,
-        'anthropic-version: 2023-06-01',
-        'anthropic-beta: pdfs-2024-09-25',  // support PDF natif
-    ];
-
-    $ch = curl_init('https://api.anthropic.com/v1/messages');
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $payload,
-        CURLOPT_HTTPHEADER     => $headers,
-        CURLOPT_TIMEOUT        => 120,
-        CURLOPT_SSL_VERIFYPEER => true,
-    ]);
-
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    $curlErr  = curl_error($ch);
-    curl_close($ch);
-
-    if ($curlErr) throw new RuntimeException("Erreur réseau : $curlErr");
-    if ($httpCode !== 200) {
-        $errData = json_decode($response, true);
-        $errMsg  = $errData['error']['message'] ?? "HTTP $httpCode";
-        throw new RuntimeException("Erreur API Claude : $errMsg");
+    // PDF natif uniquement supporté par Anthropic
+    if ($docContent['is_pdf'] && $provider !== 'anthropic') {
+        throw new RuntimeException("Les PDF natifs ne sont supportés qu'avec Anthropic. Exportez votre document en DOCX ou TXT pour utiliser OpenAI ou Google.");
     }
 
-    $data = json_decode($response, true);
-    if (!$data || empty($data['content'][0]['text'])) {
-        throw new RuntimeException("Réponse Claude invalide ou vide.");
+    // Appel API unifié
+    $result = callAIUnified($provider, $apiKey, $model, $systemPrompt, $messages, 8192);
+
+    if (!$result['success']) {
+        throw new RuntimeException($result['error']);
     }
 
     // Extraire le JSON de la réponse (ignorer tout texte autour)
-    $rawText = $data['content'][0]['text'];
+    $rawText = $result['text'];
     $json    = extractJsonFromText($rawText);
 
     $parsed = json_decode($json, true);

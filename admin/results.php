@@ -531,6 +531,11 @@ function bulkDeleteResults() {
     if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' résultat(s) ?\nToutes les réponses associées seront effacées.')) {
         const form = document.createElement('form');
         form.method = 'POST';
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden';
+        csrfInput.name = 'csrf_token';
+        csrfInput.value = document.querySelector('input[name="csrf_token"]')?.value ?? '';
+        form.appendChild(csrfInput);
         const input1 = document.createElement('input');
         input1.type = 'hidden';
         input1.name = 'bulk_action';
