@@ -34,16 +34,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_fusion'])) {
             $stmt->execute([$nom, $desc, $duree, $noteMax, $actif]);
             $newModuleId = (int)$pdo->lastInsertId();
 
+            $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, 'Général', 1, 1)")
+                ->execute([$newModuleId]);
+            $partieId = (int)$pdo->lastInsertId();
+
             $qOrdre = 1;
             foreach ($ids as $srcModuleId) {
                 $qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
                 $qStmt->execute([$srcModuleId]);
                 foreach ($qStmt->fetchAll() as $q) {
                     $insQ = $pdo->prepare(
-                        "INSERT INTO questions (module_id, texte, type, points, ordre, image_path)
-                         VALUES (?, ?, ?, ?, ?, ?)"
+                        "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)"
                     );
-                    $insQ->execute([$newModuleId, $q['texte'], $q['type'], $q['points'], $qOrdre++, $q['image_path'] ?? null]);
+                    $insQ->execute([$newModuleId, $partieId, $q['texte'], $q['type'], $q['points'], $qOrdre++, $q['image_path'] ?? null]);
                     $newQId = (int)$pdo->lastInsertId();
 
                     $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
@@ -102,6 +106,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
             $stmt->execute([$nom, "EFM — $codeModule", $duree, $noteMax, $actif]);
             $newModuleId = (int)$pdo->lastInsertId();
 
+            $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, 'Général', 1, 1)")
+                ->execute([$newModuleId]);
+            $partieIdEfm = (int)$pdo->lastInsertId();
+
             $pdo->prepare(
                 "INSERT INTO modules_efm_meta (module_id, code_module, filiere, etablissement, annee)
                  VALUES (?, ?, ?, ?, ?)"
@@ -118,10 +126,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
 
                 foreach ($questions as $q) {
                     $insQ = $pdo->prepare(
-                        "INSERT INTO questions (module_id, texte, type, points, ordre, image_path)
-                         VALUES (?, ?, ?, ?, ?, ?)"
+                        "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
+                         VALUES (?, ?, ?, ?, ?, ?, ?)"
                     );
-                    $insQ->execute([$newModuleId, $q['texte'], $q['type'], $q['points'], $qOrdre++, $q['image_path'] ?? null]);
+                    $insQ->execute([$newModuleId, $partieIdEfm, $q['texte'], $q['type'], $q['points'], $qOrdre++, $q['image_path'] ?? null]);
                     $newQId = (int)$pdo->lastInsertId();
 
                     $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");

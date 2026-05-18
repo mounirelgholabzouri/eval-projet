@@ -187,7 +187,9 @@ SYSTEM;
     }
 
     // Appel API unifié
-    $result = callAIUnified($provider, $apiKey, $model, $systemPrompt, $messages, 8192);
+    // Ollama (CPU) est ~50× plus lent que les API cloud → on réduit max_tokens
+    $maxOut = $provider === 'ollama' ? 2000 : 8192;
+    $result = callAIUnified($provider, $apiKey, $model, $systemPrompt, $messages, $maxOut);
 
     if (!$result['success']) {
         throw new RuntimeException($result['error']);
@@ -230,12 +232,12 @@ function extractJsonFromText(string $text): string {
 function sauvegarderQuestionsGenerees(array $questions, int $moduleId): int {
     $pdo = getDB();
 
-    // Récupérer ou créer la partie "Général" du module
-    $stmtP = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre, id LIMIT 1");
-    $stmtP->execute([$moduleId]);
-    $partieId = (int)$stmtP->fetchColumn();
-    if (!$partieId) {
-        $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?, 'Général', 1)")
+    // Garantir qu'une partie « Général » existe pour ce module (invariant métier)
+    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre ASC, id ASC LIMIT 1");
+    $stmt->execute([$moduleId]);
+    $partieId = (int)$stmt->fetchColumn();
+    if ($partieId === 0) {
+        $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, 'Général', 1, 1)")
             ->execute([$moduleId]);
         $partieId = (int)$pdo->lastInsertId();
     }

@@ -19,6 +19,14 @@ $stagAnnee    = $_SESSION['stagiaire_annee'];
 $erreurs = [];
 $modules = getModulesActifs();
 
+// Types de questions par module (pour info stagiaire)
+$pdo = getDB();
+$typesParModule = [];
+$stmt = $pdo->query("SELECT module_id, type, COUNT(*) as nb FROM questions GROUP BY module_id, type");
+foreach ($stmt->fetchAll() as $row) {
+    $typesParModule[(int)$row['module_id']][$row['type']] = (int)$row['nb'];
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $moduleId = (int)($_POST['module_id'] ?? 0);
     if ($moduleId <= 0) $erreurs[] = "Veuillez sélectionner un module d'évaluation.";
@@ -128,15 +136,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 <label class="form-label fw-semibold">
                                     <i class="bi bi-journal-text me-1 text-primary"></i>Module / Évaluation
                                 </label>
+                                <?php
+                                $typesLabels = ['qcm'=>'QCM','vrai_faux'=>'Vrai/Faux','texte_libre'=>'Réponse libre','multiple'=>'Choix multiples'];
+                                $typesData = [];
+                                foreach ($modules as $m) {
+                                    $mid = (int)$m['id'];
+                                    $parts = [];
+                                    foreach ($typesParModule[$mid] ?? [] as $t => $nb) {
+                                        $parts[] = ($typesLabels[$t] ?? $t) . ' (' . $nb . ')';
+                                    }
+                                    $typesData[$mid] = implode(', ', $parts);
+                                }
+                                ?>
                                 <select name="module_id" id="module_id" class="form-select form-select-lg" required autofocus>
                                     <option value="">— Choisir le module —</option>
                                     <?php foreach ($modules as $m): ?>
                                         <option value="<?= $m['id'] ?>"
+                                            data-types="<?= sanitize($typesData[(int)$m['id']] ?? '') ?>"
+                                            data-nb="<?= (int)($m['nb_questions_controle'] ?? $m['nb_questions'] ?? 0) ?>"
                                             <?= (isset($_POST['module_id']) && $_POST['module_id'] == $m['id']) ? 'selected' : '' ?>>
                                             <?= sanitize($m['nom']) ?> (<?= $m['duree_minutes'] ?> min)
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
+                                <div id="module-info" class="mt-2" style="display:none">
+                                    <div class="alert alert-info rounded-3 py-2 small mb-0">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        <span id="module-types-text"></span>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="col-12 mt-2">
@@ -174,12 +202,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const cb  = document.getElementById('accepte');
-    const btn = document.getElementById('btn-submit');
+    const cb      = document.getElementById('accepte');
+    const btn     = document.getElementById('btn-submit');
+    const sel     = document.getElementById('module_id');
+    const info    = document.getElementById('module-info');
+    const typeTxt = document.getElementById('module-types-text');
 
     if (cb && btn) {
         btn.disabled = true;
         cb.addEventListener('change', () => btn.disabled = !cb.checked);
+    }
+
+    if (sel && info && typeTxt) {
+        sel.addEventListener('change', function () {
+            const opt = this.options[this.selectedIndex];
+            const types = opt.dataset.types || '';
+            if (this.value && types) {
+                typeTxt.textContent = 'Types de questions : ' + types;
+                info.style.display = 'block';
+            } else {
+                info.style.display = 'none';
+            }
+        });
+        sel.dispatchEvent(new Event('change'));
     }
 });
 
