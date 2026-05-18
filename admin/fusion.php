@@ -8,7 +8,21 @@ $erreur = '';
 $activeTab = 'fusion'; // 'fusion' ou 'efm'
 
 $modules = getAllModules();
+
+// Charger toutes les parties actives avec nb_questions, indexées par module_id
 $allParties = [];
+$stmtP = $pdo->query("
+    SELECT p.id, p.module_id, p.nom, p.ordre,
+           COUNT(q.id) AS nb_questions
+    FROM parties p
+    LEFT JOIN questions q ON q.partie_id = p.id
+    WHERE p.actif = 1
+    GROUP BY p.id
+    ORDER BY p.module_id, p.ordre, p.id
+");
+foreach ($stmtP->fetchAll() as $p) {
+    $allParties[(int)$p['module_id']][] = $p;
+}
 
 // ═══════════════════════════════════════════════════
 // POST : Fusion QCM classique
@@ -82,19 +96,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
     $actif        = isset($_POST['efm_actif']) ? 1 : 0;
     $shuffle      = isset($_POST['efm_shuffle']) ? 1 : 0;
 
-    // Module IDs sélectionnées : POST keys efm_m_{moduleId}
-    $selectedModules = [];
+    // Parties sélectionnées : POST keys efm_p_{partieId} + quota efm_nb_{partieId}
+    $selectedParties = []; // [ partieId => nbQuestions (0 = toutes) ]
     foreach ($_POST as $k => $v) {
-        if (str_starts_with($k, 'efm_m_')) {
-            $mid   = (int)substr($k, 6);
-            $selectedModules[$mid] = 1;
+        if (str_starts_with($k, 'efm_p_')) {
+            $pid = (int)substr($k, 6);
+            if ($pid > 0) {
+                $selectedParties[$pid] = max(0, (int)($_POST['efm_nb_' . $pid] ?? 0));
+            }
         }
     }
 
     if (strlen($nom) < 2) {
         $erreur = "Le nom de l'EFM est requis (minimum 2 caractères).";
-    } elseif (empty($selectedModules)) {
-        $erreur = "Sélectionnez au moins un module.";
+    } elseif (empty($selectedParties)) {
+        $erreur = "Sélectionnez au moins une partie dans un module.";
     } else {
         try {
             $pdo->beginTransaction();
@@ -116,13 +132,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
             )->execute([$newModuleId, $codeModule, $filiere, $etablissement, $annee]);
 
             $qOrdre = 1;
-            foreach (array_keys($selectedModules) as $srcModuleId) {
-                // Charger les questions du module source
-                $qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
-                $qStmt->execute([$srcModuleId]);
+            foreach ($selectedParties as $srcPartieId => $nbMax) {
+                $qStmt = $pdo->prepare("SELECT * FROM questions WHERE partie_id = ? ORDER BY ordre, id");
+                $qStmt->execute([$srcPartieId]);
                 $questions = $qStmt->fetchAll();
 
                 if ($shuffle) shuffle($questions);
+                if ($nbMax > 0) $questions = array_slice($questions, 0, $nbMax);
 
                 foreach ($questions as $q) {
                     $insQ = $pdo->prepare(
@@ -318,6 +334,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                             <div class="text-muted small mt-1">Cochez les modules puis sélectionnez les parties à inclure</div>
                         </div>
                         <div class="card-body p-3">
+                            <div class="mb-3">
+                                <label class="form-label fw-semibold small mb-1">
+                                    <i class="bi bi-funnel me-1 text-warning"></i>Filtrer par code module
+                                </label>
+                                <input type="text" id="efmCodeFilter" class="form-control form-control-sm"
+                                       placeholder="Ex : M205 — affiche tous les modules commençant par ce code"
+                                       autocomplete="off">
+                                <div class="form-text" id="efmFilterHint"></div>
+                            </div>
                             <div class="d-flex gap-2 mb-3">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="efmExpandAll">
                                     <i class="bi bi-arrows-expand me-1"></i>Tout développer
@@ -325,10 +350,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="efmCollapseAll">
                                     <i class="bi bi-arrows-collapse me-1"></i>Tout réduire
                                 </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" id="efmSelectFiltered" style="display:none">
+                                    <i class="bi bi-check2-all me-1"></i>Tout sélectionner
+                                </button>
                             </div>
                             <?php foreach ($modules as $m): ?>
                             <?php $parties = $allParties[(int)$m['id']] ?? []; if (empty($parties)) continue; ?>
-                            <div class="efm-module-block mb-3 border rounded-3 overflow-hidden">
+                            <div class="efm-module-block mb-3 border rounded-3 overflow-hidden"
+                                 data-module-name="<?= strtolower(sanitize($m['nom'])) ?>">
                                 <!-- En-tête module : clic = expand/collapse ; case = tout sélectionner -->
                                 <div class="d-flex align-items-center gap-2 px-3 py-2 bg-light border-bottom efm-module-header"
                                      style="cursor:pointer" data-module="<?= $m['id'] ?>">
@@ -646,6 +675,72 @@ document.getElementById('efmCollapseAll')?.addEventListener('click', () => {
 document.querySelectorAll('.efm-nb-input, .efm-partie-check').forEach(el => {
     el.addEventListener('change', updateEfmUI);
     el.addEventListener('input', updateEfmUI);
+});
+
+// ── Filtrage par code module ──────────────────────────────────
+function applyEfmCodeFilter(code) {
+    const codeNorm   = code.trim().toLowerCase();
+    const blocks     = document.querySelectorAll('.efm-module-block');
+    const btnSel     = document.getElementById('efmSelectFiltered');
+    const hint       = document.getElementById('efmFilterHint');
+    let visible = 0;
+
+    blocks.forEach(block => {
+        const name = block.dataset.moduleName || '';
+        const match = !codeNorm || name.startsWith(codeNorm);
+        block.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+
+    if (codeNorm) {
+        hint.textContent = visible + ' module(s) correspondant à « ' + code.trim() + ' »';
+        btnSel.style.display = visible > 0 ? 'inline-block' : 'none';
+    } else {
+        hint.textContent = '';
+        btnSel.style.display = 'none';
+    }
+    updateEfmUI();
+}
+
+// Synchronisation bidirectionnelle : filtre ↔ champ efm_code
+const efmCodeInput  = document.querySelector('input[name="efm_code"]');
+const efmCodeFilter = document.getElementById('efmCodeFilter');
+
+if (efmCodeFilter) {
+    efmCodeFilter.addEventListener('input', () => {
+        if (efmCodeInput) efmCodeInput.value = efmCodeFilter.value;
+        applyEfmCodeFilter(efmCodeFilter.value);
+    });
+}
+if (efmCodeInput) {
+    efmCodeInput.addEventListener('input', () => {
+        if (efmCodeFilter) efmCodeFilter.value = efmCodeInput.value;
+        applyEfmCodeFilter(efmCodeInput.value);
+    });
+    // Appliquer si valeur déjà présente (rechargement POST avec erreur)
+    if (efmCodeInput.value) {
+        if (efmCodeFilter) efmCodeFilter.value = efmCodeInput.value;
+        applyEfmCodeFilter(efmCodeInput.value);
+    }
+}
+
+// Sélectionner tous les modules visibles
+document.getElementById('efmSelectFiltered')?.addEventListener('click', () => {
+    document.querySelectorAll('.efm-module-block').forEach(block => {
+        if (block.style.display === 'none') return;
+        const cb = block.querySelector('.efm-module-check');
+        if (!cb) return;
+        cb.checked = true;
+        const mid  = cb.dataset.module;
+        const list = document.querySelector(`.efm-parties-list[data-module="${mid}"]`);
+        const chev = document.querySelector(`.efm-module-header[data-module="${mid}"] .efm-chevron`);
+        if (list) {
+            list.querySelectorAll('.efm-partie-check').forEach(pc => { pc.checked = true; });
+            list.style.display = 'block';
+            if (chev) { chev.classList.replace('bi-chevron-down','bi-chevron-up'); }
+        }
+    });
+    updateEfmUI();
 });
 
 updateEfmUI();

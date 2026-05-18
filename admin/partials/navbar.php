@@ -80,6 +80,12 @@
                         <i class="bi bi-robot me-1"></i>IA
                     </a>
                 </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'ia_pile.php' ? 'active' : '' ?>"
+                       href="ia_pile.php">
+                        <i class="bi bi-layers me-1"></i>Pile IA
+                    </a>
+                </li>
             </ul>
             <ul class="navbar-nav">
                 <li class="nav-item">
