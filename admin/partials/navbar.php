@@ -26,11 +26,15 @@
                         <i class="bi bi-question-circle me-1"></i>Questions
                     </a>
                 </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'import_questions.php' ? 'active' : '' ?>"
-                       href="import_questions.php">
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle <?= in_array(basename($_SERVER['PHP_SELF']), ['import_questions.php','import_evaluation_json.php']) ? 'active' : '' ?>"
+                       href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-cloud-upload me-1"></i>Importer
                     </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="import_questions.php"><i class="bi bi-pc-display me-1"></i>PC distant (sync)</a></li>
+                        <li><a class="dropdown-item" href="import_evaluation_json.php"><i class="bi bi-file-earmark-arrow-up me-1"></i>Évaluation JSON externe</a></li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'move_questions.php' ? 'active' : '' ?>"
