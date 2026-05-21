@@ -77,15 +77,15 @@ $stmtQ = $pdo->prepare("
 $stmtQ->execute([$sid, (int)$session['module_id']]);
 $questions = $stmtQ->fetchAll();
 
-// ── Choix corrects par question ───────────────────────────────────────────
-$questionIds   = array_column($questions, 'id');
-$correctChoice = [];
+// ── Tous les choix par question ───────────────────────────────────────────
+$questionIds = array_column($questions, 'id');
+$allChoices  = [];
 if (!empty($questionIds)) {
     $in    = implode(',', array_fill(0, count($questionIds), '?'));
-    $stmtC = $pdo->prepare("SELECT question_id, texte FROM choix_reponses WHERE question_id IN ($in) AND is_correct=1 ORDER BY question_id LIMIT " . count($questionIds));
+    $stmtC = $pdo->prepare("SELECT id, question_id, texte, is_correct, ordre FROM choix_reponses WHERE question_id IN ($in) ORDER BY question_id, ordre, id");
     $stmtC->execute($questionIds);
     foreach ($stmtC->fetchAll() as $c) {
-        $correctChoice[(int)$c['question_id']] = $c['texte'];
+        $allChoices[(int)$c['question_id']][] = $c;
     }
 }
 
@@ -437,9 +437,8 @@ $tamponB64  = file_exists($tamponPath)
         </thead>
         <tbody>
             <?php foreach ($questions as $idx => $q):
-                $ptsMax     = (float)$q['points_max'];
-                $reponseTxt = $q['choix_texte'] ?? null;
-                $correctTxt = $correctChoice[(int)$q['id']] ?? null;
+                $ptsMax  = (float)$q['points_max'];
+                $choices = $allChoices[(int)$q['id']] ?? [];
             ?>
             <tr>
                 <td class="col-note">
@@ -457,17 +456,19 @@ $tamponB64  = file_exists($tamponPath)
                         <div style="border-bottom:1px solid #999;min-height:18px;margin-bottom:4px">&nbsp;</div>
                         <div style="border-bottom:1px solid #999;min-height:18px">&nbsp;</div>
                     </div>
-                    <?php elseif ($q['type'] !== 'texte_libre'): ?>
-                    <div style="margin:3px 0 0 6px;font-size:10pt;line-height:1.6">
-                        <?php if ($reponseTxt !== null): ?>
-                        <div>&#10003; <?= sanitize($reponseTxt) ?></div>
-                        <?php else: ?>
-                        <div style="color:#bbb">— sans réponse</div>
-                        <?php endif; ?>
-                        <?php if ($correctTxt !== null && $correctTxt !== $reponseTxt): ?>
-                        <div style="color:#555">&#10003; <?= sanitize($correctTxt) ?></div>
-                        <?php endif; ?>
-                    </div>
+                    <?php elseif (!empty($choices)): ?>
+                    <ul style="margin:3px 0 0 6px;padding:0;list-style:none;font-size:10pt">
+                        <?php foreach ($choices as $c): ?>
+                        <li style="padding:1px 0">
+                            <?php if ((int)$c['is_correct']): ?>
+                            &#10003;
+                            <?php else: ?>
+                            <span style="display:inline-block;width:12px"></span>
+                            <?php endif; ?>
+                            <?= sanitize($c['texte']) ?>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
                     <?php else: ?>
                     <div class="q-reponse empty">&nbsp;</div>
                     <?php endif; ?>
