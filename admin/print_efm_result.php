@@ -363,16 +363,14 @@ $tamponB64  = file_exists($tamponPath)
                         <div style="border-bottom:1px solid #999;min-height:18px">&nbsp;</div>
                     </div>
                     <?php elseif (!empty($choices)): ?>
-                    <ul style="margin:3px 0 0 6px;padding:0;list-style:none;font-size:10pt">
-                        <?php foreach ($choices as $c):
-                            $selected = ($choixId !== null && (int)$c['id'] === $choixId);
-                        ?>
-                        <li style="padding:1px 0;<?= $selected ? 'font-weight:bold' : '' ?>">
-                            <span style="display:inline-block;width:14px;height:14px;border:1px solid #555;border-radius:50%;vertical-align:middle;margin-right:5px;<?= $selected ? 'background:#222' : 'background:#fff' ?>"></span>
-                            <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?>
-                        </li>
-                        <?php endforeach; ?>
-                    </ul>
+                    <?php $chosen = array_filter($choices, fn($c) => $choixId !== null && (int)$c['id'] === $choixId); ?>
+                    <div style="margin:3px 0 0 6px;font-size:10pt">
+                        <?php if (!empty($chosen)): $c = reset($chosen); ?>
+                        &#10003; <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?>
+                        <?php else: ?>
+                        <span style="color:#bbb">—</span>
+                        <?php endif; ?>
+                    </div>
                     <?php else: ?>
                     <div class="q-reponse vide">&nbsp;</div>
                     <?php endif; ?>
