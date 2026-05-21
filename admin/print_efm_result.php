@@ -342,13 +342,14 @@ $tamponB64  = file_exists($tamponPath)
         </thead>
         <tbody>
             <?php foreach ($questions as $idx => $q):
-                $ptsMax  = (float)$q['points_max'];
-                $choices = $allChoices[(int)$q['id']] ?? [];
+                $ptsMaxRaw  = (float)$q['points_max'];
+                $ptsMaxScal = $totalPts > 0 ? round($ptsMaxRaw / $totalPts * $noteMax, 2) : 0;
+                $choices    = $allChoices[(int)$q['id']] ?? [];
             ?>
             <tr>
                 <td class="col-note">
                     <span style="display:block;border-bottom:1px solid #000;min-width:36px;">&nbsp;</span>
-                    <span class="pts-max">/ <?= number_format($ptsMax, 1) ?></span>
+                    <span class="pts-max">/ <?= number_format($ptsMaxScal, 2) ?></span>
                 </td>
                 <td>
                     <div class="q-texte">
