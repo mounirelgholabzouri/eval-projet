@@ -345,6 +345,7 @@ $tamponB64  = file_exists($tamponPath)
                 $ptsMaxRaw  = (float)$q['points_max'];
                 $ptsMaxScal = $totalPts > 0 ? round($ptsMaxRaw / $totalPts * $noteMax, 2) : 0;
                 $choices    = $allChoices[(int)$q['id']] ?? [];
+                $choixId    = $q['choix_id'] ? (int)$q['choix_id'] : null;
             ?>
             <tr>
                 <td class="col-note">
@@ -365,9 +366,15 @@ $tamponB64  = file_exists($tamponPath)
                     <?php elseif (!empty($choices)): ?>
                     <ul style="margin:3px 0 0 6px;padding:0;list-style:none;font-size:10pt">
                         <?php foreach ($choices as $c): ?>
-                        <li style="padding:1px 0;<?= (int)$c['is_correct'] ? 'font-weight:bold' : '' ?>">
-                            <?php if ((int)$c['is_correct']): ?>
+                        <?php
+                            $isCorrect  = (int)$c['is_correct'];
+                            $isSelected = $choixId !== null && (int)$c['id'] === $choixId;
+                        ?>
+                        <li style="padding:1px 0;<?= $isCorrect ? 'font-weight:bold' : '' ?>">
+                            <?php if ($isCorrect): ?>
                             &#10003;
+                            <?php elseif ($isSelected): ?>
+                            <span style="display:inline-block;width:12px">&rarr;</span>
                             <?php else: ?>
                             <span style="display:inline-block;width:12px"></span>
                             <?php endif; ?>
