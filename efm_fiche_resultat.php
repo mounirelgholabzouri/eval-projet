@@ -460,7 +460,7 @@ $tamponB64  = file_exists($tamponPath)
                     <?php elseif (!empty($choices)): ?>
                     <ul style="margin:3px 0 0 6px;padding:0;list-style:none;font-size:10pt">
                         <?php foreach ($choices as $c): ?>
-                        <li style="padding:1px 0">
+                        <li style="padding:1px 0;<?= (int)$c['is_correct'] ? 'font-weight:bold' : '' ?>">
                             <?php if ((int)$c['is_correct']): ?>
                             &#10003;
                             <?php else: ?>
