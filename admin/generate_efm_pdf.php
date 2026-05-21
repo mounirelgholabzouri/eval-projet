@@ -164,9 +164,10 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
                 $isCorrect  = (int)$c['is_correct'];
                 $isSelected = $choixId !== null && (int)$c['id'] === $choixId;
                 $bold   = $isCorrect ? 'font-weight:bold' : '';
-                $marker = $isCorrect ? '&#10003;' : ($isSelected ? '&rarr;' : '&nbsp;');
+                $box    = $isSelected ? '&#9745;' : '&#9744;';
+                $marker = $isCorrect ? ' &#10003;' : '';
                 $reponseHtml .= '<span style="display:inline-block;' . $bold . ';margin-right:16px;margin-bottom:4px;vertical-align:middle">'
-                    . ' &#9744; ' . $marker . ' '
+                    . ' ' . $box . $marker . ' '
                     . htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8')
                     . '</span>';
             }
