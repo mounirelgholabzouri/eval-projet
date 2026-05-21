@@ -166,7 +166,7 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
                 $bold   = $isCorrect ? 'font-weight:bold' : '';
                 $marker = $isCorrect ? '&#10003;' : ($isSelected ? '&rarr;' : '&nbsp;');
                 $reponseHtml .= '<span style="display:inline-block;' . $bold . ';margin-right:16px;margin-bottom:4px;vertical-align:middle">'
-                    . '&#9744; ' . $marker . ' '
+                    . ' &#9744; ' . $marker . ' '
                     . htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8')
                     . '</span>';
             }
