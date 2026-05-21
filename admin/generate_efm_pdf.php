@@ -165,11 +165,11 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
                 $isSelected = $choixId !== null && (int)$c['id'] === $choixId;
                 $bold   = $isCorrect ? 'font-weight:bold' : '';
                 $marker = $isCorrect ? '&#10003;' : ($isSelected ? '&rarr;' : '&nbsp;');
-                $reponseHtml .= '<div style="' . $bold . ';margin-bottom:4px;padding-left:2px">'
-                    . '<span style="display:inline-block;width:13px;height:13px;border:1px solid #555;vertical-align:middle;margin-right:6px"></span>'
+                $reponseHtml .= '<span style="display:inline-block;' . $bold . ';margin-right:16px;margin-bottom:4px;vertical-align:middle">'
+                    . '<span style="display:inline-block;width:13px;height:13px;border:1px solid #555;vertical-align:middle;margin-right:4px"></span>'
                     . $marker . ' '
                     . htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8')
-                    . '</div>';
+                    . '</span>';
             }
             $reponseHtml .= '</div>';
         } else {
