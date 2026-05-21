@@ -364,22 +364,16 @@ $tamponB64  = file_exists($tamponPath)
                         <div style="border-bottom:1px solid #999;min-height:18px">&nbsp;</div>
                     </div>
                     <?php elseif (!empty($choices)): ?>
-                    <ul style="margin:3px 0 0 6px;padding:0;list-style:none;font-size:10pt">
-                        <?php foreach ($choices as $c): ?>
-                        <?php
+                    <div style="margin:3px 0 0 6px;font-size:10pt;line-height:1.7">
+                        <?php foreach ($choices as $c):
                             $isCorrect  = (int)$c['is_correct'];
                             $isSelected = $choixId !== null && (int)$c['id'] === $choixId;
                         ?>
-                        <li style="padding:1px 0;<?= $isCorrect ? 'font-weight:bold' : '' ?>">
-                            <span style="display:inline-block;width:13px;height:13px;border:1px solid #555;vertical-align:middle;margin-right:3px"></span>
-                            <?php if ($isCorrect): ?>&#10003;
-                            <?php elseif ($isSelected): ?>&rarr;
-                            <?php else: ?><span style="display:inline-block;width:10px"></span>
-                            <?php endif; ?>
-                            <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?>
-                        </li>
+                        <span style="display:inline;<?= $isCorrect ? 'font-weight:bold' : '' ?>;margin-right:14px;white-space:nowrap">
+                            <span style="display:inline-block;width:12px;height:12px;border:1px solid #555;vertical-align:middle;margin-right:2px"></span><?php if ($isCorrect): ?>&#10003;<?php elseif ($isSelected): ?>&rarr;<?php else: ?>&nbsp;<?php endif; ?> <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?>
+                        </span>
                         <?php endforeach; ?>
-                    </ul>
+                    </div>
                     <?php else: ?>
                     <div class="q-reponse vide">&nbsp;</div>
                     <?php endif; ?>

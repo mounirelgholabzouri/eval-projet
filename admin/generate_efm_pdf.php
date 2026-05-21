@@ -159,19 +159,19 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
                 . '<div style="border-bottom:1px solid #999;min-height:18px">&nbsp;</div>'
                 . '</div>';
         } elseif (!empty($choices)) {
-            $reponseHtml = '<ul style="margin:3px 0 0 6px;padding:0;list-style:none;font-size:10pt">';
+            $reponseHtml = '<div style="margin:3px 0 0 6px;font-size:10pt;line-height:1.7">';
             foreach ($choices as $c) {
                 $isCorrect  = (int)$c['is_correct'];
                 $isSelected = $choixId !== null && (int)$c['id'] === $choixId;
-                $bold = $isCorrect ? 'font-weight:bold' : '';
-                $marker = $isCorrect ? '&#10003;' : ($isSelected ? '&rarr;' : '');
-                $reponseHtml .= '<li style="padding:1px 0;' . $bold . '">'
-                    . '<span style="display:inline-block;width:13px;height:13px;border:1px solid #555;vertical-align:middle;margin-right:3px"></span>'
-                    . '<span style="display:inline-block;width:10px">' . $marker . '</span>'
+                $bold   = $isCorrect ? 'font-weight:bold' : '';
+                $marker = $isCorrect ? '&#10003;' : ($isSelected ? '&rarr;' : '&nbsp;');
+                $reponseHtml .= '<span style="display:inline;' . $bold . ';margin-right:14px;white-space:nowrap">'
+                    . '<span style="display:inline-block;width:12px;height:12px;border:1px solid #555;vertical-align:middle;margin-right:2px"></span>'
+                    . $marker . ' '
                     . htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8')
-                    . '</li>';
+                    . '</span>';
             }
-            $reponseHtml .= '</ul>';
+            $reponseHtml .= '</div>';
         } else {
             $reponseHtml = '<div class="q-reponse vide">&nbsp;</div>';
         }
