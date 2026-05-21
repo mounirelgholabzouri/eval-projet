@@ -146,22 +146,41 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
     // Lignes questions
     $qRows = '';
     foreach ($questions as $idx => $q) {
-        $pts    = (float)$q['points_obtenus'];
-        $ptsMax = (float)$q['points_max'];
-        $reponse = ($q['type'] === 'texte_libre')
-            ? trim($q['reponse_texte'])
-            : ($q['choix_texte'] ?? '');
-        $vide        = ($reponse === '');
-        $reponseHtml = $vide
-            ? '<div class="q-reponse vide">&nbsp;</div>'
-            : '<div class="q-reponse">' . htmlspecialchars($reponse, ENT_QUOTES, 'UTF-8') . '</div>';
+        $ptsMaxRaw  = (float)$q['points_max'];
+        $ptsMaxScal = $total > 0 ? round($ptsMaxRaw / $total * $noteMax, 2) : 0;
+        $choixId    = $q['choix_id'] ? (int)$q['choix_id'] : null;
+        $choices    = $q['_choices'] ?? [];
         $bg = ($idx % 2 === 1) ? 'background:#f9f9f9' : '';
+
+        if ($q['type'] === 'texte_libre') {
+            $reponseHtml = '<div style="margin-left:6px">'
+                . '<div style="border-bottom:1px solid #999;min-height:18px;margin-bottom:4px">&nbsp;</div>'
+                . '<div style="border-bottom:1px solid #999;min-height:18px;margin-bottom:4px">&nbsp;</div>'
+                . '<div style="border-bottom:1px solid #999;min-height:18px">&nbsp;</div>'
+                . '</div>';
+        } elseif (!empty($choices)) {
+            $reponseHtml = '<ul style="margin:3px 0 0 6px;padding:0;list-style:none;font-size:10pt">';
+            foreach ($choices as $c) {
+                $isCorrect  = (int)$c['is_correct'];
+                $isSelected = $choixId !== null && (int)$c['id'] === $choixId;
+                $bold = $isCorrect ? 'font-weight:bold' : '';
+                $marker = $isCorrect ? '&#10003;' : ($isSelected ? '&rarr;' : '');
+                $reponseHtml .= '<li style="padding:1px 0;' . $bold . '">'
+                    . '<span style="display:inline-block;width:13px;height:13px;border:1px solid #555;vertical-align:middle;margin-right:3px"></span>'
+                    . '<span style="display:inline-block;width:10px">' . $marker . '</span>'
+                    . htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8')
+                    . '</li>';
+            }
+            $reponseHtml .= '</ul>';
+        } else {
+            $reponseHtml = '<div class="q-reponse vide">&nbsp;</div>';
+        }
 
         $qRows .= '
         <tr style="' . $bg . '">
             <td class="col-note">
-                ' . number_format($pts, 1) . '
-                <br><span class="pts-max">/ ' . number_format($ptsMax, 1) . '</span>
+                <span style="display:block;border-bottom:1px solid #000;min-width:36px;">&nbsp;</span>
+                <span class="pts-max">/ ' . number_format($ptsMaxScal, 2) . '</span>
             </td>
             <td>
                 <div class="q-texte"><strong>Q' . ($idx+1) . '.</strong> '
@@ -220,7 +239,7 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
             <td class="sep">:</td>
             <td>' . $annee . '</td>
             <td class="lbl">Note finale</td>
-            <td style="text-align:center;font-weight:bold">: ' . number_format($noteFinale, 2) . ' / ' . $noteMax . '</td>
+            <td style="text-align:center;font-weight:bold">: <span style="display:inline-block;width:60px;border-bottom:1px solid #000;">&nbsp;</span> / ' . $noteMax . '</td>
         </tr>
     </table>
 
@@ -264,6 +283,22 @@ foreach ($sessions as $session) {
         ");
         $stmtQ->execute([$session['id'], (int)$session['module_id']]);
         $questions = $stmtQ->fetchAll();
+
+        // Charger tous les choix pour chaque question
+        $qIds = array_column($questions, 'id');
+        $choicesMap = [];
+        if (!empty($qIds)) {
+            $in2 = implode(',', array_fill(0, count($qIds), '?'));
+            $stmtC = $pdo->prepare("SELECT id, question_id, texte, is_correct, ordre FROM choix_reponses WHERE question_id IN ($in2) ORDER BY question_id, ordre, id");
+            $stmtC->execute($qIds);
+            foreach ($stmtC->fetchAll() as $c) {
+                $choicesMap[(int)$c['question_id']][] = $c;
+            }
+        }
+        foreach ($questions as &$q) {
+            $q['_choices'] = $choicesMap[(int)$q['id']] ?? [];
+        }
+        unset($q);
 
         $bodyHtml = buildEfmHtml($session, $questions, $logoB64, $tamponB64);
 
