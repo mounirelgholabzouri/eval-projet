@@ -55,6 +55,18 @@ $stmt = $pdo->prepare("
 $stmt->execute([$sessionId, (int)$session['module_id']]);
 $questions = $stmt->fetchAll();
 
+// ── Tous les choix par question ───────────────────────────────────────────
+$questionIds = array_column($questions, 'id');
+$allChoices  = [];
+if (!empty($questionIds)) {
+    $in   = implode(',', array_fill(0, count($questionIds), '?'));
+    $stmtC = $pdo->prepare("SELECT id, question_id, texte, ordre FROM choix_reponses WHERE question_id IN ($in) ORDER BY question_id, ordre, id");
+    $stmtC->execute($questionIds);
+    foreach ($stmtC->fetchAll() as $c) {
+        $allChoices[(int)$c['question_id']][] = $c;
+    }
+}
+
 // ── Logo base64 (invisible via chemin relatif à l'impression) ─────────────
 $logoPath = __DIR__ . '/../assets/img/logo_efm.png';
 $logoB64  = file_exists($logoPath)
@@ -330,14 +342,9 @@ $tamponB64  = file_exists($tamponPath)
         </thead>
         <tbody>
             <?php foreach ($questions as $idx => $q):
-                $pts    = (float)$q['points_obtenus'];
-                $ptsMax = (float)$q['points_max'];
-                // Réponse : texte libre ou choix sélectionné
-                if ($q['type'] === 'texte_libre') {
-                    $reponse = trim($q['reponse_texte']);
-                } else {
-                    $reponse = $q['choix_texte'] ?? '';
-                }
+                $ptsMax  = (float)$q['points_max'];
+                $choixId = $q['choix_id'] ? (int)$q['choix_id'] : null;
+                $choices = $allChoices[(int)$q['id']] ?? [];
             ?>
             <tr>
                 <td class="col-note">
@@ -355,10 +362,19 @@ $tamponB64  = file_exists($tamponPath)
                         <div style="border-bottom:1px solid #999;min-height:18px;margin-bottom:4px">&nbsp;</div>
                         <div style="border-bottom:1px solid #999;min-height:18px">&nbsp;</div>
                     </div>
+                    <?php elseif (!empty($choices)): ?>
+                    <ul style="margin:3px 0 0 6px;padding:0;list-style:none;font-size:10pt">
+                        <?php foreach ($choices as $c):
+                            $selected = ($choixId !== null && (int)$c['id'] === $choixId);
+                        ?>
+                        <li style="padding:1px 0;<?= $selected ? 'font-weight:bold' : '' ?>">
+                            <span style="display:inline-block;width:14px;height:14px;border:1px solid #555;border-radius:50%;vertical-align:middle;margin-right:5px;<?= $selected ? 'background:#222' : 'background:#fff' ?>"></span>
+                            <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?>
+                        </li>
+                        <?php endforeach; ?>
+                    </ul>
                     <?php else: ?>
-                    <div class="q-reponse <?= $reponse === '' ? 'vide' : '' ?>">
-                        <?= $reponse !== '' ? htmlspecialchars($reponse, ENT_QUOTES, 'UTF-8') : '&nbsp;' ?>
-                    </div>
+                    <div class="q-reponse vide">&nbsp;</div>
                     <?php endif; ?>
                 </td>
             </tr>
