@@ -371,12 +371,10 @@ $tamponB64  = file_exists($tamponPath)
                             $isSelected = $choixId !== null && (int)$c['id'] === $choixId;
                         ?>
                         <li style="padding:1px 0;<?= $isCorrect ? 'font-weight:bold' : '' ?>">
-                            <?php if ($isCorrect): ?>
-                            &#10003;
-                            <?php elseif ($isSelected): ?>
-                            <span style="display:inline-block;width:12px">&rarr;</span>
-                            <?php else: ?>
-                            <span style="display:inline-block;width:12px"></span>
+                            <span style="display:inline-block;width:13px;height:13px;border:1px solid #555;vertical-align:middle;margin-right:3px"></span>
+                            <?php if ($isCorrect): ?>&#10003;
+                            <?php elseif ($isSelected): ?>&rarr;
+                            <?php else: ?><span style="display:inline-block;width:10px"></span>
                             <?php endif; ?>
                             <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?>
                         </li>
