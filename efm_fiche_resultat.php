@@ -392,7 +392,7 @@ $tamponB64  = file_exists($tamponPath)
             <td><?= sanitize($annee) ?></td>
             <td class="lbl">Note finale</td>
             <td class="sep">:</td>
-            <td style="font-weight:bold"><?= number_format($scoreSur, 2) ?> / <?= $noteMax ?></td>
+            <td style="font-weight:bold"><span style="display:inline-block;width:60px;border-bottom:1px solid #000;">&nbsp;</span> / <?= $noteMax ?></td>
         </tr>
     </table>
 
@@ -437,7 +437,7 @@ $tamponB64  = file_exists($tamponPath)
             ?>
             <tr>
                 <td class="col-note">
-                    <?= number_format($pts, 1) ?><br>
+                    <span style="display:block;border-bottom:1px solid #000;min-width:36px;">&nbsp;</span>
                     <span style="font-weight:normal;font-size:9pt;color:#555">/ <?= number_format($ptsMax, 1) ?></span>
                 </td>
                 <td class="col-q">
@@ -445,9 +445,17 @@ $tamponB64  = file_exists($tamponPath)
                         <strong>Q<?= $idx + 1 ?>.</strong>
                         <?= sanitize($q['question_texte']) ?>
                     </div>
+                    <?php if ($q['type'] === 'texte_libre'): ?>
+                    <div style="margin-left:8px">
+                        <div style="border-bottom:1px solid #999;min-height:18px;margin-bottom:4px">&nbsp;</div>
+                        <div style="border-bottom:1px solid #999;min-height:18px;margin-bottom:4px">&nbsp;</div>
+                        <div style="border-bottom:1px solid #999;min-height:18px">&nbsp;</div>
+                    </div>
+                    <?php else: ?>
                     <div class="q-reponse <?= $reponse === '' ? 'empty' : '' ?>">
                         <?= $reponse !== '' ? sanitize($reponse) : '&nbsp;' ?>
                     </div>
+                    <?php endif; ?>
                 </td>
             </tr>
             <?php endforeach; ?>

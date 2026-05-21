@@ -315,7 +315,7 @@ $tamponB64  = file_exists($tamponPath)
             <td class="sep">:</td>
             <td><?= htmlspecialchars($annee, ENT_QUOTES, 'UTF-8') ?></td>
             <td class="lbl">Note finale</td>
-            <td class="note" style="text-align:center">: <?= number_format($noteFinale, 2) ?> / <?= $noteMax ?></td>
+            <td class="note" style="text-align:center">: <span style="display:inline-block;width:60px;border-bottom:1px solid #000;">&nbsp;</span> / <?= $noteMax ?></td>
         </tr>
     </table>
 
@@ -341,17 +341,25 @@ $tamponB64  = file_exists($tamponPath)
             ?>
             <tr>
                 <td class="col-note">
-                    <?= number_format($pts, 1) ?>
-                    <br><span class="pts-max">/ <?= number_format($ptsMax, 1) ?></span>
+                    <span style="display:block;border-bottom:1px solid #000;min-width:36px;">&nbsp;</span>
+                    <span class="pts-max">/ <?= number_format($ptsMax, 1) ?></span>
                 </td>
                 <td>
                     <div class="q-texte">
                         <strong>Q<?= $idx + 1 ?>.</strong>
                         <?= htmlspecialchars($q['question_texte'], ENT_QUOTES, 'UTF-8') ?>
                     </div>
+                    <?php if ($q['type'] === 'texte_libre'): ?>
+                    <div style="margin-left:6px">
+                        <div style="border-bottom:1px solid #999;min-height:18px;margin-bottom:4px">&nbsp;</div>
+                        <div style="border-bottom:1px solid #999;min-height:18px;margin-bottom:4px">&nbsp;</div>
+                        <div style="border-bottom:1px solid #999;min-height:18px">&nbsp;</div>
+                    </div>
+                    <?php else: ?>
                     <div class="q-reponse <?= $reponse === '' ? 'vide' : '' ?>">
                         <?= $reponse !== '' ? htmlspecialchars($reponse, ENT_QUOTES, 'UTF-8') : '&nbsp;' ?>
                     </div>
+                    <?php endif; ?>
                 </td>
             </tr>
             <?php endforeach; ?>
