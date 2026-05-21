@@ -318,22 +318,13 @@ foreach ($sessions as $session) {
             'mode'          => 'utf-8',
             'format'        => 'A4',
             'margin_top'    => 10,
-            'margin_bottom' => 48,
+            'margin_bottom' => 15,
             'margin_left'   => 13,
             'margin_right'  => 13,
-            'margin_footer' => 8,
             'tempDir'       => sys_get_temp_dir(),
         ]);
         $mpdf->SetTitle('EFM — ' . ($session['prenom'] ?? '') . ' ' . ($session['nom'] ?? ''));
 
-        if ($tamponB64) {
-            $mpdf->SetHTMLFooter(
-                '<table width="100%" style="border-collapse:collapse"><tr>' .
-                '<td style="text-align:right;padding-right:1mm;">' .
-                '<img src="' . $tamponB64 . '" style="width:38mm;" />' .
-                '</td></tr></table>'
-            );
-        }
 
         $mpdf->WriteHTML($fullHtml);
         $mpdf->Output($pdfFile, \Mpdf\Output\Destination::FILE);
