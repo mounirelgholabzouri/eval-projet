@@ -232,7 +232,7 @@ if ($action === 'edit' && $id > 0) {
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Établissement</label>
-                    <select name="etablissement_id" class="form-select" id="creer_etab" onchange="filtrerGroupesModal('creer_etab','grp_new_')">
+                    <select name="etablissement_id" class="form-select" id="creer_etab" onchange="filtrerGroupesModal('creer_etab','grp-new-')">
                         <option value="">— Non défini —</option>
                         <?php foreach ($etablissements as $e): ?>
                             <option value="<?= $e['id'] ?>"><?= sanitize($e['nom']) ?><?= $e['ville'] ? ' — '.sanitize($e['ville']) : '' ?></option>
@@ -295,7 +295,7 @@ if ($action === 'edit' && $id > 0) {
                 </div>
                 <div class="mb-3">
                     <label class="form-label fw-semibold">Établissement</label>
-                    <select name="etablissement_id" class="form-select" id="edit_etab" onchange="filtrerGroupesModal('edit_etab','grp_edit_')">
+                    <select name="etablissement_id" class="form-select" id="edit_etab" onchange="filtrerGroupesModal('edit_etab','grp-edit-')">
                         <option value="">— Non défini —</option>
                         <?php foreach ($etablissements as $e): ?>
                             <option value="<?= $e['id'] ?>" <?= ($editFormateur && (int)$editFormateur['etablissement_id'] === $e['id']) ? 'selected' : '' ?>>

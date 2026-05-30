@@ -27,6 +27,16 @@ if (!empty($_SESSION['admin_id'])) {
 $pdo = getDB();
 $moduleId = (int)($_GET['module_id'] ?? 0);
 $groupeId = (int)($_GET['groupe_id'] ?? 0);
+$dateFrom = trim($_GET['date_from'] ?? '');
+$dateTo   = trim($_GET['date_to'] ?? '');
+$hourFrom = trim($_GET['hour_from'] ?? '');
+$hourTo   = trim($_GET['hour_to'] ?? '');
+$datePattern = '/^\d{4}-\d{2}-\d{2}$/';
+$timePattern = '/^\d{2}:\d{2}$/';
+if (!preg_match($datePattern, $dateFrom)) $dateFrom = '';
+if (!preg_match($datePattern, $dateTo))   $dateTo = '';
+if (!preg_match($timePattern, $hourFrom)) $hourFrom = '';
+if (!preg_match($timePattern, $hourTo))   $hourTo = '';
 $adminRole = ($_SESSION['admin_role'] ?? 'admin') === 'admin';
 $adminId   = (int)($_SESSION['admin_id'] ?? 0);
 
@@ -35,6 +45,10 @@ $where  = ["se.statut = 'termine'"];
 $params = [];
 if ($moduleId > 0) { $where[] = 'se.module_id = ?'; $params[] = $moduleId; }
 if ($groupeId > 0) { $where[] = 'se.groupe_id = ?'; $params[] = $groupeId; }
+if ($dateFrom)     { $where[] = 'DATE(se.date_debut) >= ?'; $params[] = $dateFrom; }
+if ($dateTo)       { $where[] = 'DATE(se.date_debut) <= ?'; $params[] = $dateTo; }
+if ($hourFrom)     { $where[] = 'TIME(se.date_debut) >= ?'; $params[] = $hourFrom . ':00'; }
+if ($hourTo)       { $where[] = 'TIME(se.date_debut) <= ?'; $params[] = $hourTo . ':59'; }
 
 $whereStr = implode(' AND ', $where);
 $stmt = $pdo->prepare("
@@ -65,6 +79,10 @@ $whereStag  = ["se.statut = 'termine'"];
 $paramsStag = [];
 if ($moduleId > 0) { $whereStag[] = 'se.module_id = ?'; $paramsStag[] = $moduleId; }
 if ($groupeId > 0) { $whereStag[] = 'se.groupe_id = ?'; $paramsStag[] = $groupeId; }
+if ($dateFrom)     { $whereStag[] = 'DATE(se.date_debut) >= ?'; $paramsStag[] = $dateFrom; }
+if ($dateTo)       { $whereStag[] = 'DATE(se.date_debut) <= ?'; $paramsStag[] = $dateTo; }
+if ($hourFrom)     { $whereStag[] = 'TIME(se.date_debut) >= ?'; $paramsStag[] = $hourFrom . ':00'; }
+if ($hourTo)       { $whereStag[] = 'TIME(se.date_debut) <= ?'; $paramsStag[] = $hourTo . ':59'; }
 
 $stmtMoy = $pdo->prepare("
     SELECT

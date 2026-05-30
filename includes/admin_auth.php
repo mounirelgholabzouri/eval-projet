@@ -9,6 +9,23 @@ if (empty($_SESSION['admin_id'])) {
     exit;
 }
 
+// Re-sync le rôle depuis la DB si absent de la session (ex: session antérieure à la migration)
+if (!isset($_SESSION['admin_role'])) {
+    try {
+        $__pdo = new PDO(
+            'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4',
+            DB_USER, DB_PASS,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+        $__stmt = $__pdo->prepare("SELECT role FROM admins WHERE id = ? LIMIT 1");
+        $__stmt->execute([$_SESSION['admin_id']]);
+        $__row = $__stmt->fetch(PDO::FETCH_ASSOC);
+        $_SESSION['admin_role'] = $__row ? ($__row['role'] ?? 'admin') : 'admin';
+    } catch (\Exception $__e) {
+        $_SESSION['admin_role'] = 'admin';
+    }
+}
+
 // Vérification CSRF automatique sur tous les POST sauf les endpoints API
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phpSelf = basename($_SERVER['PHP_SELF']);

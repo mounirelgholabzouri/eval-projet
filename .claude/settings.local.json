@@ -176,7 +176,18 @@
       "Bash(powershell -Command \"& 'C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe' -l 'C:\\\\Users\\\\Administrateur\\\\Eval-Projet\\\\admin\\\\detail.php' 2>&1\")",
       "Bash(powershell -Command ' *)",
       "Bash(powershell -Command \"& 'C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe' -l 'C:\\\\Users\\\\Administrateur\\\\Eval-Projet\\\\admin\\\\generate_efm_pdf.php' 2>&1\")",
-      "Bash(git restore *)"
+      "Bash(git restore *)",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\results.php\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\export_excel.php\")",
+      "Bash(scp \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\results.php\" \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\export_excel.php\" Administrateur@192.168.1.178:\"C:/Users/Administrateur/Desktop/Eval-Projet/admin/\")",
+      "Bash(ssh Administrateur@192.168.11.136 \"cd C:/Users/Administrateur/Desktop/Eval-Projet && git log --oneline -5 && echo '---' && git status --short\")",
+      "Bash(where sshpass *)",
+      "Bash(where plink *)",
+      "Bash(where putty *)",
+      "Bash(python -c \"import paramiko; print\\('paramiko OK'\\)\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\etablissements.php\")",
+      "Bash(\"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\" -l \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\\\\admin\\\\partials\\\\navbar.php\")",
+      "PowerShell($php = \"C:\\\\laragon\\\\bin\\\\php\\\\php-8.3.30-Win32-vs16-x64\\\\php.exe\"; $base = \"C:\\\\Users\\\\Administrateur\\\\Desktop\\\\Eval-Projet\"; @\\(\"admin\\\\groupes.php\",\"admin\\\\stagiaires.php\",\"register.php\",\"includes\\\\functions.php\"\\) | ForEach-Object { & $php -l \"$base\\\\$_\" })"
     ]
   }
 }

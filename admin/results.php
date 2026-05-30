@@ -32,9 +32,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
 
 // Filtres
 $filterModule    = (int)($_GET['module_id'] ?? 0);
+$filterGroupeId  = (int)($_GET['groupe_id'] ?? 0);
 $filterGroupe    = trim($_GET['groupe'] ?? '');
 $filterStatut    = $_GET['statut'] ?? '';
 $filterCorrection = $_GET['correction'] ?? '';
+$filterDateFrom  = trim($_GET['date_from'] ?? '');
+$filterDateTo    = trim($_GET['date_to'] ?? '');
+$filterHourFrom  = trim($_GET['hour_from'] ?? '');
+$filterHourTo    = trim($_GET['hour_to'] ?? '');
+
+$datePattern = '/^\d{4}-\d{2}-\d{2}$/';
+$timePattern = '/^\d{2}:\d{2}$/';
+if (!preg_match($datePattern, $filterDateFrom)) $filterDateFrom = '';
+if (!preg_match($datePattern, $filterDateTo))   $filterDateTo = '';
+if (!preg_match($timePattern, $filterHourFrom)) $filterHourFrom = '';
+if (!preg_match($timePattern, $filterHourTo))   $filterHourTo = '';
+
+$activeFilters = array_filter([
+    'module_id'  => $filterModule ?: null,
+    'groupe_id'  => $filterGroupeId ?: null,
+    'groupe'     => $filterGroupe ?: null,
+    'statut'     => $filterStatut ?: null,
+    'correction' => $filterCorrection ?: null,
+    'date_from'  => $filterDateFrom ?: null,
+    'date_to'    => $filterDateTo ?: null,
+    'hour_from'  => $filterHourFrom ?: null,
+    'hour_to'    => $filterHourTo ?: null,
+], fn($v) => $v !== null && $v !== '');
 
 // Export CSV
 if (isset($_GET['export'])) {
@@ -46,6 +70,23 @@ if (isset($_GET['export'])) {
 
     $csvWhere  = ['1=1'];
     $csvParams = [];
+    if ($filterModule > 0)   { $csvWhere[] = 's.module_id = ?'; $csvParams[] = $filterModule; }
+    if ($filterGroupeId > 0) { $csvWhere[] = 's.groupe_id = ?'; $csvParams[] = $filterGroupeId; }
+    elseif ($filterGroupe)   { $csvWhere[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $csvParams[] = "%$filterGroupe%"; $csvParams[] = "%$filterGroupe%"; }
+    if ($filterStatut)       { $csvWhere[] = "s.statut = ?"; $csvParams[] = $filterStatut; }
+    if ($filterDateFrom)     { $csvWhere[] = "DATE(s.date_debut) >= ?"; $csvParams[] = $filterDateFrom; }
+    if ($filterDateTo)       { $csvWhere[] = "DATE(s.date_debut) <= ?"; $csvParams[] = $filterDateTo; }
+    if ($filterHourFrom)     { $csvWhere[] = "TIME(s.date_debut) >= ?"; $csvParams[] = $filterHourFrom . ':00'; }
+    if ($filterHourTo)       { $csvWhere[] = "TIME(s.date_debut) <= ?"; $csvParams[] = $filterHourTo . ':59'; }
+    if ($filterCorrection === 'non_corrigee') {
+        $csvWhere[] = "EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL)";
+    } elseif ($filterCorrection === 'corrigee_ia') {
+        $csvWhere[] = "NOT EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL)
+                       AND EXISTS (SELECT 1 FROM reponses_stagiaires rs3 JOIN questions q3 ON q3.id=rs3.question_id WHERE rs3.session_id=s.id AND q3.type='texte_libre' AND rs3.source_correction='ia')";
+    } elseif ($filterCorrection === 'corrigee') {
+        $csvWhere[] = "NOT EXISTS (SELECT 1 FROM reponses_stagiaires rs2 JOIN questions q2 ON q2.id=rs2.question_id WHERE rs2.session_id=s.id AND q2.type='texte_libre' AND rs2.source_correction IS NULL)
+                       AND EXISTS (SELECT 1 FROM reponses_stagiaires rs3 JOIN questions q3 ON q3.id=rs3.question_id WHERE rs3.session_id=s.id AND q3.type='texte_libre' AND rs3.source_correction IS NOT NULL)";
+    }
     $csvWhereStr = implode(' AND ', $csvWhere);
     $stmt = $pdo->prepare("
         SELECT COALESCE(st.nom,    s.nom)    AS nom,
@@ -80,8 +121,13 @@ $where  = ['1=1'];
 $params = [];
 
 if ($filterModule > 0) { $where[] = 's.module_id = ?'; $params[] = $filterModule; }
-if ($filterGroupe)     { $where[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $params[] = "%$filterGroupe%"; $params[] = "%$filterGroupe%"; }
+if ($filterGroupeId > 0) { $where[] = 's.groupe_id = ?'; $params[] = $filterGroupeId; }
+elseif ($filterGroupe) { $where[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $params[] = "%$filterGroupe%"; $params[] = "%$filterGroupe%"; }
 if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
+if ($filterDateFrom)   { $where[] = "DATE(s.date_debut) >= ?"; $params[] = $filterDateFrom; }
+if ($filterDateTo)     { $where[] = "DATE(s.date_debut) <= ?"; $params[] = $filterDateTo; }
+if ($filterHourFrom)   { $where[] = "TIME(s.date_debut) >= ?"; $params[] = $filterHourFrom . ':00'; }
+if ($filterHourTo)     { $where[] = "TIME(s.date_debut) <= ?"; $params[] = $filterHourTo . ':59'; }
 
 // Filtre correction
 if ($filterCorrection === 'non_corrigee') {
@@ -119,6 +165,7 @@ $stmt->execute($params);
 $sessions = $stmt->fetchAll();
 
 $allModules = getAllModules();
+$allGroupes = getGroupes();
 
 // Déterminer si le module filtré est un EFM et construire l'URL d'impression
 $filteredModuleIsEfm = false;
@@ -192,11 +239,11 @@ $stats = getStatsGlobales();
             <button type="button" class="btn btn-info" id="btn-valider-tout" onclick="validerTousVisible()">
                 <i class="bi bi-check-all me-1"></i>Valider toutes notes IA
             </button>
-            <a href="export_excel.php?<?= $filterModule ? "module_id=$filterModule" : '' ?><?= $filterGroupe ? "&groupe_id=".urlencode($filterGroupe) : '' ?>"
+            <a href="export_excel.php?<?= htmlspecialchars(http_build_query($activeFilters)) ?>"
                class="btn btn-success">
                 <i class="bi bi-file-earmark-excel me-2"></i>Exporter Excel
             </a>
-            <a href="results.php?export=1<?= $filterModule ? "&module_id=$filterModule" : '' ?><?= $filterGroupe ? "&groupe=".urlencode($filterGroupe) : '' ?>"
+            <a href="results.php?<?= htmlspecialchars(http_build_query($activeFilters + ['export' => 1])) ?>"
                class="btn btn-outline-success">
                 <i class="bi bi-filetype-csv me-2"></i>CSV
             </a>
@@ -257,8 +304,39 @@ $stats = getStatsGlobales();
                 </div>
                 <div>
                     <label class="form-label small fw-semibold mb-1">Groupe</label>
+                    <select name="groupe_id" class="form-select form-select-sm" style="min-width:190px" onchange="this.form.submit()">
+                        <option value="">Tous les groupes</option>
+                        <?php foreach ($allGroupes as $g): ?>
+                        <option value="<?= $g['id'] ?>" <?= $g['id'] == $filterGroupeId ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($g['nom']) ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Recherche groupe</label>
                     <input type="text" name="groupe" class="form-control form-control-sm"
-                           placeholder="Rechercher un groupe..." value="<?= htmlspecialchars($filterGroupe) ?>">
+                           placeholder="Groupe libre..." value="<?= htmlspecialchars($filterGroupe) ?>">
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Date activation debut</label>
+                    <input type="date" name="date_from" class="form-control form-control-sm"
+                           value="<?= htmlspecialchars($filterDateFrom) ?>">
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Date activation fin</label>
+                    <input type="date" name="date_to" class="form-control form-control-sm"
+                           value="<?= htmlspecialchars($filterDateTo) ?>">
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Heure debut</label>
+                    <input type="time" name="hour_from" class="form-control form-control-sm"
+                           value="<?= htmlspecialchars($filterHourFrom) ?>">
+                </div>
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Heure fin</label>
+                    <input type="time" name="hour_to" class="form-control form-control-sm"
+                           value="<?= htmlspecialchars($filterHourTo) ?>">
                 </div>
                 <div>
                     <label class="form-label small fw-semibold mb-1">Statut</label>
@@ -319,7 +397,7 @@ $stats = getStatsGlobales();
                         <th class="ps-4">Stagiaire</th>
                         <th>Groupe</th>
                         <th>Module</th>
-                        <th>Date</th>
+                        <th>Date / heure activation</th>
                         <th class="text-center">Score</th>
                         <th class="text-center">%</th>
                         <th class="text-center">Mention</th>
@@ -471,7 +549,7 @@ $stats = getStatsGlobales();
                 <p class="text-danger fw-semibold mb-0">Toutes les réponses associées seront effacées. Cette action est irréversible.</p>
             </div>
             <div class="modal-footer border-0">
-                <form method="POST" action="results.php?<?= http_build_query(array_filter(['module_id'=>$filterModule,'groupe'=>$filterGroupe,'statut'=>$filterStatut])) ?>">
+                <form method="POST" action="results.php?<?= htmlspecialchars(http_build_query($activeFilters)) ?>">
                     <?= csrfField() ?>
                     <input type="hidden" name="confirm_delete_session" value="1">
                     <input type="hidden" name="delete_id" id="delSessId">
