@@ -2,6 +2,14 @@
     <div class="container-fluid px-4">
         <a class="navbar-brand fw-bold" href="index.php">
             <i class="bi bi-shield-check me-2"></i>Admin Évaluations
+            <?php
+                $etabNavbar = !empty($_SESSION['admin_etablissement_nom'])
+                    ? $_SESSION['admin_etablissement_nom']
+                    : getEtablissementDefaut();
+            ?>
+            <span class="badge bg-secondary fw-normal ms-2 small">
+                <i class="bi bi-building me-1"></i><?= sanitize($etabNavbar) ?>
+            </span>
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
             <span class="navbar-toggler-icon"></span>
@@ -52,6 +60,12 @@
                     <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'sessions_view.php' ? 'active' : '' ?>"
                        href="sessions_view.php">
                         <i class="bi bi-calendar-check me-1"></i>Sessions
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'etablissements.php' ? 'active' : '' ?>"
+                       href="etablissements.php">
+                        <i class="bi bi-building me-1"></i>Établissements
                     </a>
                 </li>
                 <li class="nav-item">

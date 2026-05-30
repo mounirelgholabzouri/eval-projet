@@ -56,6 +56,28 @@ function getMention(float $pourcentage): array {
 }
 
 // ============================================================
+// Fonctions établissement
+// ============================================================
+
+function getEtablissementDefaut(): string {
+    static $cache = null;
+    if ($cache !== null) return $cache;
+    try {
+        $pdo  = getDB();
+        $row  = $pdo->query("SELECT nom FROM etablissements WHERE actif = 1 ORDER BY id ASC LIMIT 1")->fetch();
+        $cache = $row ? $row['nom'] : 'ISTA HAY RIAD';
+    } catch (\Exception $e) {
+        $cache = 'ISTA HAY RIAD';
+    }
+    return $cache;
+}
+
+function getAllEtablissements(): array {
+    $pdo = getDB();
+    return $pdo->query("SELECT * FROM etablissements ORDER BY nom")->fetchAll();
+}
+
+// ============================================================
 // Fonctions modules
 // ============================================================
 
@@ -71,7 +93,7 @@ function getModule(int $id): ?array {
         SELECT m.*,
                COALESCE(em.code_module,   '') AS efm_code_module,
                COALESCE(em.filiere,       '') AS efm_filiere,
-               COALESCE(em.etablissement, '') AS efm_etablissement,
+               COALESCE(NULLIF(em.etablissement,''), (SELECT nom FROM etablissements WHERE actif=1 ORDER BY id LIMIT 1), 'ISTA HAY RIAD') AS efm_etablissement,
                COALESCE(em.annee,         '') AS efm_annee
         FROM modules m
         LEFT JOIN modules_efm_meta em ON em.module_id = m.id
@@ -89,7 +111,7 @@ function getAllModules(): array {
                (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS nb_questions,
                COALESCE(em.code_module,   '') AS efm_code_module,
                COALESCE(em.filiere,       '') AS efm_filiere,
-               COALESCE(em.etablissement, '') AS efm_etablissement,
+               COALESCE(NULLIF(em.etablissement,''), (SELECT nom FROM etablissements WHERE actif=1 ORDER BY id LIMIT 1), 'ISTA HAY RIAD') AS efm_etablissement,
                COALESCE(em.annee,         '') AS efm_annee
         FROM modules m
         LEFT JOIN modules_efm_meta em ON em.module_id = m.id
@@ -103,7 +125,12 @@ function getAllModules(): array {
 
 function getGroupes(): array {
     $pdo = getDB();
-    return $pdo->query("SELECT * FROM groupes ORDER BY nom")->fetchAll();
+    return $pdo->query("
+        SELECT g.*, COALESCE(e.nom, '') AS etablissement_nom
+        FROM groupes g
+        LEFT JOIN etablissements e ON e.id = g.etablissement_id
+        ORDER BY g.nom
+    ")->fetchAll();
 }
 
 // ============================================================
@@ -366,10 +393,12 @@ function getStagiaires(?int $groupeId = null, ?string $annee = null): array {
     if ($groupeId) { $where[] = 's.groupe_id = ?'; $params[] = $groupeId; }
     if ($annee)    { $where[] = 's.annee_scolaire = ?'; $params[] = $annee; }
     $sql = "SELECT s.*, g.nom AS groupe_nom,
+                COALESCE(e.nom, '') AS etablissement_nom,
                 COUNT(se.id) AS nb_evaluations,
                 COALESCE(AVG(CASE WHEN se.statut='termine' THEN se.pourcentage END), NULL) AS moy_pourcentage
             FROM stagiaires s
             JOIN groupes g ON g.id = s.groupe_id
+            LEFT JOIN etablissements e ON e.id = g.etablissement_id
             LEFT JOIN sessions_eval se ON se.stagiaire_id = s.id
             " . ($where ? 'WHERE ' . implode(' AND ', $where) : '') . "
             GROUP BY s.id ORDER BY s.annee_scolaire DESC, g.nom, s.nom, s.prenom";
@@ -497,8 +526,10 @@ function getAllFormateurs(): array {
     $pdo = getDB();
     return $pdo->query("
         SELECT a.*,
+               COALESCE(e.nom, '') AS etablissement_nom,
                COUNT(DISTINCT mf.module_id) AS nb_modules
         FROM admins a
+        LEFT JOIN etablissements e  ON e.id = a.etablissement_id
         LEFT JOIN module_formateurs mf ON a.id = mf.formateur_id
         GROUP BY a.id
         ORDER BY a.nom
@@ -507,7 +538,12 @@ function getAllFormateurs(): array {
 
 function getFormateur(int $id): ?array {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT * FROM admins WHERE id = ?");
+    $stmt = $pdo->prepare("
+        SELECT a.*, COALESCE(e.nom, '') AS etablissement_nom
+        FROM admins a
+        LEFT JOIN etablissements e ON e.id = a.etablissement_id
+        WHERE a.id = ?
+    ");
     $stmt->execute([$id]);
     return $stmt->fetch() ?: null;
 }
@@ -525,23 +561,23 @@ function adminUsernameUnique(string $username, int $excludeId = 0): bool {
     return (int)$stmt->fetchColumn() === 0;
 }
 
-function creerFormateur(string $username, string $nom, string $password): int {
+function creerFormateur(string $username, string $nom, string $password, ?int $etablissementId = null): int {
     $pdo = getDB();
     $hash = password_hash($password, PASSWORD_BCRYPT);
-    $stmt = $pdo->prepare("INSERT INTO admins (username, password_hash, nom, role) VALUES (?, ?, ?, 'formateur')");
-    $stmt->execute([trim($username), $hash, trim($nom)]);
+    $stmt = $pdo->prepare("INSERT INTO admins (username, password_hash, nom, role, etablissement_id) VALUES (?, ?, ?, 'formateur', ?)");
+    $stmt->execute([trim($username), $hash, trim($nom), $etablissementId]);
     return (int)$pdo->lastInsertId();
 }
 
-function modifierFormateur(int $id, string $username, string $nom, ?string $password = null): void {
+function modifierFormateur(int $id, string $username, string $nom, ?string $password = null, ?int $etablissementId = null): void {
     $pdo = getDB();
     if ($password) {
         $hash = password_hash($password, PASSWORD_BCRYPT);
-        $stmt = $pdo->prepare("UPDATE admins SET username = ?, nom = ?, password_hash = ? WHERE id = ?");
-        $stmt->execute([trim($username), trim($nom), $hash, $id]);
+        $stmt = $pdo->prepare("UPDATE admins SET username=?, nom=?, password_hash=?, etablissement_id=? WHERE id=?");
+        $stmt->execute([trim($username), trim($nom), $hash, $etablissementId, $id]);
     } else {
-        $stmt = $pdo->prepare("UPDATE admins SET username = ?, nom = ? WHERE id = ?");
-        $stmt->execute([trim($username), trim($nom), $id]);
+        $stmt = $pdo->prepare("UPDATE admins SET username=?, nom=?, etablissement_id=? WHERE id=?");
+        $stmt->execute([trim($username), trim($nom), $etablissementId, $id]);
     }
 }
 

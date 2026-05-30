@@ -91,8 +91,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 // ── Données ────────────────────────────────────────────────────
-$groupes     = getGroupes();
-$annees      = getAnneesDisponibles();
+$groupes          = getGroupes();
+$etablissements   = getAllEtablissements();
+$annees           = getAnneesDisponibles();
 $anneeActive = $_GET['annee'] ?? getAnneeCourante();
 $groupeFiltre= isset($_GET['groupe_id']) ? (int)$_GET['groupe_id'] : null;
 
@@ -135,7 +136,31 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
     <div class="card border-0 shadow-sm mb-4">
         <div class="card-body">
             <form method="GET" class="row g-3 align-items-end">
-                <div class="col-md-4">
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Établissement</label>
+                    <select name="etablissement_id" class="form-select" onchange="filtrerGroupes(this)">
+                        <option value="">Tous les établissements</option>
+                        <?php foreach ($etablissements as $e): ?>
+                            <option value="<?= $e['id'] ?>" <?= (isset($_GET['etablissement_id']) && $_GET['etablissement_id'] == $e['id']) ? 'selected' : '' ?>>
+                                <?= sanitize($e['nom']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-semibold">Groupe</label>
+                    <select name="groupe_id" id="select_groupe" class="form-select">
+                        <option value="">Tous les groupes</option>
+                        <?php foreach ($groupes as $g): ?>
+                            <option value="<?= $g['id'] ?>"
+                                    data-etab="<?= (int)($g['etablissement_id'] ?? 0) ?>"
+                                    <?= $g['id'] == $groupeFiltre ? 'selected' : '' ?>>
+                                <?= sanitize($g['nom']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="col-md-3">
                     <label class="form-label fw-semibold">Année scolaire</label>
                     <select name="annee" class="form-select">
                         <option value="">Toutes les années</option>
@@ -144,16 +169,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-md-4">
-                    <label class="form-label fw-semibold">Groupe</label>
-                    <select name="groupe_id" class="form-select">
-                        <option value="">Tous les groupes</option>
-                        <?php foreach ($groupes as $g): ?>
-                            <option value="<?= $g['id'] ?>" <?= $g['id'] == $groupeFiltre ? 'selected' : '' ?>><?= sanitize($g['nom']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <button class="btn btn-primary w-100"><i class="bi bi-funnel me-1"></i>Filtrer</button>
                 </div>
             </form>
@@ -184,6 +200,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                             <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
                         </th>
                         <th>Stagiaire</th>
+                        <th>Établissement</th>
                         <th>Groupe</th>
                         <th>Année</th>
                         <th class="text-center">Login</th>
@@ -195,7 +212,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                 </thead>
                 <tbody>
                 <?php if (empty($stagiaires)): ?>
-                    <tr><td colspan="9" class="text-center text-muted py-4">Aucun stagiaire trouvé.</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-4">Aucun stagiaire trouvé.</td></tr>
                 <?php else: ?>
                     <?php foreach ($stagiaires as $s): ?>
                     <tr>
@@ -206,6 +223,15 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                             <div class="fw-semibold"><?= sanitize($s['prenom']) ?> <?= sanitize(strtoupper($s['nom'])) ?></div>
                             <?php if (!empty($s['must_change_password'])): ?>
                                 <span class="badge bg-warning text-dark small"><i class="bi bi-key me-1"></i>Mdp par défaut</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if ($s['etablissement_nom']): ?>
+                                <span class="badge bg-info-subtle text-info border border-info-subtle">
+                                    <i class="bi bi-building me-1"></i><?= sanitize($s['etablissement_nom']) ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="text-muted small">—</span>
                             <?php endif; ?>
                         </td>
                         <td><span class="badge bg-secondary"><?= sanitize($s['groupe_nom']) ?></span></td>
@@ -509,6 +535,23 @@ function clearSelection() {
     document.getElementById('selectAll').checked = false;
     updateBulkActionBar();
 }
+
+function filtrerGroupes(sel) {
+    const etabId = sel.value;
+    const groupeSel = document.getElementById('select_groupe');
+    Array.from(groupeSel.options).forEach(opt => {
+        if (!opt.value) return; // "Tous les groupes"
+        opt.hidden = etabId && opt.dataset.etab !== etabId;
+    });
+    if (etabId && groupeSel.selectedOptions[0]?.dataset.etab !== etabId) {
+        groupeSel.value = '';
+    }
+}
+// Appliquer le filtre établissement au chargement si déjà sélectionné
+document.addEventListener('DOMContentLoaded', () => {
+    const etabSel = document.querySelector('[name="etablissement_id"]');
+    if (etabSel?.value) filtrerGroupes(etabSel);
+});
 
 function bulkDeleteStagiaires() {
     const checkboxes = document.querySelectorAll('.stagiaire-checkbox:checked');

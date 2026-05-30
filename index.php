@@ -79,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <i class="bi bi-mortarboard-fill"></i>
                 </div>
                 <h1 class="h3 text-white fw-bold">Évaluation en ligne</h1>
+                <p class="text-white fw-semibold small mb-1"><i class="bi bi-building me-1"></i><?= sanitize(getEtablissementDefaut()) ?></p>
                 <p class="text-white-50">Choisissez votre module pour commencer</p>
             </div>
 

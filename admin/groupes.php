@@ -13,16 +13,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postAction = $_POST['action'] ?? '';
 
     if ($postAction === 'ajouter' || $postAction === 'modifier') {
-        $nom = trim($_POST['nom'] ?? '');
+        $nom            = trim($_POST['nom'] ?? '');
+        $etablissementId = (int)($_POST['etablissement_id'] ?? 0) ?: null;
         if (strlen($nom) < 2) {
             $msg = "Le nom du groupe doit faire au moins 2 caractères.";
             $msgType = 'danger';
         } elseif ($postAction === 'modifier' && $id > 0) {
-            $pdo->prepare("UPDATE groupes SET nom=? WHERE id=?")->execute([$nom, $id]);
+            $pdo->prepare("UPDATE groupes SET nom=?, etablissement_id=? WHERE id=?")->execute([$nom, $etablissementId, $id]);
             $msg = "Groupe mis à jour.";
             $action = 'list';
         } else {
-            $pdo->prepare("INSERT INTO groupes (nom) VALUES (?)")->execute([$nom]);
+            $pdo->prepare("INSERT INTO groupes (nom, etablissement_id) VALUES (?, ?)")->execute([$nom, $etablissementId]);
             $msg = "Groupe <strong>" . sanitize($nom) . "</strong> créé.";
             $action = 'list';
         }
@@ -83,14 +84,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ── Données ──────────────────────────────────────────────────
 $groupes = $pdo->query("
     SELECT g.*,
+           COALESCE(e.nom, '') AS etablissement_nom,
            COUNT(DISTINCT s.id)  AS nb_stagiaires,
            COUNT(DISTINCT se.id) AS nb_sessions
     FROM groupes g
-    LEFT JOIN stagiaires s  ON s.groupe_id  = g.id
-    LEFT JOIN sessions_eval se ON se.groupe_id = g.id
+    LEFT JOIN etablissements e  ON e.id = g.etablissement_id
+    LEFT JOIN stagiaires s      ON s.groupe_id  = g.id
+    LEFT JOIN sessions_eval se  ON se.groupe_id = g.id
     GROUP BY g.id
     ORDER BY g.nom
 ")->fetchAll();
+
+$etablissements = getAllEtablissements();
 
 $editGroupe = null;
 if ($action === 'edit' && $id > 0) {
@@ -158,6 +163,7 @@ if ($action === 'edit' && $id > 0) {
                             <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
                         </th>
                         <th class="ps-4">Groupe</th>
+                        <th>Établissement</th>
                         <th class="text-center">Stagiaires</th>
                         <th class="text-center">Évaluations</th>
                         <th class="text-center">Actions</th>
@@ -165,7 +171,7 @@ if ($action === 'edit' && $id > 0) {
                 </thead>
                 <tbody>
                 <?php if (empty($groupes)): ?>
-                    <tr><td colspan="5" class="text-center text-muted py-4">Aucun groupe</td></tr>
+                    <tr><td colspan="6" class="text-center text-muted py-4">Aucun groupe</td></tr>
                 <?php endif; ?>
                 <?php foreach ($groupes as $g): ?>
                     <tr>
@@ -173,6 +179,15 @@ if ($action === 'edit' && $id > 0) {
                             <input type="checkbox" class="form-check-input groupe-checkbox" value="<?= $g['id'] ?>" onchange="updateBulkActionBar()">
                         </td>
                         <td class="ps-4 fw-semibold"><?= sanitize($g['nom']) ?></td>
+                        <td>
+                            <?php if ($g['etablissement_nom']): ?>
+                                <span class="badge bg-info-subtle text-info border border-info-subtle">
+                                    <i class="bi bi-building me-1"></i><?= sanitize($g['etablissement_nom']) ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="text-muted small">—</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-center">
                             <?php if ($g['nb_stagiaires'] > 0): ?>
                                 <a href="stagiaires.php?groupe_id=<?= $g['id'] ?>"
@@ -191,6 +206,7 @@ if ($action === 'edit' && $id > 0) {
                                 <button class="btn btn-sm btn-outline-primary rounded-3 btn-modifier"
                                         data-id="<?= $g['id'] ?>"
                                         data-nom="<?= sanitize($g['nom']) ?>"
+                                        data-etab="<?= (int)($g['etablissement_id'] ?? 0) ?>"
                                         title="Modifier">
                                     <i class="bi bi-pencil"></i>
                                 </button>
@@ -222,8 +238,21 @@ if ($action === 'edit' && $id > 0) {
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <label class="form-label fw-semibold">Nom du groupe <span class="text-danger">*</span></label>
-                <input type="text" name="nom" class="form-control" placeholder="Ex: Groupe A BTS SIO" required autofocus>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Nom du groupe <span class="text-danger">*</span></label>
+                    <input type="text" name="nom" class="form-control" placeholder="Ex: Groupe A BTS SIO" required autofocus>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Établissement</label>
+                    <select name="etablissement_id" class="form-select">
+                        <option value="">— Non défini —</option>
+                        <?php foreach ($etablissements as $e): ?>
+                            <option value="<?= $e['id'] ?>" <?= $e['actif'] ? '' : 'class="text-muted"' ?>>
+                                <?= sanitize($e['nom']) ?><?= $e['ville'] ? ' — ' . sanitize($e['ville']) : '' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
@@ -244,8 +273,21 @@ if ($action === 'edit' && $id > 0) {
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <label class="form-label fw-semibold">Nom du groupe <span class="text-danger">*</span></label>
-                <input type="text" name="nom" id="modif_nom" class="form-control" required>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Nom du groupe <span class="text-danger">*</span></label>
+                    <input type="text" name="nom" id="modif_nom" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Établissement</label>
+                    <select name="etablissement_id" id="modif_etablissement" class="form-select">
+                        <option value="">— Non défini —</option>
+                        <?php foreach ($etablissements as $e): ?>
+                            <option value="<?= $e['id'] ?>">
+                                <?= sanitize($e['nom']) ?><?= $e['ville'] ? ' — ' . sanitize($e['ville']) : '' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Annuler</button>
@@ -287,7 +329,9 @@ document.querySelectorAll('.btn-modifier').forEach(btn => {
     btn.addEventListener('click', () => {
         const id  = btn.dataset.id;
         const nom = btn.dataset.nom;
+        const etab = btn.dataset.etab || '';
         document.getElementById('modif_nom').value = nom;
+        document.getElementById('modif_etablissement').value = etab;
         document.getElementById('formModifier').action = 'groupes.php?action=edit&id=' + id;
         new bootstrap.Modal(document.getElementById('modalModifier')).show();
     });

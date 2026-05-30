@@ -87,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="text-center mb-4">
                 <div class="brand-icon mb-3"><i class="bi bi-person-plus-fill"></i></div>
                 <h1 class="h4 text-white fw-bold">Créer un compte</h1>
+                <p class="text-white fw-semibold small mb-1"><i class="bi bi-building me-1"></i><?= sanitize(getEtablissementDefaut()) ?></p>
                 <p class="text-white-50 small">Inscrivez-vous pour accéder aux évaluations</p>
             </div>
 

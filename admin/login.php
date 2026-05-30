@@ -21,9 +21,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($admin && password_verify($password, $admin['password_hash'])) {
             session_regenerate_id(true);
-            $_SESSION['admin_id']   = $admin['id'];
-            $_SESSION['admin_name'] = $admin['nom'] ?: $admin['username'];
-            $_SESSION['admin_role'] = $admin['role'] ?? 'admin';
+            $_SESSION['admin_id']              = $admin['id'];
+            $_SESSION['admin_name']            = $admin['nom'] ?: $admin['username'];
+            $_SESSION['admin_role']            = $admin['role'] ?? 'admin';
+            $_SESSION['admin_etablissement_id'] = $admin['etablissement_id'] ?? null;
+            // Charger le nom de l'établissement
+            if (!empty($admin['etablissement_id'])) {
+                $eStmt = $pdo->prepare("SELECT nom FROM etablissements WHERE id=?");
+                $eStmt->execute([$admin['etablissement_id']]);
+                $eRow = $eStmt->fetch();
+                $_SESSION['admin_etablissement_nom'] = $eRow ? $eRow['nom'] : '';
+            } else {
+                $_SESSION['admin_etablissement_nom'] = '';
+            }
             header('Location: index.php'); exit;
         } else {
             $erreur = "Identifiants invalides.";

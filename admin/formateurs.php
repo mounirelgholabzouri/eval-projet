@@ -16,17 +16,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ── Créer formateur ──────────────────────────────────────────
     if ($postAction === 'creer') {
-        $username = trim($_POST['username'] ?? '');
-        $nom      = trim($_POST['nom'] ?? '');
-        $password = $_POST['password'] ?? '';
+        $username        = trim($_POST['username'] ?? '');
+        $nom             = trim($_POST['nom'] ?? '');
+        $password        = $_POST['password'] ?? '';
+        $etablissementId = (int)($_POST['etablissement_id'] ?? 0) ?: null;
 
         if (strlen($username) < 3 || strlen($nom) < 2 || strlen($password) < 6) {
             $erreur = "Identifiant (≥3 car.), nom (≥2 car.) et mot de passe (≥6 car.) obligatoires.";
         } elseif (!adminUsernameUnique($username)) {
             $erreur = "Cet identifiant est déjà utilisé.";
         } else {
-            $newId = creerFormateur($username, $nom, $password);
-            // Groupes assignés
+            $newId = creerFormateur($username, $nom, $password, $etablissementId);
             $groupeIds = array_map('intval', $_POST['groupes'] ?? []);
             setGroupesFormateur($newId, $groupeIds);
             $msg = "Formateur <strong>" . sanitize($nom) . "</strong> créé.";
@@ -35,17 +35,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     // ── Modifier formateur ───────────────────────────────────────
     } elseif ($postAction === 'modifier') {
-        $fid      = (int)($_POST['id'] ?? 0);
-        $username = trim($_POST['username'] ?? '');
-        $nom      = trim($_POST['nom'] ?? '');
-        $password = $_POST['password'] ?? '';
+        $fid             = (int)($_POST['id'] ?? 0);
+        $username        = trim($_POST['username'] ?? '');
+        $nom             = trim($_POST['nom'] ?? '');
+        $password        = $_POST['password'] ?? '';
+        $etablissementId = (int)($_POST['etablissement_id'] ?? 0) ?: null;
 
         if (!$fid || strlen($username) < 3 || strlen($nom) < 2) {
             $erreur = "Données invalides.";
         } elseif (!adminUsernameUnique($username, $fid)) {
             $erreur = "Cet identifiant est déjà utilisé.";
         } else {
-            modifierFormateur($fid, $username, $nom, $password ?: null);
+            modifierFormateur($fid, $username, $nom, $password ?: null, $etablissementId);
             $groupeIds = array_map('intval', $_POST['groupes'] ?? []);
             setGroupesFormateur($fid, $groupeIds);
             $msg = "Formateur mis à jour.";
@@ -72,8 +73,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$formateurs = getAllFormateurs();
-$tousGroupes = getGroupes();
+$formateurs     = getAllFormateurs();
+$tousGroupes    = getGroupes();
+$etablissements = getAllEtablissements();
 
 // Formateur à éditer
 $editFormateur      = null;
@@ -143,6 +145,7 @@ if ($action === 'edit' && $id > 0) {
                         </th>
                         <th class="ps-4">Formateur</th>
                         <th>Identifiant</th>
+                        <th>Établissement</th>
                         <th class="text-center">Modules</th>
                         <th>Groupes assignés</th>
                         <th class="text-center">Actions</th>
@@ -150,7 +153,7 @@ if ($action === 'edit' && $id > 0) {
                 </thead>
                 <tbody>
                     <?php if (empty($formateurs)): ?>
-                    <tr><td colspan="6" class="text-center text-muted py-4">Aucun formateur. Créez-en un avec le bouton ci-dessus.</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-4">Aucun formateur. Créez-en un avec le bouton ci-dessus.</td></tr>
                     <?php endif; ?>
                     <?php foreach ($formateurs as $f): ?>
                     <?php $grps = getGroupesFormateur_Details($f['id']); ?>
@@ -162,6 +165,15 @@ if ($action === 'edit' && $id > 0) {
                             <i class="bi bi-person-circle me-2 text-primary"></i><?= sanitize($f['nom'] ?: $f['username']) ?>
                         </td>
                         <td class="text-muted small font-monospace"><?= sanitize($f['username']) ?></td>
+                        <td>
+                            <?php if ($f['etablissement_nom']): ?>
+                                <span class="badge bg-info-subtle text-info border border-info-subtle">
+                                    <i class="bi bi-building me-1"></i><?= sanitize($f['etablissement_nom']) ?>
+                                </span>
+                            <?php else: ?>
+                                <span class="text-muted small">—</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-center">
                             <span class="badge bg-info-subtle text-info border border-info-subtle"><?= $f['nb_modules'] ?></span>
                         </td>
@@ -219,17 +231,27 @@ if ($action === 'edit' && $id > 0) {
                     <input type="password" name="password" class="form-control" required minlength="6">
                 </div>
                 <div class="mb-3">
+                    <label class="form-label fw-semibold">Établissement</label>
+                    <select name="etablissement_id" class="form-select" id="creer_etab" onchange="filtrerGroupesModal('creer_etab','grp_new_')">
+                        <option value="">— Non défini —</option>
+                        <?php foreach ($etablissements as $e): ?>
+                            <option value="<?= $e['id'] ?>"><?= sanitize($e['nom']) ?><?= $e['ville'] ? ' — '.sanitize($e['ville']) : '' ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="mb-3">
                     <label class="form-label fw-semibold">Groupes assignés</label>
                     <div class="border rounded-3 p-2" style="max-height:180px;overflow-y:auto">
                         <?php if (empty($tousGroupes)): ?>
                             <p class="text-muted small mb-0">Aucun groupe créé.</p>
                         <?php endif; ?>
                         <?php foreach ($tousGroupes as $g): ?>
-                        <div class="form-check">
+                        <div class="form-check grp-new-item" data-etab="<?= (int)($g['etablissement_id'] ?? 0) ?>">
                             <input class="form-check-input" type="checkbox" name="groupes[]"
-                                   value="<?= $g['id'] ?>" id="g_new_<?= $g['id'] ?>">
-                            <label class="form-check-label" for="g_new_<?= $g['id'] ?>">
+                                   value="<?= $g['id'] ?>" id="grp_new_<?= $g['id'] ?>">
+                            <label class="form-check-label" for="grp_new_<?= $g['id'] ?>">
                                 <?= sanitize($g['nom']) ?>
+                                <?php if ($g['etablissement_nom']): ?><small class="text-muted">(<?= sanitize($g['etablissement_nom']) ?>)</small><?php endif; ?>
                             </label>
                         </div>
                         <?php endforeach; ?>
@@ -272,15 +294,27 @@ if ($action === 'edit' && $id > 0) {
                     <input type="password" name="password" class="form-control" minlength="6" placeholder="••••••">
                 </div>
                 <div class="mb-3">
+                    <label class="form-label fw-semibold">Établissement</label>
+                    <select name="etablissement_id" class="form-select" id="edit_etab" onchange="filtrerGroupesModal('edit_etab','grp_edit_')">
+                        <option value="">— Non défini —</option>
+                        <?php foreach ($etablissements as $e): ?>
+                            <option value="<?= $e['id'] ?>" <?= ($editFormateur && (int)$editFormateur['etablissement_id'] === $e['id']) ? 'selected' : '' ?>>
+                                <?= sanitize($e['nom']) ?><?= $e['ville'] ? ' — '.sanitize($e['ville']) : '' ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="mb-3">
                     <label class="form-label fw-semibold">Groupes assignés</label>
                     <div class="border rounded-3 p-2" style="max-height:180px;overflow-y:auto">
                         <?php foreach ($tousGroupes as $g): ?>
-                        <div class="form-check">
+                        <div class="form-check grp-edit-item" data-etab="<?= (int)($g['etablissement_id'] ?? 0) ?>">
                             <input class="form-check-input" type="checkbox" name="groupes[]"
-                                   value="<?= $g['id'] ?>" id="g_edit_<?= $g['id'] ?>"
+                                   value="<?= $g['id'] ?>" id="grp_edit_<?= $g['id'] ?>"
                                    <?= in_array($g['id'], $editGroupesAssignes) ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="g_edit_<?= $g['id'] ?>">
+                            <label class="form-check-label" for="grp_edit_<?= $g['id'] ?>">
                                 <?= sanitize($g['nom']) ?>
+                                <?php if ($g['etablissement_nom']): ?><small class="text-muted">(<?= sanitize($g['etablissement_nom']) ?>)</small><?php endif; ?>
                             </label>
                         </div>
                         <?php endforeach; ?>
@@ -310,6 +344,23 @@ document.addEventListener('DOMContentLoaded', function () {
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+function filtrerGroupesModal(selectId, itemClass) {
+    const etabId = document.getElementById(selectId)?.value || '';
+    document.querySelectorAll('.' + itemClass + 'item').forEach(item => {
+        if (!etabId) {
+            item.style.display = '';
+        } else {
+            item.style.display = (item.dataset.etab === etabId) ? '' : 'none';
+        }
+    });
+}
+
+// Appliquer filtres au chargement (modal éditer)
+document.addEventListener('DOMContentLoaded', () => {
+    const editEtab = document.getElementById('edit_etab');
+    if (editEtab?.value) filtrerGroupesModal('edit_etab', 'grp-edit-');
+});
+
 function confirmerSuppression(id, nom) {
     if (confirm('Supprimer le formateur "' + nom + '" ?\nSes modules seront conservés (non assignés).')) {
         document.getElementById('supprimerId').value = id;
