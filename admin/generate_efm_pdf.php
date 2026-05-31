@@ -31,23 +31,30 @@ if ($sessionId > 0) {
         SELECT s.*,
                COALESCE(st.nom,    s.nom)    AS nom,
                COALESCE(st.prenom, s.prenom) AS prenom,
-               m.nom AS module_nom, m.type AS module_type,
-               m.note_max, m.duree_minutes,
-               COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
-               COALESCE(em.code_module,   '') AS efm_code_module,
-               COALESCE(em.filiere,       '') AS efm_filiere,
-               COALESCE(em.etablissement, '') AS efm_etablissement,
-               COALESCE(em.annee,         '') AS efm_annee
+               m.nom AS module_nom, e.type AS module_type,
+               e.note_max, e.duree_minutes,
+               e.meta_json AS eval_meta_json,
+               COALESCE(g.nom, s.groupe_libre) AS groupe_nom
         FROM sessions_eval s
-        JOIN modules m ON m.id = s.module_id
+        JOIN evaluations e  ON e.id  = s.evaluation_id
+        JOIN modules     m  ON m.id  = e.module_id
         LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
         LEFT JOIN groupes    g  ON g.id  = s.groupe_id
-        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
-        WHERE s.module_id = ? AND s.statut = 'termine' AND m.type = 'efm'
+        WHERE e.module_id = ? AND s.statut = 'termine' AND e.type = 'efm'
         ORDER BY s.nom, s.prenom
     ");
     $stmt->execute([$moduleId]);
-    $sessions     = $stmt->fetchAll();
+    $rawSessions = $stmt->fetchAll();
+    // Decode EFM meta for each session
+    $sessions = array_map(function($s) {
+        $meta = json_decode($s['eval_meta_json'] ?? '{}', true) ?: [];
+        $s['efm_code_module']   = $meta['code_module']   ?? '';
+        $s['efm_filiere']       = $meta['filiere']       ?? '';
+        $s['efm_etablissement'] = $meta['etablissement'] ?? '';
+        $s['efm_annee']         = $meta['annee']         ?? '';
+        unset($s['eval_meta_json']);
+        return $s;
+    }, $rawSessions);
     $redirectBack = "results.php?module_id=$moduleId";
     if (empty($sessions)) { header("Location: $redirectBack"); exit; }
     $moduleNom = $sessions[0]['module_nom'];
@@ -261,11 +268,11 @@ $errors    = [];
 
 foreach ($sessions as $session) {
     try {
-        // Récupérer module complet si session partielle (cas module_id)
+        // Récupérer les données évaluation si absentes (cas single session via getSession())
         if (!isset($session['note_max'])) {
-            $mod = getModule((int)$session['module_id']);
-            $session['note_max']      = $mod['note_max']      ?? 40;
-            $session['duree_minutes'] = $mod['duree_minutes'] ?? 0;
+            $eval = getEvaluation((int)$session['evaluation_id']);
+            $session['note_max']      = $eval['note_max']      ?? 40;
+            $session['duree_minutes'] = $eval['duree_minutes'] ?? 0;
         }
 
         // Questions + réponses
@@ -281,7 +288,11 @@ foreach ($sessions as $session) {
             WHERE q.module_id = ?
             ORDER BY q.ordre, q.id
         ");
-        $stmtQ->execute([$session['id'], (int)$session['module_id']]);
+        // Récupère module_id via l'évaluation de la session
+        $evalRow = $pdo->prepare("SELECT module_id FROM evaluations WHERE id = ?");
+        $evalRow->execute([$session['evaluation_id']]);
+        $evalModuleId = (int)($evalRow->fetchColumn() ?: 0);
+        $stmtQ->execute([$session['id'], $evalModuleId]);
         $questions = $stmtQ->fetchAll();
 
         // Charger tous les choix pour chaque question
@@ -354,37 +365,90 @@ if ($sessionId > 0 && count($generated) === 1 && empty($errors)) {
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <title>PDFs EFM générés</title>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PDFs EFM générés — Administration</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <link href="../assets/css/style.css" rel="stylesheet">
 </head>
 <body class="bg-light">
 <?php include __DIR__ . '/partials/navbar.php'; ?>
-<div class="container py-5" style="max-width:800px">
-    <h2 class="h4 fw-bold mb-4">
-        <i class="bi bi-file-earmark-pdf text-danger me-2"></i>PDFs EFM générés
-    </h2>
+<div class="container-fluid py-4 px-4" style="max-width:1000px">
+
+    <!-- En-tête -->
+    <div class="d-flex align-items-center gap-3 mb-4 flex-wrap">
+        <a href="<?= htmlspecialchars($redirectBack) ?>" class="btn btn-sm btn-outline-secondary rounded-3">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        <div>
+            <h2 class="h4 fw-bold mb-0">
+                <i class="bi bi-file-earmark-pdf text-danger me-2"></i>PDFs EFM générés
+            </h2>
+            <div class="text-muted small">
+                <?= htmlspecialchars($moduleNom) ?>
+            </div>
+        </div>
+        <?php if (!empty($generated)): ?>
+        <div class="ms-auto d-flex gap-2">
+            <span class="badge bg-success fs-6">
+                <i class="bi bi-check-circle me-1"></i><?= count($generated) ?> PDF<?= count($generated) > 1 ? 's' : '' ?>
+            </span>
+        </div>
+        <?php endif; ?>
+    </div>
 
     <?php if (!empty($errors)): ?>
-    <div class="alert alert-danger">
-        <strong>Erreurs :</strong><br>
-        <?php foreach ($errors as $e): echo htmlspecialchars($e) . '<br>'; endforeach; ?>
+    <div class="alert alert-danger rounded-4 mb-4">
+        <i class="bi bi-exclamation-triangle me-2"></i><strong><?= count($errors) ?> erreur(s) :</strong><br>
+        <?php foreach ($errors as $e): ?>
+            <div class="small mt-1"><?= htmlspecialchars($e) ?></div>
+        <?php endforeach; ?>
     </div>
     <?php endif; ?>
 
     <?php if (!empty($generated)): ?>
-    <div class="alert alert-success">
-        <i class="bi bi-check-circle me-2"></i>
-        <strong><?= count($generated) ?> PDF<?= count($generated) > 1 ? 's' : '' ?> généré<?= count($generated) > 1 ? 's' : '' ?></strong>
-        — dossier : <code><?= htmlspecialchars($outDirRel) ?></code>
+    <!-- Infos dossier -->
+    <div class="alert alert-success rounded-4 mb-3 py-2">
+        <i class="bi bi-folder2-open me-2"></i>
+        Dossier : <code><?= htmlspecialchars($outDirRel) ?></code>
+        <a href="../<?= htmlspecialchars($outDirRel) ?>/" class="ms-3 btn btn-sm btn-outline-success py-0" target="_blank">
+            <i class="bi bi-box-arrow-up-right me-1"></i>Ouvrir
+        </a>
     </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-3 text-center p-3">
+                <div class="h3 fw-bold text-danger mb-0"><?= count($generated) ?></div>
+                <div class="text-muted small">PDFs générés</div>
+            </div>
+        </div>
+        <?php if (!empty($errors)): ?>
+        <div class="col-6 col-md-3">
+            <div class="card border-0 shadow-sm rounded-3 text-center p-3">
+                <div class="h3 fw-bold text-warning mb-0"><?= count($errors) ?></div>
+                <div class="text-muted small">Erreurs</div>
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Liste des PDFs -->
     <div class="card border-0 shadow-sm rounded-4 mb-4">
-        <div class="list-group list-group-flush rounded-4">
-            <?php foreach ($generated as $g): ?>
-            <div class="list-group-item d-flex justify-content-between align-items-center py-3">
-                <span><i class="bi bi-file-earmark-pdf text-danger me-2"></i><?= htmlspecialchars($g['nom']) ?></span>
-                <a href="<?= htmlspecialchars($g['url']) ?>" class="btn btn-sm btn-outline-danger" download>
+        <div class="card-header bg-light border-bottom px-4 py-3 d-flex align-items-center justify-content-between">
+            <span class="fw-semibold"><i class="bi bi-people me-2 text-primary"></i>Fiches générées</span>
+            <span class="badge bg-primary rounded-pill"><?= count($generated) ?></span>
+        </div>
+        <div class="list-group list-group-flush rounded-bottom-4">
+            <?php foreach ($generated as $i => $g): ?>
+            <div class="list-group-item d-flex justify-content-between align-items-center px-4 py-3">
+                <div>
+                    <span class="text-muted small me-2"><?= $i + 1 ?>.</span>
+                    <i class="bi bi-file-earmark-pdf text-danger me-2"></i>
+                    <span class="fw-semibold"><?= htmlspecialchars($g['nom']) ?></span>
+                </div>
+                <a href="<?= htmlspecialchars($g['url']) ?>" class="btn btn-sm btn-outline-danger rounded-3" download>
                     <i class="bi bi-download me-1"></i>Télécharger
                 </a>
             </div>
@@ -393,14 +457,10 @@ if ($sessionId > 0 && count($generated) === 1 && empty($errors)) {
     </div>
     <?php endif; ?>
 
-    <div class="d-flex gap-2">
-        <a href="<?= htmlspecialchars($redirectBack) ?>" class="btn btn-primary">
-            <i class="bi bi-arrow-left me-2"></i>Retour aux résultats
-        </a>
-        <a href="../<?= htmlspecialchars($outDirRel) ?>/" class="btn btn-outline-secondary" target="_blank">
-            <i class="bi bi-folder2-open me-2"></i>Ouvrir le dossier
-        </a>
-    </div>
+    <a href="<?= htmlspecialchars($redirectBack) ?>" class="btn btn-primary rounded-3">
+        <i class="bi bi-arrow-left me-2"></i>Retour aux résultats
+    </a>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

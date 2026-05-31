@@ -89,34 +89,81 @@ function getModulesActifs(): array {
 
 function getModule(int $id): ?array {
     $pdo = getDB();
-    $stmt = $pdo->prepare("
-        SELECT m.*,
-               COALESCE(em.code_module,   '') AS efm_code_module,
-               COALESCE(em.filiere,       '') AS efm_filiere,
-               COALESCE(NULLIF(em.etablissement,''), (SELECT nom FROM etablissements WHERE actif=1 ORDER BY id LIMIT 1), 'ISTA HAY RIAD') AS efm_etablissement,
-               COALESCE(em.annee,         '') AS efm_annee
-        FROM modules m
-        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
-        WHERE m.id = ?
-    ");
+    $stmt = $pdo->prepare("SELECT m.* FROM modules m WHERE m.id = ?");
     $stmt->execute([$id]);
-    return $stmt->fetch() ?: null;
+    $module = $stmt->fetch() ?: null;
+    if (!$module) return null;
+    _attachEvalToModule($pdo, $module);
+    return $module;
 }
 
 function getAllModules(): array {
     $pdo = getDB();
-    return $pdo->query("
+    $modules = $pdo->query("
         SELECT m.*,
-               COALESCE(m.note_max, 20) AS note_max,
-               (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS nb_questions,
-               COALESCE(em.code_module,   '') AS efm_code_module,
-               COALESCE(em.filiere,       '') AS efm_filiere,
-               COALESCE(NULLIF(em.etablissement,''), (SELECT nom FROM etablissements WHERE actif=1 ORDER BY id LIMIT 1), 'ISTA HAY RIAD') AS efm_etablissement,
-               COALESCE(em.annee,         '') AS efm_annee
+               (SELECT COUNT(*) FROM questions q WHERE q.module_id = m.id) AS nb_questions
         FROM modules m
-        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
         ORDER BY m.nom
     ")->fetchAll();
+    foreach ($modules as &$m) {
+        _attachEvalToModule($pdo, $m);
+    }
+    return $modules;
+}
+
+/** Récupère toutes les évaluations actives (avec le nom du module parent). */
+function getEvaluationsActives(): array {
+    $pdo = getDB();
+    return $pdo->query("
+        SELECT e.*, m.nom AS module_nom,
+               (SELECT COUNT(*) FROM questions q WHERE q.module_id = e.module_id) AS nb_questions
+        FROM evaluations e
+        JOIN modules m ON m.id = e.module_id
+        WHERE e.actif = 1 AND m.actif = 1
+        ORDER BY e.nom
+    ")->fetchAll();
+}
+
+/** Retourne une évaluation + données du module parent. */
+function getEvaluation(int $id): ?array {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("
+        SELECT e.*, m.nom AS module_nom, m.description AS module_description
+        FROM evaluations e
+        JOIN modules m ON m.id = e.module_id
+        WHERE e.id = ?
+    ");
+    $stmt->execute([$id]);
+    $eval = $stmt->fetch() ?: null;
+    if (!$eval) return null;
+    $meta = json_decode($eval['meta_json'] ?? '{}', true) ?: [];
+    $eval['efm_code_module']   = $meta['code_module']   ?? '';
+    $eval['efm_filiere']       = $meta['filiere']       ?? '';
+    $eval['efm_etablissement'] = $meta['etablissement'] ?? '';
+    $eval['efm_annee']         = $meta['annee']         ?? '';
+    return $eval;
+}
+
+/** Injecte les champs d'évaluation (type, duree, note_max, efm_*) dans un tableau module. */
+function _attachEvalToModule(PDO $pdo, array &$module): void {
+    $stmt = $pdo->prepare("SELECT * FROM evaluations WHERE module_id = ? ORDER BY id ASC LIMIT 1");
+    $stmt->execute([$module['id']]);
+    $eval = $stmt->fetch();
+    if ($eval) {
+        $module['type']           = $eval['type'];
+        $module['duree_minutes']  = $eval['duree_minutes'];
+        $module['note_max']       = $eval['note_max'];
+        $module['evaluation_id']  = $eval['id'];
+        $meta = json_decode($eval['meta_json'] ?? '{}', true) ?: [];
+        $module['efm_code_module']   = $meta['code_module']   ?? '';
+        $module['efm_filiere']       = $meta['filiere']       ?? '';
+        $module['efm_etablissement'] = $meta['etablissement'] ?? '';
+        $module['efm_annee']         = $meta['annee']         ?? '';
+    } else {
+        $module['type'] = 'qcm'; $module['duree_minutes'] = 30; $module['note_max'] = 20;
+        $module['evaluation_id'] = null;
+        $module['efm_code_module'] = $module['efm_filiere'] = $module['efm_etablissement'] = $module['efm_annee'] = '';
+    }
 }
 
 // ============================================================
@@ -184,22 +231,28 @@ function supprimerSession(int $sessionId): void {
 
 function supprimerModule(int $moduleId): void {
     $pdo = getDB();
-    // 1. Réponses des sessions liées au module
-    $sids = $pdo->prepare("SELECT id FROM sessions_eval WHERE module_id = ?");
-    $sids->execute([$moduleId]);
-    foreach ($sids->fetchAll(PDO::FETCH_COLUMN) as $sid) {
-        $pdo->prepare("DELETE FROM reponses_stagiaires WHERE session_id = ?")->execute([$sid]);
+    // 1. Sessions via évaluations du module → réponses
+    $eids = $pdo->prepare("SELECT id FROM evaluations WHERE module_id = ?");
+    $eids->execute([$moduleId]);
+    foreach ($eids->fetchAll(PDO::FETCH_COLUMN) as $evalId) {
+        $sids = $pdo->prepare("SELECT id FROM sessions_eval WHERE evaluation_id = ?");
+        $sids->execute([$evalId]);
+        foreach ($sids->fetchAll(PDO::FETCH_COLUMN) as $sid) {
+            $pdo->prepare("DELETE FROM reponses_stagiaires WHERE session_id = ?")->execute([$sid]);
+        }
+        $pdo->prepare("DELETE FROM sessions_eval WHERE evaluation_id = ?")->execute([$evalId]);
     }
-    // 2. Sessions
-    $pdo->prepare("DELETE FROM sessions_eval WHERE module_id = ?")->execute([$moduleId]);
+    // 2. Évaluations
+    $pdo->prepare("DELETE FROM evaluations WHERE module_id = ?")->execute([$moduleId]);
     // 3. Choix des questions
     $qids = $pdo->prepare("SELECT id FROM questions WHERE module_id = ?");
     $qids->execute([$moduleId]);
     foreach ($qids->fetchAll(PDO::FETCH_COLUMN) as $qid) {
         $pdo->prepare("DELETE FROM choix_reponses WHERE question_id = ?")->execute([$qid]);
     }
-    // 4. Questions + module
+    // 4. Questions, parties, module
     $pdo->prepare("DELETE FROM questions WHERE module_id = ?")->execute([$moduleId]);
+    $pdo->prepare("DELETE FROM parties WHERE module_id = ?")->execute([$moduleId]);
     $pdo->prepare("DELETE FROM modules WHERE id = ?")->execute([$moduleId]);
 }
 
@@ -207,79 +260,81 @@ function supprimerModule(int $moduleId): void {
 // Fonctions sessions d'évaluation
 // ============================================================
 
-function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $moduleId, ?int $stagiaireId = null): array {
+/**
+ * Crée une session pour une évaluation donnée.
+ * $evaluationId : ID de la table evaluations.
+ */
+function creerSession(string $nom, string $prenom, ?int $groupeId, string $groupeLibre, int $evaluationId, ?int $stagiaireId = null): array {
     $pdo = getDB();
     $token = generateToken();
 
-    // Tirage aléatoire si le module a un quota configuré
-    $module = $pdo->prepare("SELECT nb_questions_controle FROM modules WHERE id = ?");
-    $module->execute([$moduleId]);
-    $nbMax = $module->fetchColumn();
+    // Récupère l'évaluation (nb_questions, module_id, parties_ids)
+    $evalStmt = $pdo->prepare("SELECT * FROM evaluations WHERE id = ?");
+    $evalStmt->execute([$evaluationId]);
+    $eval = $evalStmt->fetch();
+    if (!$eval) throw new \InvalidArgumentException("Évaluation $evaluationId introuvable.");
 
+    $moduleId = (int)$eval['module_id'];
+    $nbMax    = $eval['nb_questions'] ? (int)$eval['nb_questions'] : null;
+
+    // Tirage aléatoire si quota configuré
     $questionsIds = null;
-    if ($nbMax !== false && $nbMax !== null && (int)$nbMax > 0) {
+    if ($nbMax !== null && $nbMax > 0) {
         $allIds = $pdo->prepare("SELECT id FROM questions WHERE module_id = ? ORDER BY RAND()");
         $allIds->execute([$moduleId]);
         $ids = $allIds->fetchAll(PDO::FETCH_COLUMN);
-        $questionsIds = array_slice($ids, 0, (int)$nbMax);
+        $questionsIds = array_slice($ids, 0, $nbMax);
     }
 
-    $totalPoints = getTotalPoints($moduleId, $questionsIds);
+    $totalPoints  = getTotalPoints($moduleId, $questionsIds);
     $questionsJson = $questionsIds !== null ? json_encode($questionsIds) : null;
 
-    $stmt = $pdo->prepare("INSERT INTO sessions_eval (token, nom, prenom, groupe_id, groupe_libre, module_id, total_points, stagiaire_id, questions_ids)
-                           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$token, $nom, $prenom, $groupeId ?: null, $groupeLibre, $moduleId, $totalPoints, $stagiaireId, $questionsJson]);
+    $stmt = $pdo->prepare("
+        INSERT INTO sessions_eval (token, nom, prenom, groupe_id, groupe_libre, evaluation_id, total_points, stagiaire_id, questions_ids)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ");
+    $stmt->execute([$token, $nom, $prenom, $groupeId ?: null, $groupeLibre, $evaluationId, $totalPoints, $stagiaireId, $questionsJson]);
 
     return ['id' => (int)$pdo->lastInsertId(), 'token' => $token];
 }
 
 function getSession(int $id): ?array {
-    $pdo = getDB();
-    $stmt = $pdo->prepare("
-        SELECT s.*,
-               COALESCE(st.nom,    s.nom)    AS nom,
-               COALESCE(st.prenom, s.prenom) AS prenom,
-               m.nom AS module_nom, m.duree_minutes,
-               m.type AS module_type,
-               COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
-               COALESCE(em.code_module,   '') AS efm_code_module,
-               COALESCE(em.filiere,       '') AS efm_filiere,
-               COALESCE(em.etablissement, '') AS efm_etablissement,
-               COALESCE(em.annee,         '') AS efm_annee
-        FROM sessions_eval s
-        JOIN modules m ON m.id = s.module_id
-        LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
-        LEFT JOIN groupes g ON g.id = s.groupe_id
-        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
-        WHERE s.id = ?
-    ");
-    $stmt->execute([$id]);
-    return $stmt->fetch() ?: null;
+    return _fetchSession("s.id = ?", [$id]);
 }
 
 function getSessionByToken(string $token): ?array {
+    return _fetchSession("s.token = ?", [$token]);
+}
+
+function _fetchSession(string $where, array $params): ?array {
     $pdo = getDB();
     $stmt = $pdo->prepare("
         SELECT s.*,
                COALESCE(st.nom,    s.nom)    AS nom,
                COALESCE(st.prenom, s.prenom) AS prenom,
-               m.nom AS module_nom, m.duree_minutes,
-               m.type AS module_type,
-               COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
-               COALESCE(em.code_module,   '') AS efm_code_module,
-               COALESCE(em.filiere,       '') AS efm_filiere,
-               COALESCE(em.etablissement, '') AS efm_etablissement,
-               COALESCE(em.annee,         '') AS efm_annee
+               m.nom  AS module_nom,
+               e.duree_minutes,
+               e.note_max,
+               e.type AS module_type,
+               e.meta_json AS eval_meta_json,
+               COALESCE(g.nom, s.groupe_libre) AS groupe_nom
         FROM sessions_eval s
-        JOIN modules m ON m.id = s.module_id
+        JOIN evaluations e  ON e.id  = s.evaluation_id
+        JOIN modules m      ON m.id  = e.module_id
         LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
-        LEFT JOIN groupes g ON g.id = s.groupe_id
-        LEFT JOIN modules_efm_meta em ON em.module_id = m.id
-        WHERE s.token = ?
+        LEFT JOIN groupes    g  ON g.id  = s.groupe_id
+        WHERE $where
     ");
-    $stmt->execute([$token]);
-    return $stmt->fetch() ?: null;
+    $stmt->execute($params);
+    $row = $stmt->fetch();
+    if (!$row) return null;
+    $meta = json_decode($row['eval_meta_json'] ?? '{}', true) ?: [];
+    $row['efm_code_module']   = $meta['code_module']   ?? '';
+    $row['efm_filiere']       = $meta['filiere']       ?? '';
+    $row['efm_etablissement'] = $meta['etablissement'] ?? '';
+    $row['efm_annee']         = $meta['annee']         ?? '';
+    unset($row['eval_meta_json']);
+    return $row;
 }
 
 function sauvegarderReponse(int $sessionId, int $questionId, ?int $choixId, ?string $reponseTxt, bool $isCorrect, float $points): void {
@@ -332,10 +387,11 @@ function getReponsesSession(int $sessionId): array {
 function getAllSessions(int $limit = 100, int $offset = 0): array {
     $pdo = getDB();
     $stmt = $pdo->prepare("
-        SELECT s.*, m.nom AS module_nom,
+        SELECT s.*, m.nom AS module_nom, e.type AS module_type,
                COALESCE(g.nom, s.groupe_libre) AS groupe_nom
         FROM sessions_eval s
-        JOIN modules m ON m.id = s.module_id
+        JOIN evaluations e ON e.id = s.evaluation_id
+        JOIN modules     m ON m.id = e.module_id
         LEFT JOIN groupes g ON g.id = s.groupe_id
         ORDER BY s.date_debut DESC
         LIMIT ? OFFSET ?
@@ -387,11 +443,12 @@ function trouverOuCreerStagiaire(string $nom, string $prenom, int $groupeId, str
     return (int)$pdo->lastInsertId();
 }
 
-function getStagiaires(?int $groupeId = null, ?string $annee = null): array {
+function getStagiaires(?int $groupeId = null, ?string $annee = null, ?int $etablissementId = null): array {
     $pdo = getDB();
     $where = []; $params = [];
-    if ($groupeId) { $where[] = 's.groupe_id = ?'; $params[] = $groupeId; }
-    if ($annee)    { $where[] = 's.annee_scolaire = ?'; $params[] = $annee; }
+    if ($groupeId)        { $where[] = 's.groupe_id = ?';        $params[] = $groupeId; }
+    if ($etablissementId) { $where[] = 'g.etablissement_id = ?'; $params[] = $etablissementId; }
+    if ($annee)           { $where[] = 's.annee_scolaire = ?';   $params[] = $annee; }
     $sql = "SELECT s.*, g.nom AS groupe_nom,
                 COALESCE(e.nom, '') AS etablissement_nom,
                 COUNT(se.id) AS nb_evaluations,

@@ -1,122 +1,138 @@
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
-    <div class="container-fluid px-4">
-        <a class="navbar-brand fw-bold" href="index.php">
-            <i class="bi bi-shield-check me-2"></i>Admin Évaluations
-            <?php
-                $etabNavbar = !empty($_SESSION['admin_etablissement_nom'])
-                    ? $_SESSION['admin_etablissement_nom']
-                    : getEtablissementDefaut();
-            ?>
-            <span class="badge bg-secondary fw-normal ms-2 small">
-                <i class="bi bi-building me-1"></i><?= sanitize($etabNavbar) ?>
-            </span>
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#adminNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="adminNav">
-            <ul class="navbar-nav me-auto gap-1">
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'index.php' ? 'active' : '' ?>"
-                       href="index.php">
-                        <i class="bi bi-speedometer2 me-1"></i>Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'modules.php' ? 'active' : '' ?>"
-                       href="modules.php">
-                        <i class="bi bi-journal-text me-1"></i>Modules
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'questions.php' ? 'active' : '' ?>"
-                       href="questions.php">
-                        <i class="bi bi-question-circle me-1"></i>Questions
-                    </a>
-                </li>
-                <li class="nav-item dropdown">
-                    <a class="nav-link dropdown-toggle <?= in_array(basename($_SERVER['PHP_SELF']), ['import_questions.php','import_evaluation_json.php']) ? 'active' : '' ?>"
-                       href="#" data-bs-toggle="dropdown">
-                        <i class="bi bi-cloud-upload me-1"></i>Importer
-                    </a>
-                    <ul class="dropdown-menu">
-                        <li><a class="dropdown-item" href="import_questions.php"><i class="bi bi-pc-display me-1"></i>PC distant (sync)</a></li>
-                        <li><a class="dropdown-item" href="import_evaluation_json.php"><i class="bi bi-file-earmark-arrow-up me-1"></i>Évaluation JSON externe</a></li>
-                    </ul>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'move_questions.php' ? 'active' : '' ?>"
-                       href="move_questions.php">
-                        <i class="bi bi-arrow-left-right me-1"></i>Déplacer
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'groupes.php' ? 'active' : '' ?>"
-                       href="groupes.php">
-                        <i class="bi bi-people me-1"></i>Groupes
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'sessions_view.php' ? 'active' : '' ?>"
-                       href="sessions_view.php">
-                        <i class="bi bi-calendar-check me-1"></i>Sessions
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'etablissements.php' ? 'active' : '' ?>"
-                       href="etablissements.php">
-                        <i class="bi bi-building me-1"></i>Établissements
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'results.php' ? 'active' : '' ?>"
-                       href="results.php">
-                        <i class="bi bi-bar-chart me-1"></i>Résultats
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'stagiaires.php' ? 'active' : '' ?>"
-                       href="stagiaires.php">
-                        <i class="bi bi-people me-1"></i>Stagiaires
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'formateurs.php' ? 'active' : '' ?>"
-                       href="formateurs.php">
-                        <i class="bi bi-person-badge me-1"></i>Formateurs
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['fusion.php','print_efm_result.php']) ? 'active' : '' ?>"
-                       href="fusion.php">
-                        <i class="bi bi-intersect me-1"></i>Fusion / EFM
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= in_array(basename($_SERVER['PHP_SELF']), ['generate.php','config_ia.php']) ? 'active' : '' ?>"
-                       href="generate.php">
-                        <i class="bi bi-robot me-1"></i>IA
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link <?= basename($_SERVER['PHP_SELF']) === 'ia_pile.php' ? 'active' : '' ?>"
-                       href="ia_pile.php">
-                        <i class="bi bi-layers me-1"></i>Pile IA
-                    </a>
-                </li>
-            </ul>
-            <ul class="navbar-nav">
-                <li class="nav-item">
-                    <a class="nav-link" href="../index.php" target="_blank">
-                        <i class="bi bi-box-arrow-up-right me-1"></i>Voir le site
-                    </a>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link text-danger" href="logout.php">
-                        <i class="bi bi-box-arrow-right me-1"></i>Déconnexion
-                    </a>
-                </li>
-            </ul>
+<?php
+$currentPage = basename($_SERVER['PHP_SELF']);
+$etabNavbar  = !empty($_SESSION['admin_etablissement_nom'])
+    ? $_SESSION['admin_etablissement_nom']
+    : (function_exists('getEtablissementDefaut') ? getEtablissementDefaut() : '');
+
+$navItems = [
+    ['file' => 'index.php',          'icon' => 'bi-speedometer2',     'label' => 'Dashboard'],
+    ['file' => 'modules.php',        'icon' => 'bi-journal-text',      'label' => 'Modules'],
+    ['file' => 'questions.php',      'icon' => 'bi-question-circle',   'label' => 'Questions'],
+    ['file' => 'move_questions.php', 'icon' => 'bi-arrow-left-right',  'label' => 'Déplacer'],
+    ['file' => 'groupes_emploi.php',  'icon' => 'bi-people',            'label' => 'Groupes'],
+    ['file' => 'stagiaires.php',     'icon' => 'bi-person-lines-fill', 'label' => 'Stagiaires'],
+    ['file' => 'formateurs_emploi.php', 'icon' => 'bi-person-badge',   'label' => 'Formateurs'],
+    ['file' => 'sessions_view.php',  'icon' => 'bi-calendar-check',    'label' => 'Sessions'],
+    ['file' => 'results.php',        'icon' => 'bi-bar-chart',         'label' => 'Résultats'],
+    ['file' => 'etablissements.php', 'icon' => 'bi-building',          'label' => 'Établissements'],
+];
+
+$dropdowns = [
+    'importer' => [
+        'icon' => 'bi-cloud-upload', 'label' => 'Importer',
+        'files' => ['import_questions.php', 'import_evaluation_json.php'],
+        'items' => [
+            ['file' => 'import_questions.php',       'icon' => 'bi-pc-display',            'label' => 'PC distant (sync)'],
+            ['file' => 'import_evaluation_json.php', 'icon' => 'bi-file-earmark-arrow-up', 'label' => 'Évaluation JSON'],
+        ],
+    ],
+    'efm' => [
+        'icon' => 'bi-intersect', 'label' => 'Fusion / EFM',
+        'files' => ['fusion.php', 'print_efm_result.php'],
+        'items' => [
+            ['file' => 'fusion.php',           'icon' => 'bi-intersect', 'label' => 'Fusion / EFM'],
+            ['file' => 'print_efm_result.php', 'icon' => 'bi-printer',   'label' => 'Résultats EFM'],
+        ],
+    ],
+    'ia' => [
+        'icon' => 'bi-robot', 'label' => 'IA',
+        'files' => ['generate.php', 'config_ia.php', 'ia_pile.php'],
+        'items' => [
+            ['file' => 'generate.php',  'icon' => 'bi-robot',  'label' => 'Génération IA'],
+            ['file' => 'config_ia.php', 'icon' => 'bi-gear',   'label' => 'Config IA'],
+            ['file' => 'ia_pile.php',   'icon' => 'bi-layers', 'label' => 'Pile IA'],
+        ],
+    ],
+];
+
+// Construit le contenu de la sidebar (réutilisé desktop + mobile)
+// $prefix : 'desk' ou 'mob' pour éviter les doublons d'ID dans le DOM
+function renderSidebarContent(array $navItems, array $dropdowns, string $currentPage, string $etab, string $prefix = 'desk'): void { ?>
+
+    <!-- Brand -->
+    <div class="sb-brand">
+        <div class="sb-brand-title">
+            <i class="bi bi-shield-check text-primary me-2"></i>Admin Évaluations
         </div>
+        <?php if ($etab): ?>
+        <div class="sb-brand-sub">
+            <i class="bi bi-building me-1"></i><?= htmlspecialchars(trim($etab), ENT_QUOTES, 'UTF-8') ?>
+        </div>
+        <?php endif; ?>
     </div>
-</nav>
+
+    <!-- Nav -->
+    <nav class="sb-nav">
+        <?php foreach ($navItems as $item): ?>
+        <a href="<?= $item['file'] ?>"
+           class="sb-link <?= $currentPage === $item['file'] ? 'active' : '' ?>">
+            <i class="bi <?= $item['icon'] ?>"></i>
+            <span><?= $item['label'] ?></span>
+        </a>
+        <?php endforeach; ?>
+
+        <?php foreach ($dropdowns as $key => $dd):
+            $isOpen = in_array($currentPage, $dd['files']); ?>
+        <button class="sb-link sb-toggle <?= $isOpen ? 'active' : '' ?>"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#sb-dd-<?= $prefix ?>-<?= $key ?>"
+                aria-expanded="<?= $isOpen ? 'true' : 'false' ?>">
+            <i class="bi <?= $dd['icon'] ?>"></i>
+            <span><?= $dd['label'] ?></span>
+            <i class="bi bi-chevron-down sb-chevron ms-auto"></i>
+        </button>
+        <div class="collapse <?= $isOpen ? 'show' : '' ?>" id="sb-dd-<?= $prefix ?>-<?= $key ?>">
+            <?php foreach ($dd['items'] as $it): ?>
+            <a href="<?= $it['file'] ?>"
+               class="sb-link sb-sub <?= $currentPage === $it['file'] ? 'active' : '' ?>">
+                <i class="bi <?= $it['icon'] ?>"></i>
+                <span><?= $it['label'] ?></span>
+            </a>
+            <?php endforeach; ?>
+        </div>
+        <?php endforeach; ?>
+    </nav>
+
+    <!-- Footer -->
+    <div class="sb-footer">
+        <a href="../index.php" target="_blank" class="sb-link sb-link-muted">
+            <i class="bi bi-box-arrow-up-right"></i><span>Voir le site</span>
+        </a>
+        <a href="logout.php" class="sb-link sb-link-danger">
+            <i class="bi bi-box-arrow-right"></i><span>Déconnexion</span>
+        </a>
+    </div>
+<?php }
+?>
+
+<!-- ══════════════════════════════════════════════════════════
+     MOBILE : barre haute + offcanvas
+     ══════════════════════════════════════════════════════════ -->
+<div class="d-flex d-lg-none align-items-center bg-dark px-3 py-2 sb-topbar">
+    <button class="btn p-0 text-white me-3 fs-5 lh-1"
+            data-bs-toggle="offcanvas" data-bs-target="#sbMobile">
+        <i class="bi bi-list"></i>
+    </button>
+    <span class="text-white fw-semibold small">
+        <i class="bi bi-shield-check me-1 text-primary"></i>Admin Évaluations
+    </span>
+</div>
+
+<div class="offcanvas offcanvas-start sb-offcanvas" tabindex="-1" id="sbMobile">
+    <div class="offcanvas-header border-bottom border-secondary px-3 py-2">
+        <span class="text-white fw-semibold"><i class="bi bi-shield-check me-1 text-primary"></i>Admin</span>
+        <button type="button" class="btn-close btn-close-white btn-sm"
+                data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body p-0 d-flex flex-column">
+        <?php renderSidebarContent($navItems, $dropdowns, $currentPage, $etabNavbar, 'mob'); ?>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════
+     DESKTOP : sidebar fixe (visible lg+)
+     ══════════════════════════════════════════════════════════ -->
+<aside class="sb-desktop">
+    <?php renderSidebarContent($navItems, $dropdowns, $currentPage, $etabNavbar); ?>
+</aside>

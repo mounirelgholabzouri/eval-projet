@@ -94,11 +94,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $groupes          = getGroupes();
 $etablissements   = getAllEtablissements();
 $annees           = getAnneesDisponibles();
-$anneeActive = $_GET['annee'] ?? getAnneeCourante();
-$groupeFiltre= isset($_GET['groupe_id']) ? (int)$_GET['groupe_id'] : null;
+$anneeActive      = $_GET['annee'] ?? getAnneeCourante();
+$groupeFiltre     = isset($_GET['groupe_id'])      ? (int)$_GET['groupe_id']      : null;
+$etablissFiltre   = isset($_GET['etablissement_id']) ? (int)$_GET['etablissement_id'] : null;
 
-// Récupérer les stagiaires
-$stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
+// Si un groupe est sélectionné, ignorer le filtre établissement (redondant)
+$stagiaires = getStagiaires(
+    $groupeFiltre   ?: null,
+    $anneeActive    ?: null,
+    $groupeFiltre   ? null : ($etablissFiltre ?: null)
+);
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -117,7 +122,7 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
     <div class="d-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0"><i class="bi bi-people-fill me-2 text-primary"></i>Stagiaires</h1>
         <div class="d-flex gap-2 align-items-center">
-            <span class="badge bg-primary fs-6"><?= count($stagiaires) ?> stagiaire(s)</span>
+            <span class="badge bg-primary fs-6" id="stagCounter"><?= count($stagiaires) ?> stagiaire(s)</span>
             <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalCreer">
                 <i class="bi bi-person-plus me-1"></i>Ajouter
             </button>
@@ -138,11 +143,11 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
             <form method="GET" class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label class="form-label fw-semibold">Établissement</label>
-                    <select name="etablissement_id" class="form-select" onchange="filtrerGroupes(this)">
+                    <select name="etablissement_id" class="form-select" onchange="filtrerGroupes(this); this.form.submit()">
                         <option value="">Tous les établissements</option>
                         <?php foreach ($etablissements as $e): ?>
-                            <option value="<?= $e['id'] ?>" <?= (isset($_GET['etablissement_id']) && $_GET['etablissement_id'] == $e['id']) ? 'selected' : '' ?>>
-                                <?= sanitize($e['nom']) ?>
+                            <option value="<?= $e['id'] ?>" <?= ($etablissFiltre == $e['id']) ? 'selected' : '' ?>>
+                                <?= sanitize($e['nom']) ?><?= $e['ville'] ? ' — '.sanitize($e['ville']) : '' ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
@@ -169,8 +174,9 @@ $stagiaires = getStagiaires($groupeFiltre ?: null, $anneeActive ?: null);
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="col-md-3">
-                    <button class="btn btn-primary w-100"><i class="bi bi-funnel me-1"></i>Filtrer</button>
+                <div class="col-md-3 d-flex gap-2">
+                    <button class="btn btn-primary flex-grow-1"><i class="bi bi-funnel me-1"></i>Filtrer</button>
+                    <a href="stagiaires.php" class="btn btn-outline-secondary" title="Réinitialiser"><i class="bi bi-x-lg"></i></a>
                 </div>
             </form>
         </div>
@@ -547,10 +553,15 @@ function filtrerGroupes(sel) {
         groupeSel.value = '';
     }
 }
-// Appliquer le filtre établissement au chargement si déjà sélectionné
+// Appliquer le filtre établissement au chargement
 document.addEventListener('DOMContentLoaded', () => {
     const etabSel = document.querySelector('[name="etablissement_id"]');
     if (etabSel?.value) filtrerGroupes(etabSel);
+
+    // Réinitialiser = effacer établissement aussi
+    document.querySelector('a[href="stagiaires.php"]')?.addEventListener('click', () => {
+        // laisser le lien fonctionner normalement
+    });
 });
 
 function bulkDeleteStagiaires() {

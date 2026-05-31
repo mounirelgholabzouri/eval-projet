@@ -17,7 +17,7 @@ function agentBuildContext(array $moduleIds): array {
     foreach ($moduleIds as $moduleId) {
         $moduleId = (int)$moduleId;
 
-        $mod = $pdo->prepare("SELECT m.*, COALESCE(em.code_module,'') AS code_module FROM modules m LEFT JOIN modules_efm_meta em ON em.module_id=m.id WHERE m.id=?");
+        $mod = $pdo->prepare("SELECT m.*, COALESCE(e.meta_json,'{}') AS eval_meta_json FROM modules m LEFT JOIN evaluations e ON e.module_id=m.id AND e.id=(SELECT MIN(e2.id) FROM evaluations e2 WHERE e2.module_id=m.id) WHERE m.id=?");
         $mod->execute([$moduleId]);
         $module = $mod->fetch();
         if (!$module) continue;
@@ -51,10 +51,11 @@ function agentBuildContext(array $moduleIds): array {
             }
         }
 
+        $meta = json_decode($module['eval_meta_json'] ?? '{}', true) ?: [];
         $context[] = [
             'module_id'   => $moduleId,
             'nom'         => $module['nom'],
-            'code_module' => $module['code_module'],
+            'code_module' => $meta['code_module'] ?? '',
             'parties'     => array_values($partiesMap),
         ];
     }
@@ -82,8 +83,9 @@ function agentGetRecentQuestionIds(array $moduleIds, int $groupeId = 0, int $day
     $stmt = $pdo->prepare("
         SELECT DISTINCT rs.question_id
         FROM reponses_stagiaires rs
-        JOIN sessions_eval se ON se.id = rs.session_id
-        WHERE se.module_id IN ($placeholders)
+        JOIN sessions_eval se  ON se.id  = rs.session_id
+        JOIN evaluations   e   ON e.id   = se.evaluation_id
+        WHERE e.module_id IN ($placeholders)
         $groupeClause
         AND se.date_debut >= DATE_SUB(NOW(), INTERVAL ? DAY)
     ");

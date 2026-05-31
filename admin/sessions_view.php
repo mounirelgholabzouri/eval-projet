@@ -18,12 +18,13 @@ if ($filterModule && $filterJour) {
                COALESCE(st.nom,    s.nom)    AS nom,
                COALESCE(st.prenom, s.prenom) AS prenom,
                COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
-               m.note_max
+               e.note_max
         FROM sessions_eval s
-        JOIN modules m ON m.id = s.module_id
+        JOIN evaluations e ON e.id = s.evaluation_id
+        JOIN modules     m ON m.id = e.module_id
         LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
-        LEFT JOIN groupes g ON g.id = s.groupe_id
-        WHERE s.module_id = ? AND DATE(s.date_debut) = ?
+        LEFT JOIN groupes    g  ON g.id  = s.groupe_id
+        WHERE e.module_id = ? AND DATE(s.date_debut) = ?
         ORDER BY s.pourcentage DESC, s.nom
     ");
     $stmt->execute([$filterModule, $filterJour]);
@@ -187,10 +188,12 @@ if ($filterModule && $filterJour) {
 }
 
 // ── Vue liste des sessions (module + jour) ────────────────────
-$whereModule = $filterModule ? "AND s.module_id = $filterModule" : '';
+$whereModule = $filterModule ? "AND e.module_id = $filterModule" : '';
 
 $sessions = $pdo->query("
-    SELECT s.module_id, m.nom AS module_nom, m.note_max,
+    SELECT e.module_id,
+           MAX(m.nom)       AS module_nom,
+           MAX(e.note_max)  AS note_max,
            DATE(s.date_debut) AS jour,
            COUNT(*) AS nb_total,
            SUM(CASE WHEN s.statut='termine' THEN 1 ELSE 0 END) AS nb_terminees,
@@ -199,10 +202,11 @@ $sessions = $pdo->query("
            MIN(s.date_debut) AS heure_debut,
            MAX(s.date_fin)   AS heure_fin
     FROM sessions_eval s
-    JOIN modules m ON m.id = s.module_id
+    JOIN evaluations e ON e.id = s.evaluation_id
+    JOIN modules     m ON m.id = e.module_id
     WHERE 1=1 $whereModule
-    GROUP BY s.module_id, DATE(s.date_debut)
-    ORDER BY jour DESC, m.nom
+    GROUP BY e.module_id, DATE(s.date_debut)
+    ORDER BY jour DESC, module_nom
 ")->fetchAll();
 
 $allModules = getAllModules();

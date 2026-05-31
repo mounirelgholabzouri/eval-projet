@@ -70,7 +70,7 @@ if (isset($_GET['export'])) {
 
     $csvWhere  = ['1=1'];
     $csvParams = [];
-    if ($filterModule > 0)   { $csvWhere[] = 's.module_id = ?'; $csvParams[] = $filterModule; }
+    if ($filterModule > 0)   { $csvWhere[] = 'e.module_id = ?'; $csvParams[] = $filterModule; }
     if ($filterGroupeId > 0) { $csvWhere[] = 's.groupe_id = ?'; $csvParams[] = $filterGroupeId; }
     elseif ($filterGroupe)   { $csvWhere[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $csvParams[] = "%$filterGroupe%"; $csvParams[] = "%$filterGroupe%"; }
     if ($filterStatut)       { $csvWhere[] = "s.statut = ?"; $csvParams[] = $filterStatut; }
@@ -95,9 +95,10 @@ if (isset($_GET['export'])) {
                m.nom AS module,
                s.date_debut, s.score, s.total_points, s.pourcentage, s.statut
         FROM sessions_eval s
-        JOIN modules m ON m.id = s.module_id
+        JOIN evaluations e ON e.id = s.evaluation_id
+        JOIN modules     m ON m.id = e.module_id
         LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
-        LEFT JOIN groupes g ON g.id = s.groupe_id
+        LEFT JOIN groupes    g  ON g.id  = s.groupe_id
         WHERE $csvWhereStr
         ORDER BY s.date_debut DESC
     ");
@@ -120,7 +121,7 @@ if (isset($_GET['export'])) {
 $where  = ['1=1'];
 $params = [];
 
-if ($filterModule > 0) { $where[] = 's.module_id = ?'; $params[] = $filterModule; }
+if ($filterModule > 0) { $where[] = 'e.module_id = ?'; $params[] = $filterModule; }
 if ($filterGroupeId > 0) { $where[] = 's.groupe_id = ?'; $params[] = $filterGroupeId; }
 elseif ($filterGroupe) { $where[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $params[] = "%$filterGroupe%"; $params[] = "%$filterGroupe%"; }
 if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
@@ -145,7 +146,7 @@ $stmt = $pdo->prepare("
     SELECT s.*,
            COALESCE(st.nom,    s.nom)    AS nom,
            COALESCE(st.prenom, s.prenom) AS prenom,
-           m.nom AS module_nom, m.type AS module_type, COALESCE(m.note_max, 20) AS note_max,
+           m.nom AS module_nom, e.type AS module_type, COALESCE(e.note_max, 20) AS note_max,
            COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
            (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
             WHERE rs.session_id=s.id AND q.type='texte_libre') AS nb_tl,
@@ -154,9 +155,10 @@ $stmt = $pdo->prepare("
            (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
             WHERE rs.session_id=s.id AND q.type='texte_libre' AND rs.source_correction='ia') AS nb_tl_ia
     FROM sessions_eval s
-    JOIN modules m ON m.id = s.module_id
+    JOIN evaluations e ON e.id = s.evaluation_id
+    JOIN modules     m ON m.id = e.module_id
     LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
-    LEFT JOIN groupes g ON g.id = s.groupe_id
+    LEFT JOIN groupes    g  ON g.id  = s.groupe_id
     WHERE $whereStr
     ORDER BY s.date_debut DESC
     LIMIT 200

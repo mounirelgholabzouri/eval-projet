@@ -8,9 +8,9 @@ $filterModule  = (int)($_GET['module_id'] ?? 0);
 $filterGroupe  = trim($_GET['groupe'] ?? '');
 $filterSession = (int)($_GET['session_id'] ?? 0); // impression d'un seul stagiaire
 
-// Mode session unique : on déduit le module depuis la session
+// Mode session unique : on déduit le module depuis la session (via évaluation)
 if ($filterSession && !$filterModule) {
-    $row = $pdo->prepare("SELECT module_id FROM sessions_eval WHERE id = ?");
+    $row = $pdo->prepare("SELECT e.module_id FROM sessions_eval s JOIN evaluations e ON e.id = s.evaluation_id WHERE s.id = ?");
     $row->execute([$filterSession]);
     $filterModule = (int)($row->fetchColumn() ?: 0);
 }
@@ -31,7 +31,7 @@ if ($filterSession) {
     $where  = ['s.id = ?', "s.statut = 'termine'"];
     $params = [$filterSession];
 } else {
-    $where  = ['s.module_id = ?', "s.statut = 'termine'"];
+    $where  = ['e.module_id = ?', "s.statut = 'termine'"];
     $params = [$filterModule];
     if ($filterGroupe) {
         $where[]  = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)";
@@ -42,6 +42,7 @@ if ($filterSession) {
 $stmtSes = $pdo->prepare("
     SELECT s.*, COALESCE(g.nom, s.groupe_libre) AS groupe_nom
     FROM sessions_eval s
+    JOIN evaluations e ON e.id = s.evaluation_id
     LEFT JOIN groupes g ON g.id = s.groupe_id
     WHERE " . implode(' AND ', $where) . "
     ORDER BY s.nom, s.prenom

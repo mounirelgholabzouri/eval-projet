@@ -17,7 +17,7 @@ $stagGroupe   = $_SESSION['stagiaire_groupe_nom'];
 $stagAnnee    = $_SESSION['stagiaire_annee'];
 
 $erreurs = [];
-$modules = getModulesActifs();
+$evaluations = getEvaluationsActives();
 
 // Types de questions par module (pour info stagiaire)
 $pdo = getDB();
@@ -28,25 +28,25 @@ foreach ($stmt->fetchAll() as $row) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $moduleId = (int)($_POST['module_id'] ?? 0);
-    if ($moduleId <= 0) $erreurs[] = "Veuillez sélectionner un module d'évaluation.";
+    $evaluationId = (int)($_POST['evaluation_id'] ?? 0);
+    if ($evaluationId <= 0) $erreurs[] = "Veuillez sélectionner une évaluation.";
 
     if (empty($erreurs)) {
-        $module = getModule($moduleId);
-        if (!$module) {
-            $erreurs[] = "Module invalide.";
+        $eval = getEvaluation($evaluationId);
+        if (!$eval) {
+            $erreurs[] = "Évaluation invalide.";
         } else {
-            $questions = getQuestionsModule($moduleId);
+            $questions = getQuestionsModule((int)$eval['module_id']);
 
             if (empty($questions)) {
-                $erreurs[] = "Ce module ne contient pas encore de questions. Contactez votre formateur.";
+                $erreurs[] = "Cette évaluation ne contient pas encore de questions. Contactez votre formateur.";
             } else {
                 $session = creerSession(
                     $stagNom,
                     $stagPrenom,
                     $stagGroupeId,
                     '',
-                    $moduleId,
+                    $evaluationId,
                     $stagiaireId
                 );
                 $_SESSION['eval_session_id']    = $session['id'];
@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </div>
                     <?php endif; ?>
 
-                    <?php if (empty($modules)): ?>
+                    <?php if (empty($evaluations)): ?>
                         <div class="alert alert-warning">
                             <i class="bi bi-info-circle me-2"></i>
                             Aucune évaluation disponible pour le moment. Contactez votre formateur.
@@ -135,28 +135,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             <div class="col-12">
                                 <label class="form-label fw-semibold">
-                                    <i class="bi bi-journal-text me-1 text-primary"></i>Module / Évaluation
+                                    <i class="bi bi-journal-text me-1 text-primary"></i>Évaluation
                                 </label>
                                 <?php
                                 $typesLabels = ['qcm'=>'QCM','vrai_faux'=>'Vrai/Faux','texte_libre'=>'Réponse libre','multiple'=>'Choix multiples'];
                                 $typesData = [];
-                                foreach ($modules as $m) {
-                                    $mid = (int)$m['id'];
+                                foreach ($evaluations as $ev) {
+                                    $mid = (int)$ev['module_id'];
                                     $parts = [];
                                     foreach ($typesParModule[$mid] ?? [] as $t => $nb) {
                                         $parts[] = ($typesLabels[$t] ?? $t) . ' (' . $nb . ')';
                                     }
-                                    $typesData[$mid] = implode(', ', $parts);
+                                    $typesData[(int)$ev['id']] = implode(', ', $parts);
                                 }
                                 ?>
-                                <select name="module_id" id="module_id" class="form-select form-select-lg" required autofocus>
-                                    <option value="">— Choisir le module —</option>
-                                    <?php foreach ($modules as $m): ?>
-                                        <option value="<?= $m['id'] ?>"
-                                            data-types="<?= sanitize($typesData[(int)$m['id']] ?? '') ?>"
-                                            data-nb="<?= (int)($m['nb_questions_controle'] ?? $m['nb_questions'] ?? 0) ?>"
-                                            <?= (isset($_POST['module_id']) && $_POST['module_id'] == $m['id']) ? 'selected' : '' ?>>
-                                            <?= sanitize($m['nom']) ?> (<?= $m['duree_minutes'] ?> min)
+                                <select name="evaluation_id" id="evaluation_id" class="form-select form-select-lg" required autofocus>
+                                    <option value="">— Choisir l'évaluation —</option>
+                                    <?php foreach ($evaluations as $ev): ?>
+                                        <option value="<?= $ev['id'] ?>"
+                                            data-types="<?= sanitize($typesData[(int)$ev['id']] ?? '') ?>"
+                                            data-nb="<?= (int)($ev['nb_questions'] ?? 0) ?>"
+                                            <?= (isset($_POST['evaluation_id']) && $_POST['evaluation_id'] == $ev['id']) ? 'selected' : '' ?>>
+                                            <?= sanitize($ev['nom']) ?> (<?= $ev['duree_minutes'] ?> min)
                                         </option>
                                     <?php endforeach; ?>
                                 </select>

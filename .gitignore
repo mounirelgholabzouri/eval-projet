@@ -21,3 +21,12 @@ desktop.ini
 
 # Exports base de données
 db_export_*.sql
+
+# PDFs générés
+/pdfs/
+
+# Composer binaire
+composer.phar
+
+# Scripts de génération temporaires
+db/migrations/_gen_*.py

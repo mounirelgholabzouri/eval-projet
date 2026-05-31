@@ -44,9 +44,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_fusion'])) {
     } else {
         try {
             $pdo->beginTransaction();
-            $stmt = $pdo->prepare("INSERT INTO modules (nom, description, duree_minutes, note_max, actif, type) VALUES (?,?,?,?,?,'qcm')");
-            $stmt->execute([$nom, $desc, $duree, $noteMax, $actif]);
+            $stmt = $pdo->prepare("INSERT INTO modules (nom, description, actif) VALUES (?,?,?)");
+            $stmt->execute([$nom, $desc, $actif]);
             $newModuleId = (int)$pdo->lastInsertId();
+            // Évaluation associée
+            $pdo->prepare("INSERT INTO evaluations (module_id, nom, type, duree_minutes, note_max, actif) VALUES (?,?,'qcm',?,?,?)")
+                ->execute([$newModuleId, $nom, $duree, $noteMax, $actif]);
 
             $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, 'Général', 1, 1)")
                 ->execute([$newModuleId]);
@@ -115,21 +118,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
         try {
             $pdo->beginTransaction();
 
-            $stmt = $pdo->prepare(
-                "INSERT INTO modules (nom, description, duree_minutes, note_max, actif, type)
-                 VALUES (?, ?, ?, ?, ?, 'efm')"
-            );
-            $stmt->execute([$nom, "EFM — $codeModule", $duree, $noteMax, $actif]);
+            $stmt = $pdo->prepare("INSERT INTO modules (nom, description, actif) VALUES (?, ?, ?)");
+            $stmt->execute([$nom, "EFM — $codeModule", $actif]);
             $newModuleId = (int)$pdo->lastInsertId();
 
             $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, 'Général', 1, 1)")
                 ->execute([$newModuleId]);
             $partieIdEfm = (int)$pdo->lastInsertId();
 
+            // Évaluation EFM avec métadonnées dans meta_json
+            $metaJson = json_encode([
+                'code_module'   => $codeModule,
+                'filiere'       => $filiere,
+                'etablissement' => $etablissement,
+                'annee'         => $annee,
+            ], JSON_UNESCAPED_UNICODE);
             $pdo->prepare(
-                "INSERT INTO modules_efm_meta (module_id, code_module, filiere, etablissement, annee)
-                 VALUES (?, ?, ?, ?, ?)"
-            )->execute([$newModuleId, $codeModule, $filiere, $etablissement, $annee]);
+                "INSERT INTO evaluations (module_id, nom, type, duree_minutes, note_max, meta_json, actif)
+                 VALUES (?, ?, 'efm', ?, ?, ?, ?)"
+            )->execute([$newModuleId, $nom, $duree, $noteMax, $metaJson, $actif]);
 
             $qOrdre = 1;
             foreach ($selectedParties as $srcPartieId => $nbMax) {

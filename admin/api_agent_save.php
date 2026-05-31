@@ -47,12 +47,16 @@ if ($type === 'continue') {
 
     // Créer une session_eval pré-remplie (sans stagiaire = session modèle admin)
     $token = bin2hex(random_bytes(16));
+    // Résoudre evaluation_id depuis module_id (première évaluation active du module)
+    $evalLookup = $pdo->prepare("SELECT id FROM evaluations WHERE module_id = ? ORDER BY id ASC LIMIT 1");
+    $evalLookup->execute([$moduleId]);
+    $resolvedEvalId = $evalLookup->fetchColumn() ?: null;
     $stmt = $pdo->prepare("
-        INSERT INTO sessions_eval (token, nom, prenom, groupe_id, module_id, statut, total_points)
+        INSERT INTO sessions_eval (token, nom, prenom, groupe_id, evaluation_id, statut, total_points)
         VALUES (?, ?, ?, ?, ?, 'en_cours', ?)
     ");
     $totalPoints = array_sum(array_column($questions, 'points'));
-    $stmt->execute([$token, '[AGENT] ' . $titre, $modNom, $groupeId ?: null, $moduleId, $totalPoints]);
+    $stmt->execute([$token, '[AGENT] ' . $titre, $modNom, $groupeId ?: null, $resolvedEvalId, $totalPoints]);
     $sessionId = (int)$pdo->lastInsertId();
 
     echo json_encode([
@@ -85,20 +89,23 @@ if ($type === 'efm') {
 
     $pdo->beginTransaction();
     try {
-        // 1. Créer une partie "Général" temporaire (sera remplacée)
-        $stmt = $pdo->prepare("
-            INSERT INTO modules (nom, description, type, actif, note_max)
-            VALUES (?, ?, 'efm', 1, 20)
-        ");
+        // 1. Module contenu
+        $stmt = $pdo->prepare("INSERT INTO modules (nom, description, actif) VALUES (?, ?, 1)");
         $stmt->execute([$titre, 'Généré par agent IA — ' . date('d/m/Y H:i')]);
         $newModuleId = (int)$pdo->lastInsertId();
 
-        // 2. Métadonnées EFM
+        // 2. Évaluation EFM avec métadonnées dans meta_json
+        $metaJson = json_encode([
+            'code_module'   => $codeModule,
+            'filiere'       => $filiere,
+            'etablissement' => $etablissement,
+            'annee'         => $annee,
+        ], JSON_UNESCAPED_UNICODE);
         $stmt = $pdo->prepare("
-            INSERT INTO modules_efm_meta (module_id, code_module, filiere, etablissement, annee)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO evaluations (module_id, nom, type, note_max, meta_json, actif)
+            VALUES (?, ?, 'efm', 20, ?, 1)
         ");
-        $stmt->execute([$newModuleId, $codeModule, $filiere, $etablissement, $annee]);
+        $stmt->execute([$newModuleId, $titre, $metaJson]);
 
         $totalQuestions = 0;
         $ordre = 0;
