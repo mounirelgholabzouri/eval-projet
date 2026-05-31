@@ -6,9 +6,8 @@
  *   47 — M206 EFM       (40 q avec partie_id=89 appartenant à module 32)
  *   42 — M105 DOCKER 1  (10 q avec partie_id=97 appartenant à module 43)
  */
-$pdo = new PDO('mysql:host=127.0.0.1;dbname=eval_online;charset=utf8mb4', 'root', '', [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-]);
+require_once __DIR__ . '/../../config/database.php';
+$pdo = getDB();
 
 $fixes = [
     47 => 'Général',

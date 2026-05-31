@@ -2,9 +2,8 @@
 /**
  * Migration : M206 EFM — passage type 'qcm' → 'efm' + métadonnées EFM + note_max=40
  */
-$pdo = new PDO('mysql:host=127.0.0.1;dbname=eval_online;charset=utf8mb4', 'root', '', [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-]);
+require_once __DIR__ . '/../../config/database.php';
+$pdo = getDB();
 
 $moduleId = 47;
 

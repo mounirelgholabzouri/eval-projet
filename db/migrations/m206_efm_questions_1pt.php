@@ -3,9 +3,8 @@
  * Migration : M206 EFM (module 47) — toutes les questions à 1 pt
  * Total : 40 questions × 1 pt = 40 pts = note_max → score brut = note /40
  */
-$pdo = new PDO('mysql:host=127.0.0.1;dbname=eval_online;charset=utf8mb4', 'root', '', [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-]);
+require_once __DIR__ . '/../../config/database.php';
+$pdo = getDB();
 
 $stmt = $pdo->prepare('UPDATE questions SET points=1 WHERE module_id=47');
 $stmt->execute();
