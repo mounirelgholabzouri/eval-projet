@@ -38,8 +38,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
                 ->execute([$texte, $type, $points, $ordre, $questionId]);
             $pdo->prepare("DELETE FROM choix_reponses WHERE question_id=?")->execute([$questionId]);
         } else {
-            $pdo->prepare("INSERT INTO questions (module_id, texte, type, points, ordre) VALUES (?,?,?,?,?)")
-                ->execute([$moduleId, $texte, $type, $points, $ordre]);
+            // Récupère la première partie du module (création auto si absente)
+            $pStmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre, id LIMIT 1");
+            $pStmt->execute([$moduleId]);
+            $defaultPartieId = $pStmt->fetchColumn();
+            if (!$defaultPartieId) {
+                $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?, 'Général', 1)")->execute([$moduleId]);
+                $defaultPartieId = (int)$pdo->lastInsertId();
+            }
+            $pdo->prepare("INSERT INTO questions (module_id, partie_id, texte, type, points, ordre) VALUES (?,?,?,?,?,?)")
+                ->execute([$moduleId, $defaultPartieId, $texte, $type, $points, $ordre]);
             $questionId = (int)$pdo->lastInsertId();
         }
 
@@ -58,6 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
 
 // ── Question : supprimer ─────────────────────────────────────
 if ($action === 'delete' && $questionId > 0) {
+    $pdo->prepare("DELETE FROM choix_reponses WHERE question_id=?")->execute([$questionId]);
     $pdo->prepare("DELETE FROM questions WHERE id=?")->execute([$questionId]);
     header("Location: questions.php?module_id=$moduleId&deleted=1"); exit;
 }
@@ -70,6 +79,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
     if (!empty($selectedIds)) {
         if ($bulkAction === 'delete') {
             foreach ($selectedIds as $id) {
+                $pdo->prepare("DELETE FROM choix_reponses WHERE question_id=?")->execute([$id]);
                 $pdo->prepare("DELETE FROM questions WHERE id=?")->execute([$id]);
             }
             $msg = count($selectedIds) . " question(s) supprimée(s).";

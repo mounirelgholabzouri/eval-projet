@@ -27,41 +27,11 @@ $nbQuestions = (int)$stmt->fetchColumn();
 // Traitement suppression
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete'])) {
     try {
-        $pdo->beginTransaction();
-
-        // Récupérer tous les IDs des questions du module
-        $stmt = $pdo->prepare("SELECT id FROM questions WHERE module_id = ?");
-        $stmt->execute([$moduleId]);
-        $questionIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
-
-        if (!empty($questionIds)) {
-            // Créer les placeholders pour les requêtes IN
-            $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
-
-            // Supprimer les réponses des stagiaires
-            $stmt = $pdo->prepare("DELETE FROM reponses_stagiaires WHERE question_id IN ($placeholders)");
-            $stmt->execute($questionIds);
-
-            // Supprimer les choix de réponses
-            $stmt = $pdo->prepare("DELETE FROM choix_reponses WHERE question_id IN ($placeholders)");
-            $stmt->execute($questionIds);
-
-            // Supprimer les questions
-            $stmt = $pdo->prepare("DELETE FROM questions WHERE id IN ($placeholders)");
-            $stmt->execute($questionIds);
-        }
-
-        // Supprimer le module
-        $stmt = $pdo->prepare("DELETE FROM modules WHERE id = ?");
-        $stmt->execute([$moduleId]);
-
-        $pdo->commit();
+        supprimerModule($moduleId);
         $msg = "Module et toutes ses données supprimés définitivement.";
-
         header("Location: modules.php?deleted=1&msg=" . urlencode($msg));
         exit;
     } catch (Exception $e) {
-        $pdo->rollBack();
         $erreur = "Erreur lors de la suppression : " . $e->getMessage();
     }
 }

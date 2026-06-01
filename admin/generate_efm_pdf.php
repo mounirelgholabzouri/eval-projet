@@ -210,7 +210,7 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
                     ' . $logoCell . '
                     <td style="vertical-align:middle;text-align:center">
                         <div style="font-weight:bold;font-size:10pt;line-height:1.6">Direction Régionale</div>
-                        <div style="font-weight:bold;font-size:10pt;line-height:1.6">ISTA HAY RIAD RABAT</div>
+                        <div style="font-weight:bold;font-size:10pt;line-height:1.6">RABAT-SALÉ-KENITRA</div>
                     </td>
                 </tr></table>
             </td>
@@ -235,15 +235,13 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
     <!-- FILIÈRE / DURÉE / ANNÉE / NOTE -->
     <table class="info-table">
         <tr>
-            <td class="lbl" style="width:13%">Filière</td>
-            <td class="sep">:</td>
-            <td style="width:47%">' . $filiere . '</td>
-            <td class="lbl" style="width:18%">Durée</td>
-            <td style="width:17%;text-align:center">: ' . $dureeHtml . '</td>
+            <td class="lbl" style="width:15%">Filière</td>
+            <td style="width:45%">' . $filiere . '</td>
+            <td class="lbl" style="width:20%">Durée</td>
+            <td style="width:20%;text-align:center">: ' . $dureeHtml . '</td>
         </tr>
         <tr>
             <td class="lbl">Année</td>
-            <td class="sep">:</td>
             <td>' . $annee . '</td>
             <td class="lbl">Note finale</td>
             <td style="text-align:center;font-weight:bold">: <span style="display:inline-block;width:60px;border-bottom:1px solid #000;">&nbsp;</span> / ' . $noteMax . '</td>

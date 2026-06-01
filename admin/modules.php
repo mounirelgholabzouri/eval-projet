@@ -21,12 +21,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $erreur = "Le nom du module est requis.";
     } else {
         if ($action === 'edit' && $id > 0) {
-            $stmt = $pdo->prepare("UPDATE modules SET nom=?, description=?, duree_minutes=?, note_max=?, actif=?, nb_questions_controle=? WHERE id=?");
-            $stmt->execute([$nom, $desc, $duree, $noteMax, $actif, $nbQCtrl, $id]);
+            $pdo->prepare("UPDATE modules SET nom=?, description=?, actif=?, nb_questions_controle=? WHERE id=?")
+                ->execute([$nom, $desc, $actif, $nbQCtrl, $id]);
+            // Met aussi à jour l'évaluation associée
+            $pdo->prepare("UPDATE evaluations SET nom=?, duree_minutes=?, note_max=? WHERE module_id=?")
+                ->execute([$nom, $duree, $noteMax, $id]);
             $msg = "Module mis à jour avec succès.";
         } else {
-            $stmt = $pdo->prepare("INSERT INTO modules (nom, description, duree_minutes, note_max, actif, nb_questions_controle) VALUES (?,?,?,?,?,?)");
-            $stmt->execute([$nom, $desc, $duree, $noteMax, $actif, $nbQCtrl]);
+            $pdo->prepare("INSERT INTO modules (nom, description, actif, nb_questions_controle) VALUES (?,?,?,?)")
+                ->execute([$nom, $desc, $actif, $nbQCtrl]);
+            $newId = (int)$pdo->lastInsertId();
+            // Crée l'évaluation associée automatiquement
+            $pdo->prepare("INSERT INTO evaluations (module_id, nom, type, duree_minutes, note_max) VALUES (?,?,'qcm',?,?)")
+                ->execute([$newId, $nom, $duree, $noteMax]);
+            // Crée la partie par défaut
+            $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?, 'Général', 1)")
+                ->execute([$newId]);
             $msg = "Module créé avec succès.";
         }
         $action = 'list';
@@ -79,6 +89,10 @@ $modules = getAllModules();
 $editModule = null;
 if ($action === 'edit' && $id > 0) {
     $editModule = getModule($id);
+    if (!$editModule) {
+        header("Location: modules.php");
+        exit;
+    }
 }
 ?>
 <!DOCTYPE html>

@@ -10,10 +10,27 @@ $erreur = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_session'])) {
     $delId = (int)($_POST['delete_id'] ?? 0);
     if ($delId > 0) {
-        supprimerSession($delId);
-        $msg = "Résultat supprimé.";
+        try {
+            supprimerSession($delId);
+            $redirectParams = array_filter([
+                'module_id'  => (int)($_GET['module_id'] ?? 0) ?: null,
+                'groupe_id'  => (int)($_GET['groupe_id'] ?? 0) ?: null,
+                'statut'     => $_GET['statut']     ?? null,
+                'date_from'  => $_GET['date_from']  ?? null,
+                'date_to'    => $_GET['date_to']    ?? null,
+            ], fn($v) => $v !== null && $v !== '');
+            $redirectParams['deleted'] = 1;
+            header("Location: results.php?" . http_build_query($redirectParams));
+            exit;
+        } catch (Exception $e) {
+            $erreur = "Erreur lors de la suppression : " . $e->getMessage();
+        }
     }
 }
+
+// ── Message flash après redirection ──────────────────────────
+if (isset($_GET['deleted'])) $msg = "Résultat supprimé.";
+if (isset($_GET['bulk_deleted'])) $msg = (int)($_GET['count'] ?? 0) . " résultat(s) supprimé(s).";
 
 // ── Suppression en masse ─────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
@@ -22,10 +39,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
 
     if (!empty($selectedIds)) {
         if ($bulkAction === 'delete') {
+            $nbDeleted = 0;
             foreach ($selectedIds as $id) {
-                supprimerSession($id);
+                try {
+                    supprimerSession($id);
+                    $nbDeleted++;
+                } catch (Exception $e) {
+                    $erreur = "Erreur suppression ID $id : " . $e->getMessage();
+                    break;
+                }
             }
-            $msg = count($selectedIds) . " résultat(s) supprimé(s).";
+            $redirectParams = array_filter([
+                'module_id'  => (int)($_GET['module_id'] ?? 0) ?: null,
+                'groupe_id'  => (int)($_GET['groupe_id'] ?? 0) ?: null,
+                'statut'     => $_GET['statut']     ?? null,
+                'date_from'  => $_GET['date_from']  ?? null,
+                'date_to'    => $_GET['date_to']    ?? null,
+            ], fn($v) => $v !== null && $v !== '');
+            $redirectParams['bulk_deleted'] = 1;
+            $redirectParams['count'] = $nbDeleted;
+            header("Location: results.php?" . http_build_query($redirectParams));
+            exit;
         }
     }
 }
@@ -214,6 +248,12 @@ $stats = getStatsGlobales();
     <?php if ($msg): ?>
     <div class="alert alert-success alert-dismissible fade show rounded-3 mb-4">
         <i class="bi bi-check-circle me-2"></i><?= htmlspecialchars($msg) ?>
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    <?php endif; ?>
+    <?php if ($erreur): ?>
+    <div class="alert alert-danger alert-dismissible fade show rounded-3 mb-4">
+        <i class="bi bi-exclamation-circle me-2"></i><?= htmlspecialchars($erreur) ?>
         <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
     </div>
     <?php endif; ?>

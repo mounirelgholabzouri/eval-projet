@@ -7,9 +7,9 @@
 - **Serveur** : Apache Laragon port 80 — **ne jamais utiliser `php -S`** (mono-thread, bloque AJAX)
 - **Racine projet** : `C:\Users\Administrateur\Desktop\Eval-Projet\`
 - **Lien Apache** : `C:\laragon\www\eval-projet\` → symlink vers la racine
-- **URL** : `http://localhost/`
+- **URL** : `http://eval-projet.test/`
 - **Worktree** : modifications dans `.claude\worktrees\<nom>\` → **copier manuellement** vers la racine pour activer sur Apache
-- **VirtualHost** : `C:\laragon\etc\apache2\sites-enabled\00-default.conf`
+- **VirtualHost** : `C:\laragon\etc\apache2\sites-enabled\auto.eval-projet.test.conf`
 
 ## Docker (optionnel)
 

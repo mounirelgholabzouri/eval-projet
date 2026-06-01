@@ -242,16 +242,34 @@ function supprimerModule(int $moduleId): void {
         }
         $pdo->prepare("DELETE FROM sessions_eval WHERE evaluation_id = ?")->execute([$evalId]);
     }
-    // 2. Évaluations
+    // 2. Évaluations + formateurs liés
+    $pdo->prepare("DELETE FROM module_formateurs WHERE module_id = ?")->execute([$moduleId]);
     $pdo->prepare("DELETE FROM evaluations WHERE module_id = ?")->execute([$moduleId]);
-    // 3. Choix des questions
+    // 3. Supprimer toutes les questions liées aux parties de ce module
+    //    (y compris celles dont module_id est incohérent — données migrées)
+    $pids = $pdo->prepare("SELECT id FROM parties WHERE module_id = ?");
+    $pids->execute([$moduleId]);
+    $partieIds = $pids->fetchAll(PDO::FETCH_COLUMN);
+
+    if (!empty($partieIds)) {
+        $ph = implode(',', array_fill(0, count($partieIds), '?'));
+        $qByPartie = $pdo->prepare("SELECT id FROM questions WHERE partie_id IN ($ph)");
+        $qByPartie->execute($partieIds);
+        foreach ($qByPartie->fetchAll(PDO::FETCH_COLUMN) as $qid) {
+            $pdo->prepare("DELETE FROM choix_reponses WHERE question_id = ?")->execute([$qid]);
+        }
+        $pdo->prepare("DELETE FROM questions WHERE partie_id IN ($ph)")->execute($partieIds);
+    }
+
+    // Supprimer aussi les questions par module_id (partie_id NULL ou autre)
     $qids = $pdo->prepare("SELECT id FROM questions WHERE module_id = ?");
     $qids->execute([$moduleId]);
     foreach ($qids->fetchAll(PDO::FETCH_COLUMN) as $qid) {
         $pdo->prepare("DELETE FROM choix_reponses WHERE question_id = ?")->execute([$qid]);
     }
-    // 4. Questions, parties, module
     $pdo->prepare("DELETE FROM questions WHERE module_id = ?")->execute([$moduleId]);
+
+    // 4. Parties, module
     $pdo->prepare("DELETE FROM parties WHERE module_id = ?")->execute([$moduleId]);
     $pdo->prepare("DELETE FROM modules WHERE id = ?")->execute([$moduleId]);
 }
@@ -312,6 +330,7 @@ function _fetchSession(string $where, array $params): ?array {
         SELECT s.*,
                COALESCE(st.nom,    s.nom)    AS nom,
                COALESCE(st.prenom, s.prenom) AS prenom,
+               e.module_id,
                m.nom  AS module_nom,
                e.duree_minutes,
                e.note_max,

@@ -144,7 +144,7 @@ $tamponB64  = file_exists($tamponPath)
             border: 1px solid #000;
             border-top: none;
             text-align: center;
-            padding: 2mm 3mm;
+            padding: 2.5mm 3mm;
             font-size: 10.5pt;
         }
         .h-code div { line-height: 1.6; }
@@ -374,15 +374,13 @@ $tamponB64  = file_exists($tamponPath)
     <!-- TABLEAU INFOS MODULE -->
     <table class="info-table">
         <tr>
-            <td class="label" style="width:13%">Filière</td>
-            <td class="sep">:</td>
-            <td style="width:47%"><?= $filiere ?></td>
-            <td class="label" style="width:18%">Durée</td>
-            <td class="val-r" style="width:17%">: <?= $duree ?></td>
+            <td class="label" style="width:15%">Filière</td>
+            <td style="width:45%"><?= $filiere ?></td>
+            <td class="label" style="width:20%">Durée</td>
+            <td class="val-r" style="width:20%">: <?= $duree ?></td>
         </tr>
         <tr>
             <td class="label">Année</td>
-            <td class="sep">:</td>
             <td><?= $annee ?></td>
             <td class="label">Note finale</td>
             <td class="val-r">: / <?= $noteMax ?></td>
