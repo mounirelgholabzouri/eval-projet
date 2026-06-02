@@ -33,7 +33,7 @@ function parseOption(string $opt): array {
 }
 
 // Normalise les options en tableau uniforme [['lettre'=>'A','texte'=>'...'], ...]
-// Accepte : objet {"A":"texte"} OU tableau ["A) texte", ...]
+// Accepte : objet {"A":"texte"} OU tableau ["A) texte", ...] OU tableau [{"lettre":"A","texte":"..."}]
 function normaliserOptions(mixed $options): array {
     if (!$options) return [];
     $result = [];
@@ -41,6 +41,14 @@ function normaliserOptions(mixed $options): array {
         // Objet associatif {"A": "texte", "B": "texte"}
         foreach ($options as $lettre => $texte) {
             $result[] = ['lettre' => strtoupper((string)$lettre), 'texte' => trim((string)$texte)];
+        }
+    } elseif (is_array($options) && !empty($options) && is_array($options[0]) && isset($options[0]['texte'])) {
+        // Tableau d'objets [{"lettre":"A","texte":"..."}, ...]
+        foreach ($options as $opt) {
+            $result[] = [
+                'lettre' => strtoupper(trim((string)($opt['lettre'] ?? ''))),
+                'texte'  => trim((string)($opt['texte'] ?? '')),
+            ];
         }
     } else {
         // Tableau indexé ["A) texte", ...]
@@ -140,8 +148,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $nbTotal++;
                 // Supporte "enonce" (ancien format) et "question" (nouveau format)
                 $texte  = trim($q['enonce'] ?? $q['question'] ?? '');
-                $type   = mapType($q['type'] ?? '');
                 $points = (float)($q['points'] ?? 1);
+
+                // Supporte "options" ET "choix" comme clé pour les réponses
+                $rawOptions = $q['options'] ?? $q['choix'] ?? [];
+
+                // Type : si absent, déduit de la structure (choix présents → qcm)
+                $rawType = $q['type'] ?? '';
+                if ($rawType === '' && !empty($rawOptions)) {
+                    $rawType = 'QCM';
+                }
+                $type = mapType($rawType);
 
                 if ($texte === '') { $nbSkip++; continue; }
 
@@ -155,13 +172,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ->execute([$moduleId, $partieId, $texte, $type, $points, $idx + 1]);
                 $questionId = $pdo->lastInsertId();
 
-                $options = normaliserOptions($q['options'] ?? []);
+                $options = normaliserOptions($rawOptions);
 
                 if ($type === 'qcm' || $type === 'multiple') {
-                    // reponses_correctes (tableau) ou reponse_correcte (string)
+                    // Supporte reponses_correctes / reponse_correcte / bonnes_reponses / bonne_reponse
                     $correctes = isset($q['reponses_correctes'])
                         ? (array)$q['reponses_correctes']
-                        : (isset($q['reponse_correcte']) ? [(string)$q['reponse_correcte']] : []);
+                        : (isset($q['reponse_correcte']) ? [(string)$q['reponse_correcte']]
+                        : (isset($q['bonnes_reponses'])  ? (array)$q['bonnes_reponses']
+                        : (isset($q['bonne_reponse'])    ? [(string)$q['bonne_reponse']] : [])));
                     // Normalise en majuscules
                     $correctes = array_map('strtoupper', $correctes);
 
