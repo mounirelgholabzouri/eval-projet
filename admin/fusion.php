@@ -24,6 +24,19 @@ foreach ($stmtP->fetchAll() as $p) {
     $allParties[(int)$p['module_id']][] = $p;
 }
 
+// Questions actives, indexées par partie_id
+$allQuestionsParPartie = [];
+$stmtQ = $pdo->query("
+    SELECT q.id, q.partie_id, q.texte, q.type, q.points, q.ordre
+    FROM questions q
+    INNER JOIN parties p ON p.id = q.partie_id
+    WHERE p.actif = 1
+    ORDER BY q.partie_id, q.ordre, q.id
+");
+foreach ($stmtQ->fetchAll() as $q) {
+    $allQuestionsParPartie[(int)$q['partie_id']][] = $q;
+}
+
 // ═══════════════════════════════════════════════════
 // POST : Fusion QCM classique
 // ═══════════════════════════════════════════════════
@@ -98,22 +111,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
     $noteMax      = in_array((int)($_POST['efm_note_max'] ?? 20), [20, 40]) ? (int)$_POST['efm_note_max'] : 20;
     $actif        = isset($_POST['efm_actif']) ? 1 : 0;
     $shuffle      = isset($_POST['efm_shuffle']) ? 1 : 0;
+    $shuffleChoix = isset($_POST['efm_shuffle_choix']) ? 1 : 0;
+    $doImprimer   = isset($_POST['efm_imprimer']); // bouton "Créer et imprimer"
 
-    // Parties sélectionnées : POST keys efm_p_{partieId} + quota efm_nb_{partieId}
-    $selectedParties = []; // [ partieId => nbQuestions (0 = toutes) ]
+    // Questions sélectionnées individuellement : efm_q_{qId} (checkbox) + efm_pts_{qId} (points)
+    $selectedQuestions = []; // [ questionId => points ]
     foreach ($_POST as $k => $v) {
-        if (str_starts_with($k, 'efm_p_')) {
-            $pid = (int)substr($k, 6);
-            if ($pid > 0) {
-                $selectedParties[$pid] = max(0, (int)($_POST['efm_nb_' . $pid] ?? 0));
+        if (str_starts_with($k, 'efm_q_')) {
+            $qid = (int)substr($k, 6);
+            if ($qid > 0) {
+                $selectedQuestions[$qid] = max(0, (float)str_replace(',', '.', $_POST['efm_pts_' . $qid] ?? 1));
             }
         }
     }
 
     if (strlen($nom) < 2) {
         $erreur = "Le nom de l'EFM est requis (minimum 2 caractères).";
-    } elseif (empty($selectedParties)) {
-        $erreur = "Sélectionnez au moins une partie dans un module.";
+    } elseif (empty($selectedQuestions)) {
+        $erreur = "Sélectionnez au moins une question.";
     } else {
         try {
             $pdo->beginTransaction();
@@ -138,33 +153,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                  VALUES (?, ?, 'efm', ?, ?, ?, ?)"
             )->execute([$newModuleId, $nom, $duree, $noteMax, $metaJson, $actif]);
 
+            // Charger les questions sélectionnées dans leur ordre d'origine
+            $qids = array_keys($selectedQuestions);
+            $placeholders = implode(',', array_fill(0, count($qids), '?'));
+            $qStmt = $pdo->prepare("SELECT * FROM questions WHERE id IN ($placeholders) ORDER BY partie_id, ordre, id");
+            $qStmt->execute($qids);
+            $srcQuestions = $qStmt->fetchAll();
+
+            if ($shuffle) shuffle($srcQuestions);
+
             $qOrdre = 1;
-            foreach ($selectedParties as $srcPartieId => $nbMax) {
-                $qStmt = $pdo->prepare("SELECT * FROM questions WHERE partie_id = ? ORDER BY ordre, id");
-                $qStmt->execute([$srcPartieId]);
-                $questions = $qStmt->fetchAll();
+            foreach ($srcQuestions as $q) {
+                $pts = $selectedQuestions[$q['id']];
+                $insQ = $pdo->prepare(
+                    "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)"
+                );
+                $insQ->execute([$newModuleId, $partieIdEfm, $q['texte'], $q['type'], $pts, $qOrdre++, $q['image_path'] ?? null]);
+                $newQId = (int)$pdo->lastInsertId();
 
-                if ($shuffle) shuffle($questions);
-                if ($nbMax > 0) $questions = array_slice($questions, 0, $nbMax);
-
-                foreach ($questions as $q) {
-                    $insQ = $pdo->prepare(
-                        "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
-                         VALUES (?, ?, ?, ?, ?, ?, ?)"
-                    );
-                    $insQ->execute([$newModuleId, $partieIdEfm, $q['texte'], $q['type'], $q['points'], $qOrdre++, $q['image_path'] ?? null]);
-                    $newQId = (int)$pdo->lastInsertId();
-
-                    $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
-                    $cStmt->execute([$q['id']]);
-                    foreach ($cStmt->fetchAll() as $c) {
-                        $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?,?,?,?)")
-                            ->execute([$newQId, $c['texte'], $c['is_correct'], $c['ordre']]);
-                    }
+                $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
+                $cStmt->execute([$q['id']]);
+                foreach ($cStmt->fetchAll() as $c) {
+                    $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?,?,?,?)")
+                        ->execute([$newQId, $c['texte'], $c['is_correct'], $c['ordre']]);
                 }
             }
 
             $pdo->commit();
+
+            if ($doImprimer) {
+                // Redirection directe vers l'impression EFM
+                $params = http_build_query([
+                    'module_id'     => $newModuleId,
+                    'etablissement' => $etablissement,
+                    'filiere'       => $filiere,
+                    'duree'         => $duree . ' min',
+                    'annee'         => $annee,
+                    'note_max'      => $noteMax,
+                    'code_module'   => $codeModule,
+                    'intitule'      => $nom,
+                    'shuffle'       => 0,
+                    'shuffle_choix' => $shuffleChoix ? 1 : 0,
+                    'corrige'       => 0,
+                ]);
+                header("Location: print_efm.php?$params"); exit;
+            }
+
             header("Location: questions.php?module_id={$newModuleId}&msg=efm_ok"); exit;
         } catch (Exception $e) {
             $pdo->rollBack();
@@ -333,12 +368,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
             <input type="hidden" name="action_efm" value="1">
             <div class="row g-4">
 
-                <!-- Colonne gauche : sélection modules + parties -->
+                <!-- Colonne gauche : sélection questions par module/partie -->
                 <div class="col-lg-6">
                     <div class="card border-0 shadow-sm rounded-4">
                         <div class="card-header bg-white border-0 py-3 px-4">
-                            <h5 class="mb-0 fw-bold"><i class="bi bi-layers me-2 text-warning"></i>Sélection des parties</h5>
-                            <div class="text-muted small mt-1">Cochez les modules puis sélectionnez les parties à inclure</div>
+                            <h5 class="mb-0 fw-bold"><i class="bi bi-list-check me-2 text-warning"></i>Sélection des questions</h5>
+                            <div class="text-muted small mt-1">Cochez les questions à inclure et ajustez leur pondération</div>
                         </div>
                         <div class="card-body p-3">
                             <div class="mb-3">
@@ -350,7 +385,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                        autocomplete="off">
                                 <div class="form-text" id="efmFilterHint"></div>
                             </div>
-                            <div class="d-flex gap-2 mb-3">
+                            <div class="d-flex gap-2 mb-3 flex-wrap">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="efmExpandAll">
                                     <i class="bi bi-arrows-expand me-1"></i>Tout développer
                                 </button>
@@ -361,52 +396,87 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                     <i class="bi bi-check2-all me-1"></i>Tout sélectionner
                                 </button>
                             </div>
+
                             <?php foreach ($modules as $m): ?>
                             <?php $parties = $allParties[(int)$m['id']] ?? []; if (empty($parties)) continue; ?>
-                            <div class="efm-module-block mb-3 border rounded-3 overflow-hidden"
+                            <?php
+                                // Vérifier qu'au moins une partie a des questions
+                                $hasQuestions = false;
+                                foreach ($parties as $p) {
+                                    if (!empty($allQuestionsParPartie[(int)$p['id']])) { $hasQuestions = true; break; }
+                                }
+                                if (!$hasQuestions) continue;
+                            ?>
+                            <div class="efm-module-block mb-2 border rounded-3 overflow-hidden"
                                  data-module-name="<?= strtolower(sanitize($m['nom'])) ?>">
-                                <!-- En-tête module : clic = expand/collapse ; case = tout sélectionner -->
+                                <!-- En-tête module -->
                                 <div class="d-flex align-items-center gap-2 px-3 py-2 bg-light border-bottom efm-module-header"
                                      style="cursor:pointer" data-module="<?= $m['id'] ?>">
                                     <input class="form-check-input efm-module-check flex-shrink-0"
-                                           type="checkbox"
-                                           data-module="<?= $m['id'] ?>"
-                                           id="efmm<?= $m['id'] ?>"
-                                           onclick="event.stopPropagation()">
+                                           type="checkbox" data-module="<?= $m['id'] ?>"
+                                           id="efmm<?= $m['id'] ?>" onclick="event.stopPropagation()">
                                     <label class="fw-semibold mb-0 flex-grow-1" for="efmm<?= $m['id'] ?>"
                                            onclick="event.stopPropagation()" style="cursor:pointer">
                                         <?= sanitize($m['nom']) ?>
                                         <span class="badge bg-secondary-subtle text-secondary ms-1">
-                                            <?= count($parties) ?> partie<?= count($parties) > 1 ? 's' : '' ?>
+                                            <?= (int)$m['nb_questions'] ?> Q
                                         </span>
                                         <span class="badge bg-success-subtle text-success ms-1 efm-selected-count"
                                               data-module="<?= $m['id'] ?>" style="display:none"></span>
                                     </label>
                                     <i class="bi bi-chevron-down efm-chevron text-muted flex-shrink-0"></i>
                                 </div>
-                                <!-- Parties du module (masquées par défaut, toujours sélectionnables) -->
+
+                                <!-- Parties + questions (masquées par défaut) -->
                                 <div class="efm-parties-list" data-module="<?= $m['id'] ?>" style="display:none">
                                     <?php foreach ($parties as $p): ?>
-                                    <div class="px-3 py-2 border-bottom d-flex align-items-center gap-3">
-                                        <input class="form-check-input efm-partie-check flex-shrink-0"
-                                               type="checkbox"
-                                               name="efm_p_<?= $p['id'] ?>"
-                                               value="1"
-                                               id="efmp<?= $p['id'] ?>"
-                                               data-module="<?= $m['id'] ?>"
-                                               data-total="<?= (int)$p['nb_questions'] ?>">
-                                        <label class="mb-0 flex-grow-1" for="efmp<?= $p['id'] ?>">
-                                            <?= sanitize($p['nom']) ?>
-                                            <span class="text-muted small">(<?= $p['nb_questions'] ?> q)</span>
-                                        </label>
-                                        <div style="width:110px">
-                                            <div class="input-group input-group-sm">
-                                                <span class="input-group-text" title="0 = toutes">Q</span>
-                                                <input type="number" class="form-control efm-nb-input"
-                                                       name="efm_nb_<?= $p['id'] ?>"
-                                                       value="0" min="0" max="<?= $p['nb_questions'] ?>"
-                                                       title="0 = toutes les questions">
+                                    <?php $questions = $allQuestionsParPartie[(int)$p['id']] ?? []; if (empty($questions)) continue; ?>
+                                    <div class="efm-partie-block">
+                                        <!-- En-tête partie -->
+                                        <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom efm-partie-header"
+                                             style="cursor:pointer;background:#f8f9fa" data-partie="<?= $p['id'] ?>">
+                                            <input class="form-check-input efm-partie-check flex-shrink-0"
+                                                   type="checkbox" data-partie="<?= $p['id'] ?>"
+                                                   data-module="<?= $m['id'] ?>"
+                                                   id="efmp<?= $p['id'] ?>" onclick="event.stopPropagation()">
+                                            <label class="mb-0 flex-grow-1 fw-semibold" for="efmp<?= $p['id'] ?>"
+                                                   onclick="event.stopPropagation()" style="cursor:pointer">
+                                                <?= sanitize($p['nom']) ?>
+                                                <span class="badge bg-secondary-subtle text-secondary ms-1">
+                                                    <?= count($questions) ?> q
+                                                </span>
+                                                <span class="badge bg-success-subtle text-success ms-1 efm-partie-badge"
+                                                      style="display:none"></span>
+                                            </label>
+                                            <i class="bi bi-chevron-right efm-partie-chevron text-muted flex-shrink-0"></i>
+                                        </div>
+                                        <!-- Liste des questions (masquée par défaut) -->
+                                        <div class="efm-questions-list" data-partie="<?= $p['id'] ?>" style="display:none">
+                                            <div class="d-flex align-items-center gap-2 px-3 py-1 border-bottom bg-white">
+                                                <span class="text-muted small flex-grow-1 fst-italic">Énoncé</span>
+                                                <span class="text-muted small flex-shrink-0" style="width:80px;text-align:center">Pts</span>
                                             </div>
+                                            <?php foreach ($questions as $q): ?>
+                                            <?php $texte = mb_substr(strip_tags($q['texte']), 0, 120); ?>
+                                            <div class="d-flex align-items-center gap-2 px-3 py-2 border-bottom efm-question-row">
+                                                <input class="form-check-input efm-q-check flex-shrink-0"
+                                                       type="checkbox"
+                                                       name="efm_q_<?= $q['id'] ?>"
+                                                       value="1"
+                                                       data-partie="<?= $p['id'] ?>"
+                                                       data-module="<?= $m['id'] ?>">
+                                                <span class="flex-grow-1 small"
+                                                      title="<?= sanitize($q['texte']) ?>"><?= sanitize($texte) ?><?= mb_strlen(strip_tags($q['texte'])) > 120 ? '…' : '' ?></span>
+                                                <div class="flex-shrink-0" style="width:80px">
+                                                    <input type="number"
+                                                           name="efm_pts_<?= $q['id'] ?>"
+                                                           class="form-control form-control-sm efm-pts-input text-center"
+                                                           value="<?= number_format((float)$q['points'], 2, '.', '') ?>"
+                                                           min="0" step="0.25"
+                                                           title="Pondération de cette question">
+                                                </div>
+                                            </div>
+                                            <?php endforeach; ?>
                                         </div>
                                     </div>
                                     <?php endforeach; ?>
@@ -417,7 +487,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                             <!-- Résumé dynamique -->
                             <div class="alert alert-info rounded-3 py-2 mt-2 mb-0" id="efmSummary">
                                 <i class="bi bi-info-circle me-1"></i>
-                                <span id="efmSummaryText">Sélectionnez des modules et des parties.</span>
+                                <span id="efmSummaryText">Sélectionnez des modules et des questions.</span>
                             </div>
                         </div>
                     </div>
@@ -486,15 +556,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                 <input class="form-check-input" type="checkbox" name="efm_shuffle" id="efmShuffle" value="1" checked>
                                 <label class="form-check-label" for="efmShuffle">Mélanger les questions (ordre aléatoire)</label>
                             </div>
+                            <div class="form-check form-switch mb-2">
+                                <input class="form-check-input" type="checkbox" name="efm_shuffle_choix" id="efmShuffleChoix" value="1" checked>
+                                <label class="form-check-label" for="efmShuffleChoix">Mélanger les choix de réponse</label>
+                            </div>
                             <div class="form-check form-switch mb-4">
                                 <input class="form-check-input" type="checkbox" name="efm_actif" id="efmActif" value="1" checked>
                                 <label class="form-check-label" for="efmActif">Module actif (visible aux stagiaires)</label>
                             </div>
-                            <div class="d-flex gap-2">
+                            <div class="d-flex flex-wrap gap-2 align-items-center">
                                 <button type="submit" class="btn btn-danger" id="btnEfm" disabled>
                                     <i class="bi bi-file-earmark-ruled me-2"></i>Créer l'EFM
                                 </button>
-                                <span class="text-muted small align-self-center" id="btnEfmHint">Sélectionnez au moins une partie</span>
+                                <button type="submit" name="efm_imprimer" value="1" class="btn btn-warning" id="btnEfmPrint" disabled>
+                                    <i class="bi bi-printer me-2"></i>Créer et imprimer
+                                </button>
+                                <span class="text-muted small" id="btnEfmHint">Sélectionnez au moins une partie</span>
                             </div>
                         </div>
                     </div>
@@ -582,55 +659,68 @@ updateFusionUI();
 // Onglet EFM
 // ══════════════════════════════════════════════
 const btnEfm         = document.getElementById('btnEfm');
+const btnEfmPrint    = document.getElementById('btnEfmPrint');
 const btnEfmHint     = document.getElementById('btnEfmHint');
 const efmSummaryText = document.getElementById('efmSummaryText');
 
 function updateEfmUI() {
-    let totalParties = 0, totalQ = 0;
+    let totalQ = 0, totalPts = 0;
 
-    document.querySelectorAll('.efm-partie-check:checked').forEach(cb => {
-        const total   = parseInt(cb.dataset.total);
-        const nbInput = cb.closest('[data-total]')?.parentElement?.querySelector('.efm-nb-input');
-        const nb      = nbInput ? (parseInt(nbInput.value) || 0) : 0;
-        totalParties++;
-        totalQ += (nb === 0) ? total : Math.min(nb, total);
+    document.querySelectorAll('.efm-q-check:checked').forEach(cb => {
+        totalQ++;
+        const qName  = cb.name.replace('efm_q_', 'efm_pts_');
+        const ptsInp = document.querySelector(`input[name="${qName}"]`);
+        totalPts += ptsInp ? (parseFloat(ptsInp.value) || 0) : 0;
     });
 
-    // Badge de comptage par module + état indéterminé
-    document.querySelectorAll('.efm-module-block').forEach(block => {
-        const mid       = block.querySelector('.efm-module-check')?.dataset.module;
-        const allParts  = block.querySelectorAll('.efm-partie-check');
-        const selParts  = block.querySelectorAll('.efm-partie-check:checked');
-        const badge     = block.querySelector('.efm-selected-count');
-        const modCheck  = block.querySelector('.efm-module-check');
+    // Badges et états indéterminés des parties
+    document.querySelectorAll('.efm-partie-block').forEach(block => {
+        const allQ  = block.querySelectorAll('.efm-q-check');
+        const selQ  = block.querySelectorAll('.efm-q-check:checked');
+        const badge = block.querySelector('.efm-partie-badge');
+        const pc    = block.querySelector('.efm-partie-check');
         if (badge) {
-            if (selParts.length > 0) {
-                badge.style.display = 'inline-flex';
-                badge.textContent   = selParts.length + '/' + allParts.length + ' partie(s)';
-            } else {
-                badge.style.display = 'none';
-            }
+            badge.style.display = selQ.length > 0 ? 'inline-flex' : 'none';
+            badge.textContent = selQ.length + '/' + allQ.length;
         }
-        if (modCheck && allParts.length > 0) {
-            modCheck.indeterminate = selParts.length > 0 && selParts.length < allParts.length;
-            if (!modCheck.indeterminate) modCheck.checked = selParts.length === allParts.length;
+        if (pc && allQ.length > 0) {
+            pc.indeterminate = selQ.length > 0 && selQ.length < allQ.length;
+            if (!pc.indeterminate) pc.checked = selQ.length === allQ.length;
         }
     });
 
-    if (totalParties > 0) {
+    // Badges et états indéterminés des modules
+    document.querySelectorAll('.efm-module-block').forEach(block => {
+        const allQ    = block.querySelectorAll('.efm-q-check');
+        const selQ    = block.querySelectorAll('.efm-q-check:checked');
+        const badge   = block.querySelector('.efm-selected-count');
+        const modCheck = block.querySelector('.efm-module-check');
+        if (badge) {
+            badge.style.display = selQ.length > 0 ? 'inline-flex' : 'none';
+            badge.textContent = selQ.length + ' Q';
+        }
+        if (modCheck && allQ.length > 0) {
+            modCheck.indeterminate = selQ.length > 0 && selQ.length < allQ.length;
+            if (!modCheck.indeterminate) modCheck.checked = selQ.length === allQ.length;
+        }
+    });
+
+    if (totalQ > 0) {
         btnEfm.disabled = false;
+        if (btnEfmPrint) btnEfmPrint.disabled = false;
         btnEfmHint.textContent = '';
-        efmSummaryText.textContent = `${totalParties} partie(s) sélectionnée(s) — ${totalQ} question(s) dans l'EFM.`;
+        efmSummaryText.innerHTML = `<strong>${totalQ}</strong> question(s) sélectionnée(s) — Total : <strong>${totalPts.toFixed(2)} pts</strong>`;
         document.getElementById('efmSummary').className = 'alert alert-success rounded-3 py-2 mt-2 mb-0';
     } else {
         btnEfm.disabled = true;
-        btnEfmHint.textContent = 'Sélectionnez au moins une partie';
-        efmSummaryText.textContent = 'Sélectionnez des modules et des parties.';
+        if (btnEfmPrint) btnEfmPrint.disabled = true;
+        btnEfmHint.textContent = 'Sélectionnez au moins une question';
+        efmSummaryText.textContent = 'Sélectionnez des modules et des questions.';
         document.getElementById('efmSummary').className = 'alert alert-info rounded-3 py-2 mt-2 mb-0';
     }
 }
 
-// Clic sur l'en-tête du module = expand / collapse (indépendant de la case)
+// Clic en-tête module → expand/collapse parties
 document.querySelectorAll('.efm-module-header').forEach(header => {
     header.addEventListener('click', () => {
         const mid     = header.dataset.module;
@@ -646,17 +736,54 @@ document.querySelectorAll('.efm-module-header').forEach(header => {
     });
 });
 
-// Case module = tout sélectionner / désélectionner + auto-expand
+// Case module → tout sélectionner/désélectionner les questions + auto-expand
 document.querySelectorAll('.efm-module-check').forEach(cb => {
     cb.addEventListener('change', () => {
         const mid     = cb.dataset.module;
         const list    = document.querySelector(`.efm-parties-list[data-module="${mid}"]`);
         const chevron = document.querySelector(`.efm-module-header[data-module="${mid}"] .efm-chevron`);
         if (!list) return;
-        list.querySelectorAll('.efm-partie-check').forEach(pc => { pc.checked = cb.checked; });
+        list.querySelectorAll('.efm-q-check').forEach(qc => { qc.checked = cb.checked; });
         if (cb.checked && list.style.display === 'none') {
             list.style.display = 'block';
-            if (chevron) { chevron.classList.replace('bi-chevron-down', 'bi-chevron-up'); }
+            // Auto-expand toutes les parties
+            list.querySelectorAll('.efm-questions-list').forEach(ql => { ql.style.display = 'block'; });
+            list.querySelectorAll('.efm-partie-chevron').forEach(c => {
+                c.classList.replace('bi-chevron-right', 'bi-chevron-down');
+            });
+            if (chevron) chevron.classList.replace('bi-chevron-down', 'bi-chevron-up');
+        }
+        updateEfmUI();
+    });
+});
+
+// Clic en-tête partie → expand/collapse questions
+document.querySelectorAll('.efm-partie-header').forEach(header => {
+    header.addEventListener('click', () => {
+        const pid     = header.dataset.partie;
+        const list    = document.querySelector(`.efm-questions-list[data-partie="${pid}"]`);
+        const chevron = header.querySelector('.efm-partie-chevron');
+        if (!list) return;
+        const visible = list.style.display !== 'none';
+        list.style.display = visible ? 'none' : 'block';
+        if (chevron) {
+            chevron.classList.toggle('bi-chevron-right', visible);
+            chevron.classList.toggle('bi-chevron-down', !visible);
+        }
+    });
+});
+
+// Case partie → tout sélectionner/désélectionner les questions de la partie + auto-expand
+document.querySelectorAll('.efm-partie-check').forEach(cb => {
+    cb.addEventListener('change', () => {
+        const pid     = cb.dataset.partie;
+        const list    = document.querySelector(`.efm-questions-list[data-partie="${pid}"]`);
+        const chevron = document.querySelector(`.efm-partie-header[data-partie="${pid}"] .efm-partie-chevron`);
+        if (!list) return;
+        list.querySelectorAll('.efm-q-check').forEach(qc => { qc.checked = cb.checked; });
+        if (cb.checked && list.style.display === 'none') {
+            list.style.display = 'block';
+            if (chevron) chevron.classList.replace('bi-chevron-right', 'bi-chevron-down');
         }
         updateEfmUI();
     });
@@ -664,37 +791,34 @@ document.querySelectorAll('.efm-module-check').forEach(cb => {
 
 // Tout développer
 document.getElementById('efmExpandAll')?.addEventListener('click', () => {
-    document.querySelectorAll('.efm-parties-list').forEach(l => { l.style.display = 'block'; });
-    document.querySelectorAll('.efm-chevron').forEach(c => {
-        c.classList.remove('bi-chevron-down'); c.classList.add('bi-chevron-up');
-    });
+    document.querySelectorAll('.efm-parties-list, .efm-questions-list').forEach(l => { l.style.display = 'block'; });
+    document.querySelectorAll('.efm-chevron').forEach(c => { c.classList.replace('bi-chevron-down', 'bi-chevron-up'); });
+    document.querySelectorAll('.efm-partie-chevron').forEach(c => { c.classList.replace('bi-chevron-right', 'bi-chevron-down'); });
 });
 
 // Tout réduire
 document.getElementById('efmCollapseAll')?.addEventListener('click', () => {
-    document.querySelectorAll('.efm-parties-list').forEach(l => { l.style.display = 'none'; });
-    document.querySelectorAll('.efm-chevron').forEach(c => {
-        c.classList.remove('bi-chevron-up'); c.classList.add('bi-chevron-down');
-    });
+    document.querySelectorAll('.efm-parties-list, .efm-questions-list').forEach(l => { l.style.display = 'none'; });
+    document.querySelectorAll('.efm-chevron').forEach(c => { c.classList.replace('bi-chevron-up', 'bi-chevron-down'); });
+    document.querySelectorAll('.efm-partie-chevron').forEach(c => { c.classList.replace('bi-chevron-down', 'bi-chevron-right'); });
 });
 
-// Recalcul si on change nb_questions ou partie_check
-document.querySelectorAll('.efm-nb-input, .efm-partie-check').forEach(el => {
+// Recalcul si on coche/décoche une question ou change ses points
+document.querySelectorAll('.efm-q-check, .efm-pts-input').forEach(el => {
     el.addEventListener('change', updateEfmUI);
     el.addEventListener('input', updateEfmUI);
 });
 
 // ── Filtrage par code module ──────────────────────────────────
 function applyEfmCodeFilter(code) {
-    const codeNorm   = code.trim().toLowerCase();
-    const blocks     = document.querySelectorAll('.efm-module-block');
-    const btnSel     = document.getElementById('efmSelectFiltered');
-    const hint       = document.getElementById('efmFilterHint');
+    const codeNorm = code.trim().toLowerCase();
+    const blocks   = document.querySelectorAll('.efm-module-block');
+    const btnSel   = document.getElementById('efmSelectFiltered');
+    const hint     = document.getElementById('efmFilterHint');
     let visible = 0;
 
     blocks.forEach(block => {
-        const name = block.dataset.moduleName || '';
-        const match = !codeNorm || name.startsWith(codeNorm);
+        const match = !codeNorm || (block.dataset.moduleName || '').startsWith(codeNorm);
         block.style.display = match ? '' : 'none';
         if (match) visible++;
     });
@@ -724,27 +848,28 @@ if (efmCodeInput) {
         if (efmCodeFilter) efmCodeFilter.value = efmCodeInput.value;
         applyEfmCodeFilter(efmCodeInput.value);
     });
-    // Appliquer si valeur déjà présente (rechargement POST avec erreur)
     if (efmCodeInput.value) {
         if (efmCodeFilter) efmCodeFilter.value = efmCodeInput.value;
         applyEfmCodeFilter(efmCodeInput.value);
     }
 }
 
-// Sélectionner tous les modules visibles
+// Sélectionner toutes les questions des modules visibles
 document.getElementById('efmSelectFiltered')?.addEventListener('click', () => {
     document.querySelectorAll('.efm-module-block').forEach(block => {
         if (block.style.display === 'none') return;
-        const cb = block.querySelector('.efm-module-check');
-        if (!cb) return;
+        const cb  = block.querySelector('.efm-module-check');
+        const mid = cb?.dataset.module;
+        if (!cb || !mid) return;
         cb.checked = true;
-        const mid  = cb.dataset.module;
         const list = document.querySelector(`.efm-parties-list[data-module="${mid}"]`);
         const chev = document.querySelector(`.efm-module-header[data-module="${mid}"] .efm-chevron`);
         if (list) {
-            list.querySelectorAll('.efm-partie-check').forEach(pc => { pc.checked = true; });
+            list.querySelectorAll('.efm-q-check').forEach(qc => { qc.checked = true; });
+            list.querySelectorAll('.efm-questions-list').forEach(ql => { ql.style.display = 'block'; });
+            list.querySelectorAll('.efm-partie-chevron').forEach(c => { c.classList.replace('bi-chevron-right','bi-chevron-down'); });
             list.style.display = 'block';
-            if (chev) { chev.classList.replace('bi-chevron-down','bi-chevron-up'); }
+            if (chev) chev.classList.replace('bi-chevron-down','bi-chevron-up');
         }
     });
     updateEfmUI();
