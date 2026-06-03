@@ -87,15 +87,14 @@ $isEfm    = ($module['type'] ?? 'qcm') === 'efm';
 $noteMax  = (int)($module['note_max'] ?? 20);
 $filiere  = $module['efm_filiere'] ?? '';
 $codeModule = $module['efm_code_module'] ?? '';
-$etabl    = $module['efm_etablissement'] ?: 'Direction Régionale RABAT-SALÉ-KENITRA';
+$etabl    = $module['efm_etablissement'] ?? 'Direction Régionale RABAT-SALÉ-KENITRA';
 $dureeMin = (int)($module['duree_minutes'] ?? 0);
 $dureeStr = $dureeMin ? $dureeMin . ' min' : '';
 
 $logoPath = __DIR__ . '/../assets/img/logo_efm.png';
 $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
 
-$tamponPath = __DIR__ . '/../assets/img/tampon_ofppt.png';
-$tamponB64  = file_exists($tamponPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($tamponPath)) : '';
+
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -155,7 +154,7 @@ $tamponB64  = file_exists($tamponPath) ? 'data:image/png;base64,' . base64_encod
         .score-box .mention { font-size: 11pt; font-weight: bold; padding: 2px 10px; border: 2px solid #000; }
 
         /* ── Tampon ── */
-        .tampon-ofppt { position: fixed; bottom: 14mm; right: 14mm; width: 38mm; opacity: 0.88; pointer-events: none; z-index: 100; }
+
 
         /* ── Séparateur de pages ── */
         .page-break { page-break-after: always; break-after: page; }
@@ -300,9 +299,6 @@ $tamponB64  = file_exists($tamponPath) ? 'data:image/png;base64,' . base64_encod
 
 <?php endforeach; ?>
 
-<?php if ($tamponB64): ?>
-<img src="<?= $tamponB64 ?>" class="tampon-ofppt" alt="">
-<?php endif; ?>
 
 <script>
 if (new URLSearchParams(location.search).get('auto') === '1') window.print();
