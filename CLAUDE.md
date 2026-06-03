@@ -112,8 +112,9 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 | Page | Rôle |
 |------|------|
 | `admin/sessions_view.php` | Sessions groupées par module + date — clic → liste des stagiaires avec scores |
-| `admin/results.php` | Liste plate de toutes les sessions (filtrée) |
+| `admin/results.php` | Liste plate de toutes les sessions (filtrée, `?module_id=X` pour filtre direct) |
 | `admin/detail.php` | Détail question par question d'une session |
+| `admin/modules.php` | Bouton résultats (icône graphique bleu) → `results.php?module_id=X` sur chaque ligne |
 
 ## Invariants métier
 

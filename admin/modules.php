@@ -306,6 +306,11 @@ if ($action === 'edit' && $id > 0) {
                                             <i class="bi bi-printer"></i>
                                         </a>
                                         <?php endif; ?>
+                                        <a href="results.php?module_id=<?= $m['id'] ?>"
+                                           class="btn btn-sm btn-outline-info rounded-3"
+                                           title="Voir les résultats">
+                                            <i class="bi bi-bar-chart-line"></i>
+                                        </a>
                                         <a href="delete_module.php?id=<?= $m['id'] ?>"
                                            class="btn btn-sm btn-outline-danger rounded-3"
                                            title="Supprimer (avec options)">
