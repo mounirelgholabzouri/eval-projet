@@ -197,15 +197,6 @@ $tamponB64  = file_exists($tamponPath)
             border-collapse: collapse;
             font-size: 10.5pt;
         }
-        .questions-table thead th {
-            background: #000;
-            color: #fff;
-            padding: 4px 8px;
-            border: 1px solid #000;
-            font-size: 10pt;
-            text-align: center;
-        }
-        .questions-table thead th.th-q { text-align: left; }
         .questions-table tbody td {
             border: 1px solid #aaa;
             padding: 5px 8px;
@@ -250,10 +241,6 @@ $tamponB64  = file_exists($tamponPath)
             body { background: #fff; }
             .print-controls { display: none !important; }
             .page { margin: 0; box-shadow: none; width: 100%; padding: 7mm 10mm 12mm; }
-            .questions-table thead th {
-                background: #000 !important;
-                color: #fff !important;
-            }
         }
     </style>
 </head>
@@ -334,12 +321,6 @@ $tamponB64  = file_exists($tamponPath)
     <!-- ── Réponses du stagiaire ── -->
     <?php if (!empty($questions)): ?>
     <table class="questions-table">
-        <thead>
-            <tr>
-                <th style="width:58px">Note</th>
-                <th class="th-q">Question / Réponse du stagiaire</th>
-            </tr>
-        </thead>
         <tbody>
             <?php foreach ($questions as $idx => $q):
                 $ptsMaxRaw  = (float)$q['points_max'];

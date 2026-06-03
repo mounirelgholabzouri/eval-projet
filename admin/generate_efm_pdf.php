@@ -104,10 +104,7 @@ body { font-family: Arial, sans-serif; font-size: 10.5pt; color: #000; }
 .sep  { text-align: center; width: 14px; }
 
 .questions-table { width: 100%; border-collapse: collapse; font-size: 10.5pt; }
-.questions-table thead th {
-    background: #000; color: #fff; padding: 4px 8px;
-    border: 1px solid #000; font-size: 10pt; text-align: center;
-}
+.questions-table thead { display: none; }
 .th-q { text-align: left !important; }
 .questions-table tbody td { border: 1px solid #aaa; padding: 5px 8px; vertical-align: top; }
 .col-note { width: 58px; text-align: center; font-weight: bold;
@@ -250,12 +247,6 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
 
     <!-- QUESTIONS / RÉPONSES -->
     <table class="questions-table">
-        <thead>
-            <tr>
-                <th style="width:58px">Note</th>
-                <th class="th-q">Question / Réponse du stagiaire</th>
-            </tr>
-        </thead>
         <tbody>' . $qRows . '</tbody>
     </table>';
 }

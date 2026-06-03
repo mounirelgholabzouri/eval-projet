@@ -74,6 +74,7 @@ $filterDateFrom  = trim($_GET['date_from'] ?? '');
 $filterDateTo    = trim($_GET['date_to'] ?? '');
 $filterHourFrom  = trim($_GET['hour_from'] ?? '');
 $filterHourTo    = trim($_GET['hour_to'] ?? '');
+$filterCategorie = in_array($_GET['categorie'] ?? '', ['efm','cc_theorique','cc_pratique']) ? $_GET['categorie'] : '';
 
 $datePattern = '/^\d{4}-\d{2}-\d{2}$/';
 $timePattern = '/^\d{2}:\d{2}$/';
@@ -92,6 +93,7 @@ $activeFilters = array_filter([
     'date_to'    => $filterDateTo ?: null,
     'hour_from'  => $filterHourFrom ?: null,
     'hour_to'    => $filterHourTo ?: null,
+    'categorie'  => $filterCategorie ?: null,
 ], fn($v) => $v !== null && $v !== '');
 
 // ── Tri ───────────────────────────────────────────────────────
@@ -147,6 +149,7 @@ if (isset($_GET['export'])) {
     if ($filterGroupeId > 0) { $csvWhere[] = 's.groupe_id = ?'; $csvParams[] = $filterGroupeId; }
     elseif ($filterGroupe)   { $csvWhere[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $csvParams[] = "%$filterGroupe%"; $csvParams[] = "%$filterGroupe%"; }
     if ($filterStatut)       { $csvWhere[] = "s.statut = ?"; $csvParams[] = $filterStatut; }
+    if ($filterCategorie)    { $csvWhere[] = "e.categorie = ?"; $csvParams[] = $filterCategorie; }
     if ($filterDateFrom)     { $csvWhere[] = "DATE(s.date_debut) >= ?"; $csvParams[] = $filterDateFrom; }
     if ($filterDateTo)       { $csvWhere[] = "DATE(s.date_debut) <= ?"; $csvParams[] = $filterDateTo; }
     if ($filterHourFrom)     { $csvWhere[] = "TIME(s.date_debut) >= ?"; $csvParams[] = $filterHourFrom . ':00'; }
@@ -198,6 +201,7 @@ if ($filterModule > 0) { $where[] = 'e.module_id = ?'; $params[] = $filterModule
 if ($filterGroupeId > 0) { $where[] = 's.groupe_id = ?'; $params[] = $filterGroupeId; }
 elseif ($filterGroupe) { $where[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $params[] = "%$filterGroupe%"; $params[] = "%$filterGroupe%"; }
 if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
+if ($filterCategorie)  { $where[] = "e.categorie = ?"; $params[] = $filterCategorie; }
 if ($filterDateFrom)   { $where[] = "DATE(s.date_debut) >= ?"; $params[] = $filterDateFrom; }
 if ($filterDateTo)     { $where[] = "DATE(s.date_debut) <= ?"; $params[] = $filterDateTo; }
 if ($filterHourFrom)   { $where[] = "TIME(s.date_debut) >= ?"; $params[] = $filterHourFrom . ':00'; }

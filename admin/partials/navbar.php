@@ -17,10 +17,21 @@ $navItems = [
     ['file' => 'formateurs_emploi.php', 'icon' => 'bi-person-badge',   'label' => 'Formateurs'],
     ['file' => 'sessions_view.php',  'icon' => 'bi-calendar-check',    'label' => 'Sessions'],
     ['file' => 'results.php',        'icon' => 'bi-bar-chart',         'label' => 'Résultats'],
+    ['file' => 'cc_pratique.php',    'icon' => 'bi-grid-3x3-gap',      'label' => 'CC Pratique'],
     ['file' => 'etablissements.php', 'icon' => 'bi-building',          'label' => 'Établissements'],
 ];
 
 $dropdowns = [
+    'audit' => [
+        'icon' => 'bi-clipboard-data', 'label' => 'Résultat Audit',
+        'files' => ['resultat_audit.php'],
+        'items' => [
+            ['file' => 'resultat_audit.php', 'href' => 'resultat_audit.php?type=cc1_pratique',  'type' => 'cc1_pratique',  'icon' => 'bi-grid-3x3-gap', 'label' => 'CC1 Pratique'],
+            ['file' => 'resultat_audit.php', 'href' => 'resultat_audit.php?type=cc2_pratique',  'type' => 'cc2_pratique',  'icon' => 'bi-grid-3x3-gap', 'label' => 'CC2 Pratique'],
+            ['file' => 'resultat_audit.php', 'href' => 'resultat_audit.php?type=cc3_theorique', 'type' => 'cc3_theorique', 'icon' => 'bi-ui-checks',     'label' => 'CC3 Théorique'],
+            ['file' => 'resultat_audit.php', 'href' => 'resultat_audit.php?type=efm',           'type' => 'efm',           'icon' => 'bi-award',        'label' => 'EFM'],
+        ],
+    ],
     'importer' => [
         'icon' => 'bi-cloud-upload', 'label' => 'Importer',
         'files' => ['import_questions.php', 'import_evaluation_json.php'],
@@ -86,9 +97,15 @@ function renderSidebarContent(array $navItems, array $dropdowns, string $current
             <i class="bi bi-chevron-down sb-chevron ms-auto"></i>
         </button>
         <div class="collapse <?= $isOpen ? 'show' : '' ?>" id="sb-dd-<?= $prefix ?>-<?= $key ?>">
-            <?php foreach ($dd['items'] as $it): ?>
-            <a href="<?= $it['file'] ?>"
-               class="sb-link sb-sub <?= $currentPage === $it['file'] ? 'active' : '' ?>">
+            <?php foreach ($dd['items'] as $it):
+                $href = $it['href'] ?? $it['file'];
+                $isActive = ($currentPage === $it['file']);
+                if ($isActive && isset($it['type'])) {
+                    $isActive = (($_GET['type'] ?? 'efm') === $it['type']);
+                }
+            ?>
+            <a href="<?= $href ?>"
+               class="sb-link sb-sub <?= $isActive ? 'active' : '' ?>">
                 <i class="bi <?= $it['icon'] ?>"></i>
                 <span><?= $it['label'] ?></span>
             </a>

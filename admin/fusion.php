@@ -308,6 +308,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                     <a href="modules.php?action=edit&id=<?= $efmOk['id'] ?>" class="btn btn-outline-secondary btn-sm">
                         <i class="bi bi-pencil me-1"></i>Modifier le module
                     </a>
+                    <a href="results.php?categorie=efm" class="btn btn-outline-info btn-sm">
+                        <i class="bi bi-bar-chart me-1"></i>Résultats EFM
+                    </a>
                 </div>
             </div>
         </div>
