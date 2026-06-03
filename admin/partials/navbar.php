@@ -1,4 +1,7 @@
 <?php
+/* ── Script inline précoce : applique la classe de largeur AVANT le rendu ── */
+echo '<script>(function(){var w=localStorage.getItem("admin-width")||"";if(w&&["w-wide","w-normal","w-compact"].indexOf(w)>=0)document.body.classList.add(w);})();</script>';
+
 $currentPage = basename($_SERVER['PHP_SELF']);
 $etabNavbar  = !empty($_SESSION['admin_etablissement_nom'])
     ? $_SESSION['admin_etablissement_nom']
@@ -96,6 +99,10 @@ function renderSidebarContent(array $navItems, array $dropdowns, string $current
 
     <!-- Footer -->
     <div class="sb-footer">
+        <button type="button" class="sb-link sb-link-muted sb-width-btn" title="Changer la largeur du contenu">
+            <i class="bi bi-layout-three-columns sb-width-icon"></i>
+            <span class="sb-width-label">Largeur</span>
+        </button>
         <a href="../index.php" target="_blank" class="sb-link sb-link-muted">
             <i class="bi bi-box-arrow-up-right"></i><span>Voir le site</span>
         </a>
@@ -136,3 +143,200 @@ function renderSidebarContent(array $navItems, array $dropdowns, string $current
 <aside class="sb-desktop">
     <?php renderSidebarContent($navItems, $dropdowns, $currentPage, $etabNavbar); ?>
 </aside>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   Bloc synchrone — s'exécute avant le rendu de la page.
+   Définit les utilitaires globaux disponibles dès le chargement.
+   ═══════════════════════════════════════════════════════════════ */
+(function () {
+
+    /* ── Toggle largeur contenu ──────────────────────────────── */
+    var modes = [
+        { key: '',          label: 'Original',     icon: 'bi-layout-three-columns' },
+        { key: 'w-wide',    label: 'Large (1400)',  icon: 'bi-arrows-fullscreen' },
+        { key: 'w-normal',  label: 'Normal (1100)', icon: 'bi-layout-sidebar' },
+        { key: 'w-compact', label: 'Compact (800)', icon: 'bi-layout-text-sidebar-reverse' },
+    ];
+    var stored = localStorage.getItem('admin-width') || '';
+    var idx    = modes.findIndex(function (m) { return m.key === stored; });
+    if (idx < 0) idx = 0;
+
+    function applyWidth(mode) {
+        document.body.classList.remove('w-wide', 'w-normal', 'w-compact');
+        if (mode.key) document.body.classList.add(mode.key);
+        document.querySelectorAll('.sb-width-label').forEach(function (el) { el.textContent  = mode.label; });
+        document.querySelectorAll('.sb-width-icon') .forEach(function (el) { el.className    = 'bi ' + mode.icon; });
+        localStorage.setItem('admin-width', mode.key);
+    }
+    applyWidth(modes[idx]);
+    document.querySelectorAll('.sb-width-btn').forEach(function (btn) {
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            idx = (idx + 1) % modes.length;
+            applyWidth(modes[idx]);
+        });
+    });
+
+    /* ── Toast global (disponible avant DOMContentLoaded) ────── */
+    window._toast = function (msg, type) {
+        type = type || 'success';
+        var wrap = document.getElementById('_toastWrap');
+        if (!wrap) {
+            wrap = document.createElement('div');
+            wrap.id = '_toastWrap';
+            document.body.appendChild(wrap);
+        }
+        var el = document.createElement('div');
+        el.className = 'alert alert-' + type + ' shadow-sm py-2 px-3 mb-0 small';
+        el.innerHTML = msg;
+        wrap.appendChild(el);
+        setTimeout(function () {
+            el.style.transition = 'opacity .3s';
+            el.style.opacity    = '0';
+            setTimeout(function () { el.remove(); }, 320);
+        }, 3800);
+    };
+
+    /* ── confirmAction — fallback natif (remplacé après DOMReady) */
+    window.confirmAction = function (msg, cb) {
+        if (window.confirm(msg) && cb) cb();
+    };
+
+})();
+
+/* ═══════════════════════════════════════════════════════════════
+   Bloc DOMContentLoaded — Bootstrap est disponible ici.
+   ═══════════════════════════════════════════════════════════════ */
+document.addEventListener('DOMContentLoaded', function () {
+
+    /* 1. Tooltips Bootstrap sur tous les boutons/liens avec title */
+    document.querySelectorAll('a.btn[title], button[title]').forEach(function (el) {
+        if (!el.getAttribute('data-bs-toggle') && !el._bsTooltip) {
+            el._bsTooltip = new bootstrap.Tooltip(el, { trigger: 'hover', placement: 'top' });
+        }
+    });
+
+    /* 2. Auto-dismiss des alertes succès / warning après 4,5 s */
+    document.querySelectorAll('.alert-success, .alert-warning').forEach(function (el) {
+        if (el.closest('.modal')) return;
+        setTimeout(function () {
+            el.style.transition  = 'opacity .4s ease, max-height .4s ease, margin .4s ease, padding .4s ease';
+            el.style.overflow    = 'hidden';
+            el.style.opacity     = '0';
+            el.style.maxHeight   = '0';
+            el.style.marginTop   = '0';
+            el.style.marginBottom = '0';
+            el.style.paddingTop  = '0';
+            el.style.paddingBottom = '0';
+            setTimeout(function () { el.remove(); }, 440);
+        }, 4500);
+    });
+
+    /* 3. Ctrl+S / Cmd+S → submit le formulaire principal (hors modal) */
+    document.addEventListener('keydown', function (e) {
+        if (!(e.ctrlKey || e.metaKey) || e.key !== 's') return;
+        e.preventDefault();
+        if (document.querySelector('.modal.show')) return;
+        var form = document.querySelector('.card-body form[method="POST"]')
+                || document.querySelector('form[method="POST"]');
+        if (!form) return;
+        var btn = form.querySelector('[type="submit"]:not([disabled])');
+        if (btn) btn.click();
+    });
+
+    /* 4. Interception des liens de suppression directe (?action=delete) */
+    document.querySelectorAll('a[href*="action=delete"]').forEach(function (link) {
+        link.removeAttribute('onclick');
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            var href = this.href;
+            confirmAction('Supprimer définitivement cet élément ?', function () {
+                window.location.href = href;
+            });
+        });
+    });
+
+    /* 5. Surbrillance des lignes via checkbox tbody */
+    document.querySelectorAll('tbody .form-check-input[type="checkbox"]').forEach(function (cb) {
+        cb.addEventListener('change', function () {
+            var tr = this.closest('tr');
+            if (tr) tr.classList.toggle('row-selected', this.checked);
+        });
+        if (cb.checked) { var tr = cb.closest('tr'); if (tr) tr.classList.add('row-selected'); }
+    });
+
+    /* 6. Injection live-search dans les tableaux avec 5+ lignes de données */
+    document.querySelectorAll('.table-responsive').forEach(function (wrap) {
+        if (wrap.previousElementSibling && wrap.previousElementSibling.classList.contains('tbl-search-bar')) return;
+        var table = wrap.querySelector('table');
+        if (!table) return;
+        var tbody = table.querySelector('tbody');
+        if (!tbody) return;
+        var dataRows = Array.from(tbody.querySelectorAll('tr')).filter(function (r) {
+            return !r.querySelector('td[colspan]');
+        });
+        if (dataRows.length < 5) return;
+
+        var bar  = document.createElement('div');
+        bar.className = 'tbl-search-bar';
+        bar.innerHTML  = '<div class="input-group input-group-sm">'
+            + '<span class="input-group-text"><i class="bi bi-search"></i></span>'
+            + '<input type="search" class="form-control" placeholder="Rechercher dans le tableau…" autocomplete="off">'
+            + '</div>';
+        wrap.parentNode.insertBefore(bar, wrap);
+
+        var inp = bar.querySelector('input');
+        inp.addEventListener('input', function () {
+            var v = this.value.toLowerCase().trim();
+            tbody.querySelectorAll('tr').forEach(function (r) {
+                if (r.querySelector('td[colspan]')) return;
+                r.style.display = (!v || r.textContent.toLowerCase().includes(v)) ? '' : 'none';
+            });
+        });
+    });
+
+    /* 7. Bouton submit → état loading pendant navigation (POST) */
+    document.querySelectorAll('form[method="POST"]').forEach(function (form) {
+        form.addEventListener('submit', function () {
+            if (!form.checkValidity()) return;
+            var btn = form.querySelector('[type="submit"]:not(.no-loading)');
+            if (btn) setTimeout(function () { btn.classList.add('btn-loading'); }, 60);
+        });
+    });
+
+    /* 8. Modal de confirmation Bootstrap (remplace le fallback natif) */
+    var gcm = document.createElement('div');
+    gcm.className   = 'modal fade';
+    gcm.id          = '_gcm';
+    gcm.tabIndex    = -1;
+    gcm.innerHTML   =
+        '<div class="modal-dialog modal-sm modal-dialog-centered">'
+      + '<div class="modal-content rounded-4 border-0 shadow">'
+      + '<div class="modal-body p-4 text-center">'
+      + '<i class="bi bi-exclamation-triangle-fill text-danger d-block mb-3" style="font-size:2.2rem"></i>'
+      + '<p id="_gcm-msg" class="fw-semibold mb-0 lh-sm"></p>'
+      + '</div>'
+      + '<div class="modal-footer border-0 justify-content-center gap-2 pb-4 pt-0">'
+      + '<button type="button" class="btn btn-outline-secondary px-4" data-bs-dismiss="modal">Annuler</button>'
+      + '<button type="button" class="btn btn-danger px-4" id="_gcm-ok">Confirmer</button>'
+      + '</div></div></div>';
+    document.body.appendChild(gcm);
+
+    var bsGcm = new bootstrap.Modal(gcm);
+
+    window.confirmAction = function (msg, onOk) {
+        document.getElementById('_gcm-msg').textContent = msg;
+        var okBtn = document.getElementById('_gcm-ok');
+        var fresh = okBtn.cloneNode(true);
+        okBtn.parentNode.replaceChild(fresh, okBtn);
+        fresh.addEventListener('click', function () { bsGcm.hide(); if (onOk) onOk(); });
+        gcm.addEventListener('hidden.bs.modal', function handler() {
+            gcm.removeEventListener('hidden.bs.modal', handler);
+        });
+        bsGcm.show();
+        setTimeout(function () { fresh.focus(); }, 300);
+    };
+
+});
+</script>

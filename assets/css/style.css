@@ -301,3 +301,136 @@ body {
     .question-number { width: 26px; height: 26px; min-width: 26px; font-size: 0.75rem; }
     .choices-list { padding-left: 0 !important; }
 }
+
+/* ── Ergonomie globale ───────────────────────────────────────
+   Améliorations UX : focus, animations, search, toasts, etc.  */
+
+/* Focus accessible (WCAG AA) */
+:focus-visible {
+    outline: 2px solid var(--primary) !important;
+    outline-offset: 2px;
+    border-radius: 3px;
+}
+
+/* Micro-interaction boutons */
+.btn { transition: all 0.15s ease; }
+.btn:active:not(:disabled) { transform: scale(0.96); }
+
+/* Alert : entrée animée */
+@keyframes _alertIn {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.alert { animation: _alertIn 0.22s ease; }
+
+/* Ligne tableau sélectionnée (via checkbox) */
+.table tbody tr.row-selected { background-color: #eef2ff !important; }
+.table tbody tr { transition: background 0.1s; }
+
+/* Empty state amélioré dans les tableaux */
+.table tbody td[colspan].text-center {
+    padding-top: 2.5rem !important;
+    padding-bottom: 2.5rem !important;
+    color: #94a3b8;
+    font-size: .92rem;
+}
+.table tbody td[colspan].text-center i {
+    display: block;
+    font-size: 2rem;
+    margin-bottom: .5rem;
+    opacity: .35;
+}
+
+/* Barre de recherche injectée dans les tableaux */
+.tbl-search-bar {
+    padding: .55rem 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f9fafb;
+}
+.tbl-search-bar .input-group { max-width: 300px; }
+.tbl-search-bar .input-group-text {
+    background: #fff;
+    border-right: none;
+    color: #9ca3af;
+    font-size: .85rem;
+}
+.tbl-search-bar .form-control {
+    border-left: none;
+    padding-left: .25rem;
+    font-size: .85rem;
+}
+.tbl-search-bar .form-control:focus {
+    box-shadow: none;
+    border-color: #ced4da;
+}
+
+/* Bouton en cours de chargement */
+.btn-loading {
+    position: relative;
+    color: transparent !important;
+    pointer-events: none;
+    opacity: .75;
+}
+.btn-loading::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 14px; height: 14px;
+    margin: -7px 0 0 -7px;
+    border: 2px solid rgba(255,255,255,.4);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: _spin .65s linear infinite;
+}
+.btn-outline-primary.btn-loading::after,
+.btn-outline-secondary.btn-loading::after,
+.btn-outline-danger.btn-loading::after {
+    border-color: rgba(80,80,80,.25);
+    border-top-color: currentColor;
+}
+@keyframes _spin { to { transform: rotate(360deg); } }
+
+/* Modal de confirmation global */
+#_gcm .modal-content { border-radius: 1rem !important; }
+
+/* Toast container global */
+#_toastWrap {
+    position: fixed;
+    bottom: 1.25rem;
+    right: 1.25rem;
+    z-index: 9999;
+    display: flex;
+    flex-direction: column;
+    gap: .45rem;
+    max-width: 320px;
+    pointer-events: none;
+}
+#_toastWrap .alert { pointer-events: all; margin-bottom: 0; }
+@keyframes _toastIn {
+    from { opacity: 0; transform: translateX(20px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+#_toastWrap .alert { animation: _toastIn .2s ease; }
+
+/* Scrollbar fine (desktop) */
+@media (min-width: 992px) {
+    html { scrollbar-width: thin; scrollbar-color: rgba(0,0,0,.13) transparent; }
+    html::-webkit-scrollbar { width: 6px; height: 6px; }
+    html::-webkit-scrollbar-thumb { background: rgba(0,0,0,.13); border-radius: 3px; }
+    html::-webkit-scrollbar-track { background: transparent; }
+}
+
+/* Barre d'actions bulk — indicateur de sélection animé */
+#bulkActionBar { transition: none; }
+
+/* ── Modes de largeur du contenu (admin) ─────────────────────
+   Appliqués via classe sur <body> — stockés dans localStorage.
+   !important pour écraser les max-width inline des pages.       */
+body.w-wide   > .container-fluid,
+body.w-wide   > .container  { max-width: 1400px !important; margin-left: auto !important; margin-right: auto !important; }
+
+body.w-normal > .container-fluid,
+body.w-normal > .container  { max-width: 1100px !important; margin-left: auto !important; margin-right: auto !important; }
+
+body.w-compact > .container-fluid,
+body.w-compact > .container { max-width: 800px  !important; margin-left: auto !important; margin-right: auto !important; }

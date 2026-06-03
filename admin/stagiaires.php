@@ -566,31 +566,25 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function bulkDeleteStagiaires() {
     const checkboxes = document.querySelectorAll('.stagiaire-checkbox:checked');
-    if (checkboxes.length === 0) {
-        alert('Sélectionnez au moins un stagiaire.');
-        return;
-    }
-    if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' stagiaire(s) ?\nLes stagiaires avec évaluations ne seront pas supprimés.')) {
+    if (checkboxes.length === 0) { _toast('Sélectionnez au moins un stagiaire.', 'warning'); return; }
+    confirmAction('Supprimer ' + checkboxes.length + ' stagiaire(s) ? Les stagiaires avec évaluations ne seront pas supprimés.', function () {
         const form = document.createElement('form');
         form.method = 'POST';
-        const csrfInput = document.createElement('input'); csrfInput.type = 'hidden'; csrfInput.name = 'csrf_token'; csrfInput.value = document.querySelector('input[name="csrf_token"]')?.value ?? ''; form.appendChild(csrfInput);
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden'; csrfInput.name = 'csrf_token';
+        csrfInput.value = document.querySelector('input[name="csrf_token"]')?.value ?? '';
+        form.appendChild(csrfInput);
         const input1 = document.createElement('input');
-        input1.type = 'hidden';
-        input1.name = 'action';
-        input1.value = 'bulk_delete';
+        input1.type = 'hidden'; input1.name = 'action'; input1.value = 'bulk_delete';
         form.appendChild(input1);
-
-        checkboxes.forEach(cb => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'selected_ids[]';
-            input.value = cb.value;
-            form.appendChild(input);
+        checkboxes.forEach(function (cb) {
+            const inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = 'selected_ids[]'; inp.value = cb.value;
+            form.appendChild(inp);
         });
-
         document.body.appendChild(form);
         form.submit();
-    }
+    });
 }
 </script>
 </body>

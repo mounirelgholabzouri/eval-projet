@@ -399,30 +399,21 @@ function clearSelection() {
 
 function bulkDelete() {
     const checkboxes = document.querySelectorAll('.module-checkbox:checked');
-    if (checkboxes.length === 0) {
-        alert('Sélectionnez au moins un module.');
-        return;
-    }
-    if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' module(s) ?\nCette action est irréversible.')) {
+    if (checkboxes.length === 0) { _toast('Sélectionnez au moins un module.', 'warning'); return; }
+    confirmAction('Supprimer ' + checkboxes.length + ' module(s) ? Cette action est irréversible.', function () {
         const form = document.createElement('form');
         form.method = 'POST';
         const input1 = document.createElement('input');
-        input1.type = 'hidden';
-        input1.name = 'bulk_action';
-        input1.value = 'delete';
+        input1.type = 'hidden'; input1.name = 'bulk_action'; input1.value = 'delete';
         form.appendChild(input1);
-
-        checkboxes.forEach(cb => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'selected_ids[]';
-            input.value = cb.value;
-            form.appendChild(input);
+        checkboxes.forEach(function (cb) {
+            const inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = 'selected_ids[]'; inp.value = cb.value;
+            form.appendChild(inp);
         });
-
         document.body.appendChild(form);
         form.submit();
-    }
+    });
 }
 
 function bulkToggleStatus() {

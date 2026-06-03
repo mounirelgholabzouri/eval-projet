@@ -683,35 +683,25 @@ function clearSelection() {
 
 function bulkDeleteResults() {
     const checkboxes = document.querySelectorAll('.result-checkbox:checked');
-    if (checkboxes.length === 0) {
-        alert('Sélectionnez au moins un résultat.');
-        return;
-    }
-    if (confirm('Êtes-vous sûr de vouloir supprimer ' + checkboxes.length + ' résultat(s) ?\nToutes les réponses associées seront effacées.')) {
+    if (checkboxes.length === 0) { _toast('Sélectionnez au moins un résultat.', 'warning'); return; }
+    confirmAction('Supprimer ' + checkboxes.length + ' résultat(s) ? Toutes les réponses associées seront effacées.', function () {
         const form = document.createElement('form');
         form.method = 'POST';
         const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden';
-        csrfInput.name = 'csrf_token';
+        csrfInput.type = 'hidden'; csrfInput.name = 'csrf_token';
         csrfInput.value = document.querySelector('input[name="csrf_token"]')?.value ?? '';
         form.appendChild(csrfInput);
         const input1 = document.createElement('input');
-        input1.type = 'hidden';
-        input1.name = 'bulk_action';
-        input1.value = 'delete';
+        input1.type = 'hidden'; input1.name = 'bulk_action'; input1.value = 'delete';
         form.appendChild(input1);
-
-        checkboxes.forEach(cb => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'selected_ids[]';
-            input.value = cb.value;
-            form.appendChild(input);
+        checkboxes.forEach(function (cb) {
+            const inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = 'selected_ids[]'; inp.value = cb.value;
+            form.appendChild(inp);
         });
-
         document.body.appendChild(form);
         form.submit();
-    }
+    });
 }
 
 // ── Rendu badge correction ────────────────────────────────────
