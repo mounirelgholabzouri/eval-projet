@@ -226,8 +226,6 @@ $tamponB64  = file_exists($tamponPath) ? 'data:image/png;base64,' . base64_encod
                     <div>Groupe : <?= $groupe ?></div>
                     <?php if ($isEfm): ?>
                     <div>Etablissement : ISTA HAY RIAD RABAT</div>
-                    <?php else: ?>
-                    <div>Date : ………………………………………………………………</div>
                     <?php endif; ?>
                 </td>
             </tr>
