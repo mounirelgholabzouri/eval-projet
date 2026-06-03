@@ -94,6 +94,45 @@ $activeFilters = array_filter([
     'hour_to'    => $filterHourTo ?: null,
 ], fn($v) => $v !== null && $v !== '');
 
+// ── Tri ───────────────────────────────────────────────────────
+$allowedSortSQL = [
+    'nom'    => "COALESCE(st.nom, s.nom), COALESCE(st.prenom, s.prenom)",
+    'groupe' => "COALESCE(g.nom, s.groupe_libre)",
+    'module' => "m.nom",
+    'date'   => "s.date_debut",
+    'score'  => "s.pourcentage",
+];
+$sortCol = $_GET['sort'] ?? 'date';
+$sortDir = strtolower($_GET['dir'] ?? 'desc') === 'asc' ? 'asc' : 'desc';
+if (!array_key_exists($sortCol, $allowedSortSQL)) { $sortCol = 'date'; $sortDir = 'desc'; }
+$orderBy = $allowedSortSQL[$sortCol] . ' ' . strtoupper($sortDir);
+// Inclure sort/dir dans activeFilters uniquement si non-défaut
+if ($sortCol !== 'date') $activeFilters['sort'] = $sortCol;
+if ($sortDir !== 'desc') $activeFilters['dir']  = $sortDir;
+
+/**
+ * Génère un lien <th> triable avec icône de direction.
+ */
+function makeSortTh(string $col, string $label, string $currentSort, string $currentDir, array $activeFilters): string {
+    $isActive = $currentSort === $col;
+    $newDir   = ($isActive && $currentDir === 'desc') ? 'asc' : 'desc';
+    $params   = array_merge(
+        array_filter($activeFilters, fn($k) => !in_array($k, ['sort','dir']), ARRAY_FILTER_USE_KEY),
+        ['sort' => $col, 'dir' => $newDir]
+    );
+    $chevron  = $isActive
+        ? ($currentDir === 'asc' ? 'bi-sort-up-alt' : 'bi-sort-down-alt')
+        : 'bi-chevron-expand';
+    $color    = $isActive ? 'text-primary' : 'text-muted';
+    return sprintf(
+        '<a href="results.php?%s" class="text-decoration-none text-dark d-inline-flex align-items-center gap-1 fw-semibold">%s<i class="bi %s %s" style="font-size:10px"></i></a>',
+        htmlspecialchars(http_build_query($params)),
+        htmlspecialchars($label),
+        $chevron,
+        $color
+    );
+}
+
 // Export CSV
 if (isset($_GET['export'])) {
     header('Content-Type: text/csv; charset=utf-8');
@@ -134,7 +173,7 @@ if (isset($_GET['export'])) {
         LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
         LEFT JOIN groupes    g  ON g.id  = s.groupe_id
         WHERE $csvWhereStr
-        ORDER BY s.date_debut DESC
+        ORDER BY $orderBy
     ");
     $stmt->execute($csvParams);
     while ($row = $stmt->fetch()) {
@@ -194,7 +233,7 @@ $stmt = $pdo->prepare("
     LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
     LEFT JOIN groupes    g  ON g.id  = s.groupe_id
     WHERE $whereStr
-    ORDER BY s.date_debut DESC
+    ORDER BY $orderBy
     LIMIT 200
 ");
 $stmt->execute($params);
@@ -436,12 +475,12 @@ $stats = getStatsGlobales();
                         <th class="ps-4" style="width: 40px;">
                             <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
                         </th>
-                        <th class="ps-4">Stagiaire</th>
-                        <th>Groupe</th>
-                        <th>Module</th>
-                        <th>Date / heure activation</th>
-                        <th class="text-center">Score</th>
-                        <th class="text-center">%</th>
+                        <th class="ps-4"><?= makeSortTh('nom',    'Stagiaire', $sortCol, $sortDir, $activeFilters) ?></th>
+                        <th><?= makeSortTh('groupe', 'Groupe',    $sortCol, $sortDir, $activeFilters) ?></th>
+                        <th><?= makeSortTh('module', 'Module',    $sortCol, $sortDir, $activeFilters) ?></th>
+                        <th><?= makeSortTh('date',   'Date / heure', $sortCol, $sortDir, $activeFilters) ?></th>
+                        <th class="text-center"><?= makeSortTh('score', 'Score', $sortCol, $sortDir, $activeFilters) ?></th>
+                        <th class="text-center"><?= makeSortTh('score', '%',     $sortCol, $sortDir, $activeFilters) ?></th>
                         <th class="text-center">Mention</th>
                         <th class="text-center">Statut</th>
                         <th class="text-center">Correction</th>
