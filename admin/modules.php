@@ -165,7 +165,7 @@ if ($action === 'edit' && $id > 0) {
                             <label class="form-label fw-semibold">Questions par contrôle</label>
                             <input type="number" name="nb_questions_controle" class="form-control" min="1" max="500"
                                    placeholder="Laisser vide = toutes"
-                                   value="<?= $editModule['nb_questions_controle'] !== null ? (int)$editModule['nb_questions_controle'] : '' ?>">
+                                   value="<?= isset($editModule['nb_questions_controle']) ? (int)$editModule['nb_questions_controle'] : '' ?>">
                             <div class="form-text">Nombre de questions tirées aléatoirement à chaque lancement. Vide = toutes les questions.</div>
                         </div>
                         <div class="mb-3 form-check">
@@ -233,7 +233,14 @@ if ($action === 'edit' && $id > 0) {
                                     <input type="checkbox" class="form-check-input module-checkbox" value="<?= $m['id'] ?>" onchange="updateBulkActionBar()">
                                 </td>
                                 <td class="ps-4">
-                                    <div class="fw-semibold"><?= htmlspecialchars($m['nom']) ?></div>
+                                    <div class="fw-semibold d-flex align-items-center gap-2 flex-wrap">
+                                        <?= htmlspecialchars($m['nom']) ?>
+                                        <?php if (($m['type'] ?? 'qcm') === 'efm'): ?>
+                                            <span class="badge bg-danger">EFM</span>
+                                        <?php elseif (($m['type'] ?? 'qcm') === 'pratique'): ?>
+                                            <span class="badge bg-warning text-dark">Pratique</span>
+                                        <?php endif; ?>
+                                    </div>
                                     <?php if ($m['description']): ?>
                                     <div class="text-muted small"><?= htmlspecialchars(mb_substr($m['description'], 0, 60)) ?>...</div>
                                     <?php endif; ?>
@@ -264,7 +271,7 @@ if ($action === 'edit' && $id > 0) {
                                     </div>
                                 </td>
                                 <td class="text-center">
-                                    <div class="d-flex gap-1 justify-content-center">
+                                    <div class="d-flex gap-1 justify-content-center flex-wrap">
                                         <a href="modules.php?action=edit&id=<?= $m['id'] ?>"
                                            class="btn btn-sm btn-outline-primary rounded-3" title="Modifier">
                                             <i class="bi bi-pencil"></i>
@@ -273,12 +280,32 @@ if ($action === 'edit' && $id > 0) {
                                            class="btn btn-sm btn-outline-success rounded-3" title="Questions">
                                             <i class="bi bi-list-check"></i>
                                         </a>
+                                        <?php if (($m['type'] ?? 'qcm') === 'efm'): ?>
+                                        <?php
+                                        $efmPrintUrl = 'print_efm.php?' . http_build_query([
+                                            'module_id'     => $m['id'],
+                                            'etablissement' => $m['efm_etablissement'] ?? '',
+                                            'filiere'       => $m['efm_filiere'] ?? '',
+                                            'duree'         => ($m['duree_minutes'] ?? 120) . ' min',
+                                            'annee'         => $m['efm_annee'] ?? '',
+                                            'note_max'      => $m['note_max'] ?? 40,
+                                            'code_module'   => $m['efm_code_module'] ?? '',
+                                            'intitule'      => $m['nom'],
+                                            'shuffle'       => 0, 'shuffle_choix' => 0, 'corrige' => 0,
+                                        ]);
+                                        ?>
+                                        <a href="<?= $efmPrintUrl ?>" target="_blank"
+                                           class="btn btn-sm btn-danger rounded-3" title="Imprimer EFM">
+                                            <i class="bi bi-file-earmark-ruled"></i>
+                                        </a>
+                                        <?php else: ?>
                                         <a href="print_blank.php?module_id=<?= $m['id'] ?>"
                                            target="_blank"
                                            class="btn btn-sm btn-outline-secondary rounded-3"
                                            title="Imprimer sujet vierge">
                                             <i class="bi bi-printer"></i>
                                         </a>
+                                        <?php endif; ?>
                                         <a href="delete_module.php?id=<?= $m['id'] ?>"
                                            class="btn btn-sm btn-outline-danger rounded-3"
                                            title="Supprimer (avec options)">

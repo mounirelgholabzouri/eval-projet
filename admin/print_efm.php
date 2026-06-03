@@ -43,6 +43,24 @@ foreach ($questions as &$q) {
 }
 unset($q);
 
+// ── Normalisation des points pour affichage (total → note_max) ────────────────
+if ($noteMax > 0 && $totalPoints > 0.01 && abs($totalPoints - $noteMax) > 0.01) {
+    $scale = $noteMax / $totalPoints;
+    $runningPts = 0;
+    $lastIdx = count($questions) - 1;
+    foreach ($questions as $i => &$q) {
+        if ($i < $lastIdx) {
+            $q['points'] = round((float)$q['points'] * $scale, 2);
+            $runningPts += $q['points'];
+        } else {
+            // Dernier : ajustement pour total exact
+            $q['points'] = round($noteMax - $runningPts, 2);
+        }
+    }
+    unset($q);
+    $totalPoints = $noteMax;
+}
+
 // ── Tampon OFPPT base64 ────────────────────────────────────────────────────
 $tamponPath = __DIR__ . '/../assets/img/tampon_ofppt.png';
 $tamponB64  = file_exists($tamponPath)
@@ -399,7 +417,8 @@ $tamponB64  = file_exists($tamponPath)
         <div class="question-header">
             <span class="q-num">Q<?= $qNum++ ?>.</span>
             <span class="q-texte"><?= nl2br(htmlspecialchars($q['texte'], ENT_QUOTES, 'UTF-8')) ?></span>
-            <span class="q-points">(<?= $q['points'] ?> pt<?= $q['points'] > 1 ? 's' : '' ?>)</span>
+            <?php $ptsVal = (float)$q['points']; $ptsStr = ($ptsVal == floor($ptsVal)) ? (int)$ptsVal : rtrim(number_format($ptsVal, 2, '.', ''), '0'); ?>
+            <span class="q-points">(<?= $ptsStr ?> pt<?= $ptsVal > 1 ? 's' : '' ?>)</span>
         </div>
 
         <?php if ($q['type'] === 'qcm' && !empty($q['choix'])): ?>
@@ -444,7 +463,9 @@ $tamponB64  = file_exists($tamponPath)
         <?= $codeModule ? "Module $codeModule" : '' ?>
         <?= $codeModule && $annee ? ' — ' : '' ?>
         <?= $annee ? "Année $annee" : '' ?>
-        <?= $totalPoints > 0 ? ' — Barème total : ' . $totalPoints . ' pts' : '' ?>
+        <?php if ($totalPoints > 0): $tpStr = ($totalPoints == floor($totalPoints)) ? (int)$totalPoints : number_format($totalPoints, 2); ?>
+        — Barème total : <?= $tpStr ?> pts
+        <?php endif; ?>
     </div>
 
 </div><!-- .page -->
