@@ -7,6 +7,23 @@ $msg    = '';
 $erreur = '';
 $activeTab = 'fusion'; // 'fusion' ou 'efm'
 
+// ── Succès après création EFM (redirect GET) ──────────────────────────────
+$efmOk = null;
+if (isset($_GET['efm_ok']) && isset($_GET['efm_id'])) {
+    $activeTab = 'efm';
+    $efmOk = [
+        'id'            => (int)$_GET['efm_id'],
+        'nom'           => htmlspecialchars(trim($_GET['efm_nom'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'note'          => (int)($_GET['efm_note'] ?? 40),
+        'nb'            => (int)($_GET['efm_nb'] ?? 0),
+        'code'          => htmlspecialchars(trim($_GET['efm_code'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'filiere'       => htmlspecialchars(trim($_GET['efm_filiere'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'etablissement' => htmlspecialchars(trim($_GET['efm_etablissement'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'annee'         => htmlspecialchars(trim($_GET['efm_annee'] ?? ''), ENT_QUOTES, 'UTF-8'),
+        'duree'         => (int)($_GET['efm_duree'] ?? 120),
+    ];
+}
+
 $modules = getAllModules();
 
 // Charger toutes les parties actives avec nb_questions, indexées par module_id
@@ -130,6 +147,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
     } elseif (empty($selectedQuestions)) {
         $erreur = "Sélectionnez au moins une question.";
     } else {
+        // ── Normalisation des points pour que le total = note_max ──────
+        $totalInputPts = array_sum($selectedQuestions);
+        if ($totalInputPts > 0 && $noteMax > 0) {
+            $scale = $noteMax / $totalInputPts;
+            $normalised = [];
+            foreach ($selectedQuestions as $qid => $pts) {
+                $normalised[$qid] = round($pts * $scale, 2);
+            }
+            // Ajustement de la dernière question pour que le total soit exact
+            $diff = round($noteMax - array_sum($normalised), 2);
+            if (!empty($normalised) && abs($diff) > 0.001) {
+                $lastKey = array_key_last($normalised);
+                $normalised[$lastKey] = round($normalised[$lastKey] + $diff, 2);
+            }
+            $selectedQuestions = $normalised;
+        }
+
         try {
             $pdo->beginTransaction();
 
@@ -137,7 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
             $stmt->execute([$nom, "EFM — $codeModule", $actif]);
             $newModuleId = (int)$pdo->lastInsertId();
 
-            $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, 'Général', 1, 1)")
+            $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, 'Général', 1, 0)")
                 ->execute([$newModuleId]);
             $partieIdEfm = (int)$pdo->lastInsertId();
 
@@ -164,7 +198,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
 
             $qOrdre = 1;
             foreach ($srcQuestions as $q) {
-                $pts = $selectedQuestions[$q['id']];
+                $pts = $selectedQuestions[$q['id']] ?? $selectedQuestions[(string)$q['id']] ?? 1.0;
                 $insQ = $pdo->prepare(
                     "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
                      VALUES (?, ?, ?, ?, ?, ?, ?)"
@@ -200,7 +234,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                 header("Location: print_efm.php?$params"); exit;
             }
 
-            header("Location: questions.php?module_id={$newModuleId}&msg=efm_ok"); exit;
+            $msgEfm = urlencode("EFM « $nom » créé avec succès — $noteMax pts — " . count($qids) . " questions.");
+            header("Location: fusion.php?efm_ok=1&efm_id={$newModuleId}&efm_nom=" . urlencode($nom) . "&efm_note={$noteMax}&efm_nb=" . count($qids) . "&efm_code=" . urlencode($codeModule) . "&efm_filiere=" . urlencode($filiere) . "&efm_etablissement=" . urlencode($etablissement) . "&efm_annee=" . urlencode($annee) . "&efm_duree={$duree}"); exit;
         } catch (Exception $e) {
             $pdo->rollBack();
             $erreur = "Erreur lors de la création EFM : " . $e->getMessage();
@@ -232,6 +267,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
     <?php endif; ?>
     <?php if ($msg): ?>
         <div class="alert alert-success rounded-3"><i class="bi bi-check-circle me-2"></i><?= sanitize($msg) ?></div>
+    <?php endif; ?>
+
+    <?php if ($efmOk): ?>
+    <div class="alert alert-success border-0 shadow-sm rounded-4 mb-4" role="alert">
+        <div class="d-flex align-items-start gap-3">
+            <i class="bi bi-check-circle-fill fs-3 text-success flex-shrink-0 mt-1"></i>
+            <div class="flex-grow-1">
+                <div class="fw-bold fs-5 mb-1">EFM créé avec succès !</div>
+                <div class="mb-2">
+                    <strong><?= $efmOk['nom'] ?></strong>
+                    <?php if ($efmOk['code']): ?> — <?= $efmOk['code'] ?><?php endif; ?>
+                    · <?= $efmOk['nb'] ?> questions · /<?= $efmOk['note'] ?>
+                </div>
+                <div class="d-flex flex-wrap gap-2">
+                    <?php
+                    $printParams = http_build_query([
+                        'module_id'     => $efmOk['id'],
+                        'etablissement' => html_entity_decode($efmOk['etablissement'], ENT_QUOTES, 'UTF-8'),
+                        'filiere'       => html_entity_decode($efmOk['filiere'], ENT_QUOTES, 'UTF-8'),
+                        'duree'         => $efmOk['duree'] . ' min',
+                        'annee'         => html_entity_decode($efmOk['annee'], ENT_QUOTES, 'UTF-8'),
+                        'note_max'      => $efmOk['note'],
+                        'code_module'   => html_entity_decode($efmOk['code'], ENT_QUOTES, 'UTF-8'),
+                        'intitule'      => html_entity_decode($efmOk['nom'], ENT_QUOTES, 'UTF-8'),
+                        'shuffle'       => 0,
+                        'shuffle_choix' => 0,
+                        'corrige'       => 0,
+                    ]);
+                    ?>
+                    <a href="print_efm.php?<?= $printParams ?>" target="_blank" class="btn btn-danger btn-sm">
+                        <i class="bi bi-printer me-1"></i>Imprimer le sujet
+                    </a>
+                    <a href="print_efm.php?<?= $printParams ?>&corrige=1" target="_blank" class="btn btn-success btn-sm">
+                        <i class="bi bi-check2-square me-1"></i>Imprimer le corrigé
+                    </a>
+                    <a href="questions.php?module_id=<?= $efmOk['id'] ?>" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-list-check me-1"></i>Voir les questions
+                    </a>
+                    <a href="modules.php?action=edit&id=<?= $efmOk['id'] ?>" class="btn btn-outline-secondary btn-sm">
+                        <i class="bi bi-pencil me-1"></i>Modifier le module
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
     <?php endif; ?>
 
     <!-- ── Onglets ── -->
@@ -392,12 +472,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="efmCollapseAll">
                                     <i class="bi bi-arrows-collapse me-1"></i>Tout réduire
                                 </button>
-                                <button type="button" class="btn btn-sm btn-outline-success" id="efmSelectFiltered" style="display:none">
+                                <button type="button" class="btn btn-sm btn-outline-success" id="efmSelectFiltered">
                                     <i class="bi bi-check2-all me-1"></i>Tout sélectionner
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger" id="efmDeselectAll">
+                                    <i class="bi bi-x-square me-1"></i>Tout désélectionner
                                 </button>
                             </div>
 
                             <?php foreach ($modules as $m): ?>
+                            <?php if (($m['type'] ?? 'qcm') === 'efm') continue; // Exclure les modules déjà EFM ?>
                             <?php $parties = $allParties[(int)$m['id']] ?? []; if (empty($parties)) continue; ?>
                             <?php
                                 // Vérifier qu'au moins une partie a des questions
@@ -415,8 +499,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                     <input class="form-check-input efm-module-check flex-shrink-0"
                                            type="checkbox" data-module="<?= $m['id'] ?>"
                                            id="efmm<?= $m['id'] ?>" onclick="event.stopPropagation()">
-                                    <label class="fw-semibold mb-0 flex-grow-1" for="efmm<?= $m['id'] ?>"
-                                           onclick="event.stopPropagation()" style="cursor:pointer">
+                                    <label class="fw-semibold mb-0 flex-grow-1" style="cursor:pointer">
                                         <?= sanitize($m['nom']) ?>
                                         <span class="badge bg-secondary-subtle text-secondary ms-1">
                                             <?= (int)$m['nb_questions'] ?> Q
@@ -439,8 +522,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                                    type="checkbox" data-partie="<?= $p['id'] ?>"
                                                    data-module="<?= $m['id'] ?>"
                                                    id="efmp<?= $p['id'] ?>" onclick="event.stopPropagation()">
-                                            <label class="mb-0 flex-grow-1 fw-semibold" for="efmp<?= $p['id'] ?>"
-                                                   onclick="event.stopPropagation()" style="cursor:pointer">
+                                            <label class="mb-0 flex-grow-1 fw-semibold" style="cursor:pointer">
                                                 <?= sanitize($p['nom']) ?>
                                                 <span class="badge bg-secondary-subtle text-secondary ms-1">
                                                     <?= count($questions) ?> q
@@ -489,6 +571,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                 <i class="bi bi-info-circle me-1"></i>
                                 <span id="efmSummaryText">Sélectionnez des modules et des questions.</span>
                             </div>
+                            <div id="efmNormBar" class="d-none mt-2">
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <span id="efmNormMsg" class="small fw-semibold"></span>
+                                    <button type="button" class="btn btn-sm btn-outline-warning" id="btnNormaliser">
+                                        <i class="bi bi-sliders me-1"></i>Normaliser / <span id="btnNormTarget">40</span>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -502,9 +592,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                         <div class="card-body p-4">
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Nom de l'EFM <span class="text-danger">*</span></label>
-                                <input type="text" name="efm_nom" class="form-control" required
+                                <input type="text" name="efm_nom" id="efmNomInput" class="form-control"
                                        placeholder="Ex : EFM M205 — Sécurité Cloud"
                                        value="<?= sanitize($_POST['efm_nom'] ?? '') ?>">
+                                <div id="efmNomError" class="invalid-feedback">Le nom de l'EFM est requis.</div>
                             </div>
                             <div class="row g-3">
                                 <div class="col-sm-6">
@@ -564,14 +655,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                 <input class="form-check-input" type="checkbox" name="efm_actif" id="efmActif" value="1" checked>
                                 <label class="form-check-label" for="efmActif">Module actif (visible aux stagiaires)</label>
                             </div>
+                            <div id="btnEfmHint" class="alert alert-warning rounded-3 py-2 mb-3 d-none">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>Aucune question sélectionnée.</strong> Développez un module à gauche, cochez les questions souhaitées, puis cliquez sur Créer.
+                            </div>
                             <div class="d-flex flex-wrap gap-2 align-items-center">
-                                <button type="submit" class="btn btn-danger" id="btnEfm" disabled>
+                                <button type="submit" class="btn btn-danger" id="btnEfm">
                                     <i class="bi bi-file-earmark-ruled me-2"></i>Créer l'EFM
                                 </button>
-                                <button type="submit" name="efm_imprimer" value="1" class="btn btn-warning" id="btnEfmPrint" disabled>
+                                <button type="submit" name="efm_imprimer" value="1" class="btn btn-warning" id="btnEfmPrint">
                                     <i class="bi bi-printer me-2"></i>Créer et imprimer
                                 </button>
-                                <span class="text-muted small" id="btnEfmHint">Sélectionnez au moins une partie</span>
                             </div>
                         </div>
                     </div>
@@ -705,18 +799,35 @@ function updateEfmUI() {
         }
     });
 
+    const noteMaxVal = parseFloat(document.querySelector('input[name="efm_note_max"]:checked')?.value || 40);
+    const normBar    = document.getElementById('efmNormBar');
+    const normMsg    = document.getElementById('efmNormMsg');
+    const btnNormTgt = document.getElementById('btnNormTarget');
+
     if (totalQ > 0) {
-        btnEfm.disabled = false;
-        if (btnEfmPrint) btnEfmPrint.disabled = false;
-        btnEfmHint.textContent = '';
-        efmSummaryText.innerHTML = `<strong>${totalQ}</strong> question(s) sélectionnée(s) — Total : <strong>${totalPts.toFixed(2)} pts</strong>`;
-        document.getElementById('efmSummary').className = 'alert alert-success rounded-3 py-2 mt-2 mb-0';
+        if (btnEfmHint) btnEfmHint.classList.add('d-none');
+
+        const diff = Math.abs(totalPts - noteMaxVal);
+        let summaryClass = 'alert alert-success rounded-3 py-2 mt-2 mb-0';
+        let ptsLabel = `<strong>${totalPts.toFixed(2)} pts</strong>`;
+        if (diff > 0.01) {
+            summaryClass = 'alert alert-warning rounded-3 py-2 mt-2 mb-0';
+            ptsLabel += ` <span class="text-danger small">(≠ /${noteMaxVal})</span>`;
+        }
+        efmSummaryText.innerHTML = `<strong>${totalQ}</strong> question(s) — Total : ${ptsLabel}`;
+        document.getElementById('efmSummary').className = summaryClass;
+
+        if (diff > 0.01 && normBar) {
+            normBar.classList.remove('d-none');
+            if (btnNormTgt) btnNormTgt.textContent = noteMaxVal;
+            if (normMsg) normMsg.textContent = `Total actuel : ${totalPts.toFixed(2)} pts — cible : ${noteMaxVal} pts`;
+        } else {
+            normBar?.classList.add('d-none');
+        }
     } else {
-        btnEfm.disabled = true;
-        if (btnEfmPrint) btnEfmPrint.disabled = true;
-        btnEfmHint.textContent = 'Sélectionnez au moins une question';
         efmSummaryText.textContent = 'Sélectionnez des modules et des questions.';
         document.getElementById('efmSummary').className = 'alert alert-info rounded-3 py-2 mt-2 mb-0';
+        normBar?.classList.add('d-none');
     }
 }
 
@@ -809,11 +920,55 @@ document.querySelectorAll('.efm-q-check, .efm-pts-input').forEach(el => {
     el.addEventListener('input', updateEfmUI);
 });
 
+// Recalcul quand on change la note_max
+document.querySelectorAll('input[name="efm_note_max"]').forEach(r => {
+    r.addEventListener('change', updateEfmUI);
+});
+
+// Bouton Normaliser : distribue noteMax proportionnellement entre les questions cochées
+document.getElementById('btnNormaliser')?.addEventListener('click', () => {
+    const noteMaxVal = parseFloat(document.querySelector('input[name="efm_note_max"]:checked')?.value || 40);
+    const checkedRows = [...document.querySelectorAll('.efm-q-check:checked')];
+    if (checkedRows.length === 0) return;
+
+    // Calcule le total actuel des pts cochés
+    let totalCurrent = 0;
+    checkedRows.forEach(cb => {
+        const ptsInp = document.querySelector(`input[name="efm_pts_${cb.name.replace('efm_q_', '')}"]`);
+        totalCurrent += ptsInp ? (parseFloat(ptsInp.value) || 0) : 0;
+    });
+
+    if (totalCurrent <= 0) {
+        // Distribuer équitablement
+        const perQ = Math.round(noteMaxVal / checkedRows.length * 100) / 100;
+        checkedRows.forEach((cb, i) => {
+            const ptsInp = document.querySelector(`input[name="efm_pts_${cb.name.replace('efm_q_', '')}"]`);
+            if (ptsInp) ptsInp.value = perQ;
+        });
+    } else {
+        // Proportionnel + ajustement dernier élément
+        const scale = noteMaxVal / totalCurrent;
+        let runningTotal = 0;
+        checkedRows.forEach((cb, i) => {
+            const ptsInp = document.querySelector(`input[name="efm_pts_${cb.name.replace('efm_q_', '')}"]`);
+            if (!ptsInp) return;
+            if (i < checkedRows.length - 1) {
+                const newVal = Math.round(parseFloat(ptsInp.value) * scale * 100) / 100;
+                ptsInp.value = newVal;
+                runningTotal += newVal;
+            } else {
+                // Dernier : ajustement pour total exact
+                ptsInp.value = Math.round((noteMaxVal - runningTotal) * 100) / 100;
+            }
+        });
+    }
+    updateEfmUI();
+});
+
 // ── Filtrage par code module ──────────────────────────────────
 function applyEfmCodeFilter(code) {
     const codeNorm = code.trim().toLowerCase();
     const blocks   = document.querySelectorAll('.efm-module-block');
-    const btnSel   = document.getElementById('efmSelectFiltered');
     const hint     = document.getElementById('efmFilterHint');
     let visible = 0;
 
@@ -823,13 +978,7 @@ function applyEfmCodeFilter(code) {
         if (match) visible++;
     });
 
-    if (codeNorm) {
-        hint.textContent = visible + ' module(s) correspondant à « ' + code.trim() + ' »';
-        btnSel.style.display = visible > 0 ? 'inline-block' : 'none';
-    } else {
-        hint.textContent = '';
-        btnSel.style.display = 'none';
-    }
+    hint.textContent = codeNorm ? visible + ' module(s) correspondant à « ' + code.trim() + ' »' : '';
     updateEfmUI();
 }
 
@@ -875,7 +1024,44 @@ document.getElementById('efmSelectFiltered')?.addEventListener('click', () => {
     updateEfmUI();
 });
 
+// Désélectionner toutes les questions
+document.getElementById('efmDeselectAll')?.addEventListener('click', () => {
+    document.querySelectorAll('.efm-q-check, .efm-module-check, .efm-partie-check').forEach(cb => { cb.checked = false; });
+    updateEfmUI();
+});
+
 updateEfmUI();
+
+// Validation à la soumission du formulaire EFM
+document.getElementById('efmForm')?.addEventListener('submit', function(e) {
+    let valid = true;
+
+    // Vérifier le nom
+    const nomInp = document.getElementById('efmNomInput');
+    const nomErr = document.getElementById('efmNomError');
+    if (nomInp && !nomInp.value.trim()) {
+        valid = false;
+        nomInp.classList.add('is-invalid');
+        if (nomErr) nomErr.style.display = 'block';
+        nomInp.focus();
+    } else if (nomInp) {
+        nomInp.classList.remove('is-invalid');
+        if (nomErr) nomErr.style.display = '';
+    }
+
+    // Vérifier les questions cochées
+    const checked = document.querySelectorAll('.efm-q-check:checked');
+    if (checked.length === 0) {
+        valid = false;
+        const hint = document.getElementById('btnEfmHint');
+        if (hint) hint.classList.remove('d-none');
+    }
+
+    if (!valid) {
+        e.preventDefault();
+        return false;
+    }
+});
 
 function escHtml(str) {
     return str.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
