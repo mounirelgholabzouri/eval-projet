@@ -4,7 +4,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: eval_app
-    image: eval-projet:latest
+    image: elgholabzouri1968/eval-projet:latest
     restart: unless-stopped
     ports:
       - "8080:80"

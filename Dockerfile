@@ -7,7 +7,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libonig-dev \
     git \
     curl \
-    && docker-php-ext-install pdo_mysql mbstring opcache \
+    libpng-dev \
+    libjpeg62-turbo-dev \
+    libfreetype6-dev \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo_mysql mbstring opcache gd \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Copy Composer
