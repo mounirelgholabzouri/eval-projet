@@ -75,8 +75,8 @@ if ($hasFile) {
 
 // ── Calcul points par partie / question ─────────────────────────
 $ptsTotalParties = $noteMax; // toutes les parties = note max
-$ptsParPartie    = round($noteMax / $nbParties, 2);
-$ptsParQuestion  = round($ptsParPartie / $qParPartie, 2);
+$ptsParPartie    = round($noteMax / $nbParties * 2) / 2;           // multiple de 0.5
+$ptsParQuestion  = round($ptsParPartie / $qParPartie * 2) / 2;    // multiple de 0.5
 
 // ── Système prompt IA ────────────────────────────────────────────
 $sourceInstruction = ($docContent['text'] !== null || $docContent['is_pdf'])

@@ -46,10 +46,10 @@ if ($noteMax > 0 && $totalPoints > 0.01 && abs($totalPoints - $noteMax) > 0.01) 
     $runningPts = 0;
     foreach ($questions as $i => &$q) {
         if ($i < $lastIdx) {
-            $q['points'] = round((float)$q['points'] * $scale, 2);
+            $q['points'] = round((float)$q['points'] * $scale * 2) / 2; // step=0.5
             $runningPts += $q['points'];
         } else {
-            $q['points'] = round($noteMax - $runningPts, 2);
+            $q['points'] = round(($noteMax - $runningPts) * 2) / 2; // step=0.5
         }
     }
     unset($q);

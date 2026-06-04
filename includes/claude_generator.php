@@ -100,7 +100,7 @@ function genererQuestionsAvecClaude(
     $typesStr = implode(', ', $types);
 
     // Calcul de la répartition des points pour atteindre noteMax
-    $pointsParQuestion = round($noteMax / $nbQuestions, 2);
+    $pointsParQuestion = round($noteMax / $nbQuestions * 2) / 2; // multiple de 0.5
 
     $sourceInstruction = ($docContent['text'] !== null || $docContent['is_pdf'])
         ? "basées UNIQUEMENT sur le contenu fourni."

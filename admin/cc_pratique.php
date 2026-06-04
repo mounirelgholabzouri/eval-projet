@@ -530,7 +530,7 @@ function recalc(tr) {
     const abs = tr.querySelector('.cc-abs');
     const out = tr.querySelector('.cc-total');
     if (abs && abs.checked) { out.textContent = 'Abs'; }
-    else { out.textContent = any ? (Math.round(t * 100) / 100) : ''; }
+    else { out.textContent = any ? (Math.round(t * 4) / 4) : ''; }  // step=0.25
 }
 document.querySelectorAll('tr[data-sid]').forEach(tr => {
     tr.querySelectorAll('.cc-in').forEach(i => i.addEventListener('input', () => recalc(tr)));

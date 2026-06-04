@@ -19,7 +19,7 @@ try {
     $stmt->execute([$repId]);
     $pointsMax = (float)($stmt->fetchColumn() ?? 0);
 
-    $points    = min(max($points, 0), $pointsMax);
+    $points    = round(min(max($points, 0), $pointsMax) * 2) / 2; // enforce step=0.5
     $isCorrect = $points > 0 ? 1 : 0;
 
     $pdo->prepare("UPDATE reponses_stagiaires SET points_obtenus = ?, is_correct = ?, source_correction = 'manuel' WHERE id = ?")
