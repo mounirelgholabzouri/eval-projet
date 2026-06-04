@@ -56,11 +56,11 @@ $nbTotal = $nbImporte = $nbSkip = 0;
 
 $pdo->beginTransaction();
 try {
-    $stmtM = $pdo->prepare("SELECT id FROM modules WHERE nom = ? AND type = 'qcm'");
+    $stmtM = $pdo->prepare("SELECT id FROM modules WHERE nom = ?");
     $stmtM->execute([$moduleNom]);
     $moduleId = $stmtM->fetchColumn();
     if (!$moduleId) {
-        $pdo->prepare("INSERT INTO modules (nom, type, actif) VALUES (?, 'qcm', 1)")->execute([$moduleNom]);
+        $pdo->prepare("INSERT INTO modules (nom, actif) VALUES (?, 1)")->execute([$moduleNom]);
         $moduleId = $pdo->lastInsertId();
         echo "Module créé : $moduleNom (id=$moduleId)\n";
     } else {

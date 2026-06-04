@@ -28,12 +28,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['json_file'])) {
                 $nbTotal++;
 
                 // 1. Trouver ou créer le module
-                $stmtM = $pdo->prepare("SELECT id FROM modules WHERE nom = ? AND type = ?");
-                $stmtM->execute([$q['module_nom'], $q['module_type']]);
+                $stmtM = $pdo->prepare("SELECT id FROM modules WHERE nom = ?");
+                $stmtM->execute([$q['module_nom']]);
                 $moduleId = $stmtM->fetchColumn();
                 if (!$moduleId) {
-                    $pdo->prepare("INSERT INTO modules (nom, type, actif) VALUES (?, ?, 1)")
-                        ->execute([$q['module_nom'], $q['module_type']]);
+                    $pdo->prepare("INSERT INTO modules (nom, actif) VALUES (?, 1)")
+                        ->execute([$q['module_nom']]);
                     $moduleId = $pdo->lastInsertId();
                 }
 

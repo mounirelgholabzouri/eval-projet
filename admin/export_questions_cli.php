@@ -8,7 +8,7 @@ $pdo = getDB();
 $stmt = $pdo->query("
     SELECT q.id, q.texte, q.type, q.points, q.ordre, q.image_path,
            p.nom AS partie_nom, p.ordre AS partie_ordre,
-           m.nom AS module_nom, m.type AS module_type
+           m.nom AS module_nom
     FROM questions q
     JOIN parties p ON p.id = q.partie_id
     JOIN modules m ON m.id = q.module_id
@@ -22,7 +22,7 @@ foreach ($questions as $q) {
     $choix->execute([$q['id']]);
     $export[] = [
         'module_nom'   => $q['module_nom'],
-        'module_type'  => $q['module_type'],
+        'module_type'  => 'qcm',
         'partie_nom'   => $q['partie_nom'],
         'partie_ordre' => (int)$q['partie_ordre'],
         'texte'        => $q['texte'],
