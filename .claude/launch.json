@@ -4,8 +4,8 @@
     {
       "name": "eval-projet",
       "runtimeExecutable": "C:/laragon/bin/php/php-8.3.30-Win32-vs16-x64/php.exe",
-      "runtimeArgs": ["-S", "0.0.0.0:8080", "-t", "C:/Users/Administrateur/Desktop/Eval-Projet"],
-      "port": 8080
+      "runtimeArgs": ["-S", "0.0.0.0:8888", "-t", "C:/Users/Administrateur/Desktop/Eval-Projet"],
+      "port": 8888
     }
   ]
 }

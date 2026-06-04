@@ -557,7 +557,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                                            name="efm_pts_<?= $q['id'] ?>"
                                                            class="form-control form-control-sm efm-pts-input text-center"
                                                            value="<?= number_format((float)$q['points'], 2, '.', '') ?>"
-                                                           min="0" step="0.25"
+                                                           min="0" step="0.01"
                                                            title="Pondération de cette question">
                                                 </div>
                                             </div>
