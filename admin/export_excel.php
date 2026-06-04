@@ -43,7 +43,7 @@ $adminId   = (int)($_SESSION['admin_id'] ?? 0);
 // ── Requête évaluations ──────────────────────────────────────────────────────
 $where  = ["se.statut = 'termine'"];
 $params = [];
-if ($moduleId > 0) { $where[] = 'se.module_id = ?'; $params[] = $moduleId; }
+if ($moduleId > 0) { $where[] = 'e.module_id = ?'; $params[] = $moduleId; }
 if ($groupeId > 0) { $where[] = 'se.groupe_id = ?'; $params[] = $groupeId; }
 if ($dateFrom)     { $where[] = 'DATE(se.date_debut) >= ?'; $params[] = $dateFrom; }
 if ($dateTo)       { $where[] = 'DATE(se.date_debut) <= ?'; $params[] = $dateTo; }
@@ -58,14 +58,15 @@ $stmt = $pdo->prepare("
         COALESCE(st.prenom, se.prenom) AS prenom,
         COALESCE(g.nom, se.groupe_libre, '—') AS groupe,
         m.nom  AS module,
-        m.note_max,
+        e.note_max,
         se.date_debut,
         se.date_fin,
         se.score,
         se.total_points,
         se.pourcentage
     FROM sessions_eval se
-    JOIN modules m ON m.id = se.module_id
+    JOIN evaluations e  ON e.id  = se.evaluation_id
+    JOIN modules m      ON m.id  = e.module_id
     LEFT JOIN stagiaires st ON st.id = se.stagiaire_id
     LEFT JOIN groupes    g  ON g.id  = se.groupe_id
     WHERE $whereStr
@@ -77,7 +78,7 @@ $evaluations = $stmt->fetchAll();
 // ── Requête moyennes par stagiaire ───────────────────────────────────────────
 $whereStag  = ["se.statut = 'termine'"];
 $paramsStag = [];
-if ($moduleId > 0) { $whereStag[] = 'se.module_id = ?'; $paramsStag[] = $moduleId; }
+if ($moduleId > 0) { $whereStag[] = 'e.module_id = ?'; $paramsStag[] = $moduleId; }
 if ($groupeId > 0) { $whereStag[] = 'se.groupe_id = ?'; $paramsStag[] = $groupeId; }
 if ($dateFrom)     { $whereStag[] = 'DATE(se.date_debut) >= ?'; $paramsStag[] = $dateFrom; }
 if ($dateTo)       { $whereStag[] = 'DATE(se.date_debut) <= ?'; $paramsStag[] = $dateTo; }
@@ -96,6 +97,7 @@ $stmtMoy = $pdo->prepare("
         SUM(se.score)             AS total_score,
         SUM(se.total_points)      AS total_points_possibles
     FROM sessions_eval se
+    JOIN evaluations e  ON e.id = se.evaluation_id
     LEFT JOIN stagiaires st ON st.id = se.stagiaire_id
     LEFT JOIN groupes    g  ON g.id  = se.groupe_id
     WHERE " . implode(' AND ', $whereStag) . "
