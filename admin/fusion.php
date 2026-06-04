@@ -148,18 +148,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
         $erreur = "Sélectionnez au moins une question.";
     } else {
         // ── Normalisation des points pour que le total = note_max ──────
+        // Arrondi au multiple de 0.5 le plus proche (cohérent avec step="0.5")
         $totalInputPts = array_sum($selectedQuestions);
         if ($totalInputPts > 0 && $noteMax > 0) {
             $scale = $noteMax / $totalInputPts;
             $normalised = [];
             foreach ($selectedQuestions as $qid => $pts) {
-                $normalised[$qid] = round($pts * $scale, 2);
+                $normalised[$qid] = round($pts * $scale * 2) / 2; // arrondi 0.5
             }
-            // Ajustement de la dernière question pour que le total soit exact
-            $diff = round($noteMax - array_sum($normalised), 2);
-            if (!empty($normalised) && abs($diff) > 0.001) {
+            // Ajustement de la dernière question (par pas de 0.5) pour total exact
+            $diff = round($noteMax - array_sum($normalised), 4);
+            if (!empty($normalised) && abs($diff) >= 0.25) {
                 $lastKey = array_key_last($normalised);
-                $normalised[$lastKey] = round($normalised[$lastKey] + $diff, 2);
+                $normalised[$lastKey] = round(($normalised[$lastKey] + $diff) * 2) / 2;
             }
             $selectedQuestions = $normalised;
         }
@@ -941,9 +942,12 @@ document.getElementById('btnNormaliser')?.addEventListener('click', () => {
         totalCurrent += ptsInp ? (parseFloat(ptsInp.value) || 0) : 0;
     });
 
+    // Arrondi au multiple de 0.5 (cohérent avec step="0.5")
+    const roundHalf = v => Math.round(v * 2) / 2;
+
     if (totalCurrent <= 0) {
         // Distribuer équitablement
-        const perQ = Math.round(noteMaxVal / checkedRows.length * 100) / 100;
+        const perQ = roundHalf(noteMaxVal / checkedRows.length);
         checkedRows.forEach((cb, i) => {
             const ptsInp = document.querySelector(`input[name="efm_pts_${cb.name.replace('efm_q_', '')}"]`);
             if (ptsInp) ptsInp.value = perQ;
@@ -956,12 +960,12 @@ document.getElementById('btnNormaliser')?.addEventListener('click', () => {
             const ptsInp = document.querySelector(`input[name="efm_pts_${cb.name.replace('efm_q_', '')}"]`);
             if (!ptsInp) return;
             if (i < checkedRows.length - 1) {
-                const newVal = Math.round(parseFloat(ptsInp.value) * scale * 100) / 100;
+                const newVal = roundHalf(parseFloat(ptsInp.value) * scale);
                 ptsInp.value = newVal;
                 runningTotal += newVal;
             } else {
-                // Dernier : ajustement pour total exact
-                ptsInp.value = Math.round((noteMaxVal - runningTotal) * 100) / 100;
+                // Dernier : ajustement au 0.5 pour total aussi proche que possible
+                ptsInp.value = roundHalf(noteMaxVal - runningTotal);
             }
         });
     }
