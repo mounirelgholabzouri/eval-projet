@@ -13,10 +13,21 @@ try {
         exit(0);
     }
 
-    // Ajouter les colonnes pour la correction IA
+    // Colonnes de base (correction_ia_feedback comme marqueur de présence)
     $pdo->exec("ALTER TABLE reponses_stagiaires ADD COLUMN correction_ia_feedback LONGTEXT COLLATE utf8mb4_unicode_ci DEFAULT NULL");
     $pdo->exec("ALTER TABLE reponses_stagiaires ADD COLUMN correction_ia_points_suggeres DECIMAL(5,2) DEFAULT NULL");
     $pdo->exec("ALTER TABLE reponses_stagiaires ADD COLUMN correction_ia_date TIMESTAMP NULL DEFAULT NULL");
+
+    // Colonnes manquantes de la migration initiale
+    $cols = array_column($pdo->query("SHOW COLUMNS FROM reponses_stagiaires")->fetchAll(), 'Field');
+    if (!in_array('source_correction', $cols)) {
+        $pdo->exec("ALTER TABLE reponses_stagiaires ADD COLUMN source_correction ENUM('ia','manuel') DEFAULT NULL AFTER is_correct");
+        echo "✓ source_correction ajouté.\n";
+    }
+    if (!in_array('correction_ia_niveau', $cols)) {
+        $pdo->exec("ALTER TABLE reponses_stagiaires ADD COLUMN correction_ia_niveau TINYINT DEFAULT NULL");
+        echo "✓ correction_ia_niveau ajouté.\n";
+    }
 
     echo "✓ Colonnes IA ajoutées avec succès.\n";
 } catch (Exception $e) {

@@ -42,7 +42,7 @@ try {
         if ($res['success']) {
             $resultats[] = [
                 'rep_id'     => (int)$r['id'],
-                'suggestion' => $res['suggestion'],
+                'suggestion' => $res['points'],   // correcterAvecIA() retourne 'points'
                 'niveau'     => $res['niveau'],
                 'feedback'   => $res['feedback'],
             ];
@@ -51,11 +51,17 @@ try {
         }
     }
 
+    // Recalcul du score global de la session après toutes les corrections IA
+    $scoreData = updateSessionScore($sessionId);
+
     echo json_encode([
         'success'   => true,
         'corriges'  => count($resultats),
         'erreurs'   => $erreurs,
         'resultats' => $resultats,
+        'score'     => $scoreData['score'],
+        'total'     => $scoreData['total'],
+        'pct'       => $scoreData['pct'],
     ]);
 
 } catch (Exception $e) {

@@ -115,6 +115,14 @@ if ($moduleId > 0 && $module) {
     }
     unset($q);
 
+    // Total des points + note_max de l'évaluation liée
+    $totalPointsModule = array_sum(array_column($questionsCurrent, 'points'));
+    $evalNoteMax = null;
+    $evalStmt = $pdo->prepare("SELECT note_max FROM evaluations WHERE module_id = ? ORDER BY id LIMIT 1");
+    $evalStmt->execute([$moduleId]);
+    $evalRow = $evalStmt->fetch();
+    if ($evalRow) $evalNoteMax = (float)$evalRow['note_max'];
+
     if ($action === 'edit' && $questionId > 0) {
         foreach ($questionsCurrent as $q) if ((int)$q['id'] === $questionId) { $editQuestion = $q; break; }
     }
@@ -269,6 +277,18 @@ if (isset($flash['bulk_deleted']))   $msg = (int)$flash['count'] . " question(s)
                         <?php endif; ?>
                     </h5>
                     <span class="badge bg-primary"><?= count($questionsCurrent) ?> question(s)</span>
+                    <?php
+                    $ptsTot = round($totalPointsModule, 2);
+                    $ptsFmt = ($ptsTot == floor($ptsTot)) ? (int)$ptsTot : $ptsTot;
+                    $ptsMatch = $evalNoteMax !== null && abs($totalPointsModule - $evalNoteMax) < 0.01;
+                    $ptsBadgeClass = $evalNoteMax === null ? 'bg-secondary' : ($ptsMatch ? 'bg-success' : 'bg-warning text-dark');
+                    ?>
+                    <span class="badge <?= $ptsBadgeClass ?>" title="<?= $evalNoteMax !== null ? 'Note max évaluation : '.$evalNoteMax.' pts' : 'Aucune évaluation liée' ?>">
+                        ∑ <?= $ptsFmt ?> pt<?= $ptsTot > 1 ? 's' : '' ?>
+                        <?php if ($evalNoteMax !== null): ?>
+                        / <?= (int)$evalNoteMax ?>
+                        <?php endif; ?>
+                    </span>
                 </div>
                 <!-- Barre d'actions en masse -->
                 <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display: none;">

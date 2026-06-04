@@ -34,7 +34,7 @@ try {
 
     echo json_encode([
         'success'    => true,
-        'suggestion' => $resultat['suggestion'],
+        'suggestion' => $resultat['points'],   // correcterAvecIA() retourne 'points', pas 'suggestion'
         'niveau'     => $resultat['niveau'],
         'feedback'   => $resultat['feedback'],
     ]);

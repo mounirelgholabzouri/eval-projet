@@ -15,8 +15,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $max = (float)($stmt->fetchColumn() ?? 0);
         $points = min($points, $max);
 
-        $isCorrect = $points >= $max ? 1 : ($points > 0 ? 1 : 0);
-        $pdo->prepare("UPDATE reponses_stagiaires SET points_obtenus=?, is_correct=? WHERE id=?")
+        $isCorrect = $points > 0 ? 1 : 0;
+        $pdo->prepare("UPDATE reponses_stagiaires SET points_obtenus=?, is_correct=?, source_correction='manuel' WHERE id=?")
             ->execute([$points, $isCorrect, $repId]);
 
         // Recalculer le score total de la session
