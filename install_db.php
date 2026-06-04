@@ -1,7 +1,13 @@
 <?php
 // ============================================================
 // install_db.php - Setup complet base de donnees
+// CLI ONLY — inaccessible via navigateur web
 // ============================================================
+
+if (php_sapi_name() !== 'cli') {
+    http_response_code(404);
+    exit;
+}
 
 $host    = $argv[1] ?? '127.0.0.1';
 $user    = $argv[2] ?? 'root';

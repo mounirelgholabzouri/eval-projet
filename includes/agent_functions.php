@@ -98,42 +98,24 @@ function agentGetRecentQuestionIds(array $moduleIds, int $groupeId = 0, int $day
 // ============================================================
 
 function agentCallClaude(string $systemPrompt, string $userPrompt): array {
-    $apiKey = getAnthropicApiKey();
-    if (!$apiKey || str_starts_with($apiKey, 'VOTRE_')) {
-        return ['error' => 'Clé API Anthropic non configurée.'];
+    $provider = getAIProvider();
+    $apiKey   = getAPIKeyForProvider($provider);
+    $model    = getAIModel();
+
+    if (!$apiKey && $provider !== 'ollama') {
+        return ['error' => 'Clé API IA non configurée (provider : ' . $provider . ').'];
     }
 
-    $payload = json_encode([
-        'model'      => getAIModel(),
-        'max_tokens' => 4096,
-        'system'     => $systemPrompt,
-        'messages'   => [['role' => 'user', 'content' => $userPrompt]],
-    ]);
+    $maxTokens = ($provider === 'ollama') ? 2000 : 4096;
+    $messages  = [['role' => 'user', 'content' => $userPrompt]];
 
-    $ch = curl_init('https://api.anthropic.com/v1/messages');
-    curl_setopt_array($ch, [
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $payload,
-        CURLOPT_TIMEOUT        => 120,
-        CURLOPT_HTTPHEADER     => [
-            'Content-Type: application/json',
-            'x-api-key: ' . $apiKey,
-            'anthropic-version: 2023-06-01',
-        ],
-    ]);
+    $result = callAIUnified($provider, $apiKey, $model, $systemPrompt, $messages, $maxTokens);
 
-    $response = curl_exec($ch);
-    $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-
-    if (!$response) return ['error' => 'Erreur réseau curl.'];
-    $data = json_decode($response, true);
-    if ($httpCode !== 200) {
-        return ['error' => $data['error']['message'] ?? 'Erreur API HTTP ' . $httpCode];
+    if (!$result['success']) {
+        return ['error' => $result['error'] ?? 'Erreur IA inconnue.'];
     }
 
-    $text = $data['content'][0]['text'] ?? '';
+    $text = $result['text'] ?? '';
 
     // Extraire le JSON de la réponse
     if (preg_match('/```json\s*([\s\S]+?)\s*```/', $text, $m)) {
@@ -143,7 +125,7 @@ function agentCallClaude(string $systemPrompt, string $userPrompt): array {
     }
 
     $parsed = json_decode($text, true);
-    if (!$parsed) return ['error' => 'Réponse Claude non parseable : ' . substr($text, 0, 200)];
+    if (!$parsed) return ['error' => 'Réponse IA non parseable : ' . substr($text, 0, 200)];
 
     return $parsed;
 }

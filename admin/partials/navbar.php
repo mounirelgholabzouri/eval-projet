@@ -50,11 +50,12 @@ $dropdowns = [
     ],
     'ia' => [
         'icon' => 'bi-robot', 'label' => 'IA',
-        'files' => ['generate.php', 'config_ia.php', 'ia_pile.php'],
+        'files' => ['generate.php', 'config_ia.php', 'ia_pile.php', 'agent_eval.php'],
         'items' => [
-            ['file' => 'generate.php',  'icon' => 'bi-robot',  'label' => 'Génération IA'],
-            ['file' => 'config_ia.php', 'icon' => 'bi-gear',   'label' => 'Config IA'],
-            ['file' => 'ia_pile.php',   'icon' => 'bi-layers', 'label' => 'Pile IA'],
+            ['file' => 'generate.php',   'icon' => 'bi-robot',        'label' => 'Génération IA'],
+            ['file' => 'agent_eval.php', 'icon' => 'bi-magic',        'label' => 'Agent IA'],
+            ['file' => 'config_ia.php',  'icon' => 'bi-gear',         'label' => 'Config IA'],
+            ['file' => 'ia_pile.php',    'icon' => 'bi-layers',       'label' => 'Pile IA'],
         ],
     ],
 ];
