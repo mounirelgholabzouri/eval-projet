@@ -292,8 +292,10 @@ if (isset($flash['bulk_deleted']))   $msg = (int)$flash['count'] . " question(s)
                     <?php if ($evalNoteMax !== null && count($questionsCurrent) > 0): ?>
                     <button type="button" class="btn btn-sm btn-outline-secondary ms-1"
                             id="btnRedistrib"
+                            data-module-id="<?= $moduleId ?>"
+                            data-note-max="<?= (int)$evalNoteMax ?>"
                             title="Répartir les points automatiquement sur <?= (int)$evalNoteMax ?> pts (valeurs entières ou demi-entières)"
-                            onclick="redistribuerPoints()">
+                            onclick="redistribuerPoints(this)">
                         <i class="bi bi-distribute-vertical me-1"></i>Rééquilibrer sur <?= (int)$evalNoteMax ?>
                     </button>
                     <?php endif; ?>
@@ -464,32 +466,34 @@ function addChoix() {
 
 if (document.getElementById('typeSelect')) toggleChoix();
 
-async function redistribuerPoints() {
-    const btn = document.getElementById('btnRedistrib');
-    if (!confirm('Rééquilibrer les points de toutes les questions sur <?= (int)($evalNoteMax ?? 40) ?> pts ?\n\nChaque question recevra une valeur entière ou demi-entière.')) return;
+async function redistribuerPoints(btn) {
+    var moduleId = btn.getAttribute('data-module-id');
+    var noteMax  = btn.getAttribute('data-note-max');
+
+    if (!confirm('Rééquilibrer les points de toutes les questions sur ' + noteMax + ' pts ?\n\nChaque question recevra une valeur entière ou demi-entière.')) return;
 
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>En cours…';
 
-    const fd = new FormData();
-    fd.append('module_id', '<?= $moduleId ?>');
+    var fd = new FormData();
+    fd.append('module_id', moduleId);
 
     try {
-        const resp = await fetch('api_redistribute_points.php', { method: 'POST', body: fd });
-        const data = await resp.json();
+        var resp = await fetch('api_redistribute_points.php', { method: 'POST', body: fd });
+        if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
+        var data = await resp.json();
         if (data.error) {
             alert('Erreur : ' + data.error);
-            btn.disabled = false;
-            btn.innerHTML = '<i class="bi bi-distribute-vertical me-1"></i>Rééquilibrer sur <?= (int)($evalNoteMax ?? 40) ?>';
         } else {
-            _toast('Points redistribués : ' + data.desc + ' = <?= (int)($evalNoteMax ?? 40) ?> pts', 'success');
-            setTimeout(() => location.reload(), 800);
+            _toast('Points redistribués : ' + data.desc + ' = ' + noteMax + ' pts', 'success');
+            setTimeout(function() { location.reload(); }, 900);
+            return;
         }
     } catch (e) {
-        alert('Erreur réseau : ' + e.message);
-        btn.disabled = false;
-        btn.innerHTML = '<i class="bi bi-distribute-vertical me-1"></i>Rééquilibrer sur <?= (int)($evalNoteMax ?? 40) ?>';
+        alert('Erreur : ' + e.message);
     }
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-distribute-vertical me-1"></i>Rééquilibrer sur ' + noteMax;
 }
 </script>
 </body>
