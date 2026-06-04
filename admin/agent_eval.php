@@ -3,10 +3,10 @@ require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 $pdo = getDB();
-$modules = $pdo->query("SELECT id, nom, type, (SELECT COUNT(*) FROM questions q WHERE q.module_id=modules.id) AS nb_q FROM modules ORDER BY nom")->fetchAll();
+$modules = $pdo->query("SELECT id, nom, (SELECT COUNT(*) FROM questions q WHERE q.module_id=modules.id) AS nb_q FROM modules ORDER BY nom")->fetchAll();
 $groupes = $pdo->query("SELECT * FROM groupes ORDER BY nom")->fetchAll();
 
-$qcmModules = array_filter($modules, fn($m) => $m['type'] === 'qcm');
+$qcmModules = $modules;
 $efmModules = $modules;
 ?>
 <!DOCTYPE html>
