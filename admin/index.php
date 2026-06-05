@@ -115,7 +115,7 @@ $sessions = getAllSessions(10, 0);
             </a>
         </div>
         <div class="col-md-4">
-            <a href="questions.php" class="card border-0 shadow-sm rounded-4 text-decoration-none h-100">
+            <a href="gestion_questions.php" class="card border-0 shadow-sm rounded-4 text-decoration-none h-100">
                 <div class="card-body p-4 d-flex align-items-center gap-3">
                     <div class="quick-icon bg-success-subtle text-success">
                         <i class="bi bi-question-circle fs-4"></i>

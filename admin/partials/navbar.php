@@ -22,7 +22,7 @@ $navItems = [
 $dropdowns = [
     'audit' => [
         'icon' => 'bi-clipboard-data', 'label' => 'Gestion CC/EFM',
-        'files' => ['gestion_impression.php', 'resultat_audit.php'],
+        'files' => ['gestion_impression.php'],
         'items' => [
             ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc1_pratique',  'type' => 'cc1_pratique',  'icon' => 'bi-1-circle-fill', 'label' => 'CC1 Pratique'],
             ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc2_pratique',  'type' => 'cc2_pratique',  'icon' => 'bi-2-circle-fill', 'label' => 'CC2 Pratique'],

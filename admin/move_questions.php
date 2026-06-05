@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/../includes/admin_auth.php';
+header("Location: gestion_questions.php?tab=deplacer"); exit;
 require_once __DIR__ . '/../includes/functions.php';
 
 $pdo = getDB();

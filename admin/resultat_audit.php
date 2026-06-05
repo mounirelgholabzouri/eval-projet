@@ -1,5 +1,8 @@
 <?php
 require_once __DIR__ . '/../includes/admin_auth.php';
+$type = $_GET['type'] ?? 'cc3_theorique';
+$gid  = (int)($_GET['groupe_id'] ?? 0);
+header("Location: gestion_impression.php?type=$type" . ($gid ? "&groupe_id=$gid" : "")); exit;
 require_once __DIR__ . '/../includes/functions.php';
 
 $pdo = getDB();

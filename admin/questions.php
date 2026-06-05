@@ -1,5 +1,10 @@
 <?php
+// ── Redirection vers la page unifiée gestion_questions.php ──
 require_once __DIR__ . '/../includes/admin_auth.php';
+$mid = (int)($_GET['module_id'] ?? 0);
+$qs  = $mid ? "?tab=gerer&module_id=$mid" : "?tab=gerer";
+header("Location: gestion_questions.php$qs"); exit;
+// ── Code legacy conservé ci-dessous (non exécuté) ──────────
 require_once __DIR__ . '/../includes/functions.php';
 
 $pdo = getDB();

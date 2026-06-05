@@ -382,7 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </script>
 
     <div class="text-center">
-        <a href="questions.php" class="btn btn-outline-secondary btn-sm">
+        <a href="gestion_questions.php" class="btn btn-outline-secondary btn-sm">
             <i class="bi bi-list-ul me-1"></i>Gérer les questions
         </a>
         <a href="index.php" class="btn btn-outline-secondary btn-sm ms-2">

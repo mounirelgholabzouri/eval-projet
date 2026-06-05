@@ -382,7 +382,7 @@ async function validerEval() {
         links.innerHTML = '';
         if (result.type === 'efm') {
             links.innerHTML = `<a href="modules.php" class="btn btn-sm btn-outline-primary"><i class="bi bi-box me-1"></i>Voir les modules</a>
-                               <a href="efm.php" class="btn btn-sm btn-primary"><i class="bi bi-award me-1"></i>Gérer l'EFM</a>`;
+                               <a href="fusion.php" class="btn btn-sm btn-primary"><i class="bi bi-award me-1"></i>Gérer l'EFM</a>`;
         } else {
             links.innerHTML = `<a href="results.php" class="btn btn-sm btn-outline-primary"><i class="bi bi-table me-1"></i>Voir les résultats</a>
                                <a href="agent_eval.php" class="btn btn-sm btn-primary"><i class="bi bi-robot me-1"></i>Nouvelle évaluation</a>`;

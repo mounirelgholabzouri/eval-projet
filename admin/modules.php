@@ -247,12 +247,12 @@ if ($action === 'edit' && $id > 0) {
                                 </td>
                                 <td class="text-center text-muted small"><?= $m['duree_minutes'] ?> min</td>
                                 <td class="text-center">
-                                    <a href="questions.php?module_id=<?= $m['id'] ?>" class="badge bg-primary-subtle text-primary text-decoration-none">
+                                    <a href="gestion_questions.php?tab=gerer&module_id=<?= $m['id'] ?>" class="badge bg-primary-subtle text-primary text-decoration-none">
                                         <?= $m['nb_questions'] ?> Q
                                     </a>
                                 </td>
                                 <td class="text-center">
-                                    <a href="questions.php?module_id=<?= $m['id'] ?>"
+                                    <a href="gestion_questions.php?tab=gerer&module_id=<?= $m['id'] ?>"
                                        class="btn btn-sm btn-outline-secondary rounded-pill px-3"
                                        title="Gérer les questions">
                                         <i class="bi bi-question-circle me-1"></i><?= (int)($m['nb_questions'] ?? 0) ?>
@@ -276,7 +276,7 @@ if ($action === 'edit' && $id > 0) {
                                            class="btn btn-sm btn-outline-primary rounded-3" title="Modifier">
                                             <i class="bi bi-pencil"></i>
                                         </a>
-                                        <a href="questions.php?module_id=<?= $m['id'] ?>"
+                                        <a href="gestion_questions.php?tab=gerer&module_id=<?= $m['id'] ?>"
                                            class="btn btn-sm btn-outline-success rounded-3" title="Questions">
                                             <i class="bi bi-list-check"></i>
                                         </a>
