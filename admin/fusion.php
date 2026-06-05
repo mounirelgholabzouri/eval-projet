@@ -989,25 +989,12 @@ function applyEfmCodeFilter(code) {
     updateEfmUI();
 }
 
-// Synchronisation bidirectionnelle : filtre ↔ champ efm_code
-const efmCodeInput  = document.querySelector('input[name="efm_code"]');
+// Filtre par code module (indépendant du champ Code module des métadonnées)
 const efmCodeFilter = document.getElementById('efmCodeFilter');
-
 if (efmCodeFilter) {
     efmCodeFilter.addEventListener('input', () => {
-        if (efmCodeInput) efmCodeInput.value = efmCodeFilter.value;
         applyEfmCodeFilter(efmCodeFilter.value);
     });
-}
-if (efmCodeInput) {
-    efmCodeInput.addEventListener('input', () => {
-        if (efmCodeFilter) efmCodeFilter.value = efmCodeInput.value;
-        applyEfmCodeFilter(efmCodeInput.value);
-    });
-    if (efmCodeInput.value) {
-        if (efmCodeFilter) efmCodeFilter.value = efmCodeInput.value;
-        applyEfmCodeFilter(efmCodeInput.value);
-    }
 }
 
 // Sélectionner toutes les questions des modules visibles
