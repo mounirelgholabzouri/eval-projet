@@ -17,7 +17,6 @@ $navItems = [
     ['file' => 'formateurs_emploi.php', 'icon' => 'bi-person-badge',   'label' => 'Formateurs'],
     ['file' => 'sessions_view.php',  'icon' => 'bi-calendar-check',    'label' => 'Sessions'],
     ['file' => 'results.php',        'icon' => 'bi-bar-chart',         'label' => 'Résultats'],
-    ['file' => 'gestion_impression.php', 'icon' => 'bi-clipboard2-data', 'label' => 'Gestion CC/EFM'],
     ['file' => 'etablissements.php', 'icon' => 'bi-building',          'label' => 'Établissements'],
 ];
 
