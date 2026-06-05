@@ -247,14 +247,7 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
             <?= htmlspecialchars(getEtablissementDefaut()) ?>
         </div>
         <div style="font-size:11pt;font-weight:600;margin-top:1mm">
-            <?php
-            $badgeMap = ['cc1_pratique'=>'cc1','cc2_pratique'=>'cc2','cc3_theorique'=>'cc3','efm'=>'efm'];
-            $badgeCls = $badgeMap[$type] ?? '';
-            ?>
             <?= htmlspecialchars($cfg['label']) ?>
-            <?php if ($badgeCls): ?>
-            <span class="badge-cc badge-<?= $badgeCls ?>"><?= strtoupper(str_replace('_','',$badgeCls)) ?></span>
-            <?php endif; ?>
         </div>
         <div style="font-size:10pt;font-weight:normal;margin-top:1mm">
             <?= htmlspecialchars($moduleNom) ?> &nbsp;|&nbsp; Groupe : <strong><?= htmlspecialchars($groupeNom) ?></strong>
