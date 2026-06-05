@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     if ($action === 'creer') {
-        $nom      = trim($_POST['nom'] ?? '');
+        $nom      = mb_strtoupper(trim($_POST['nom'] ?? ''), 'UTF-8');
         $prenom   = trim($_POST['prenom'] ?? '');
         $groupeId = (int)($_POST['groupe_id'] ?? 0);
         $annee    = trim($_POST['annee_scolaire'] ?? '');
@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } elseif ($action === 'modifier') {
         $id       = (int)($_POST['id'] ?? 0);
-        $nom      = trim($_POST['nom'] ?? '');
+        $nom      = mb_strtoupper(trim($_POST['nom'] ?? ''), 'UTF-8');
         $prenom   = trim($_POST['prenom'] ?? '');
         $groupeId = (int)($_POST['groupe_id'] ?? 0);
         $annee    = trim($_POST['annee_scolaire'] ?? '');

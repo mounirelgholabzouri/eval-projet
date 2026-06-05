@@ -545,22 +545,24 @@ function genererLogin(string $prenom, string $nom, int $excludeId = 0): string {
 
 function creerStagiaireAdmin(string $nom, string $prenom, int $groupeId, string $annee): array {
     $pdo = getDB();
+    $nom = mb_strtoupper(trim($nom), 'UTF-8');   // NOM toujours en majuscules
+    $prenom = trim($prenom);
     $stmt = $pdo->prepare("SELECT id FROM stagiaires WHERE nom=? AND prenom=? AND groupe_id=? AND annee_scolaire=? LIMIT 1");
-    $stmt->execute([trim($nom), trim($prenom), $groupeId, $annee]);
+    $stmt->execute([$nom, $prenom, $groupeId, $annee]);
     if ($stmt->fetchColumn()) {
         throw new RuntimeException("Ce stagiaire existe déjà dans ce groupe pour cette année.");
     }
     $login = genererLogin($prenom, $nom);
     $hash  = password_hash('123456', PASSWORD_BCRYPT);
     $pdo->prepare("INSERT INTO stagiaires (nom, prenom, groupe_id, annee_scolaire, login, password_hash, must_change_password) VALUES (?,?,?,?,?,?,1)")
-        ->execute([trim($nom), trim($prenom), $groupeId, $annee, $login, $hash]);
+        ->execute([$nom, $prenom, $groupeId, $annee, $login, $hash]);
     return ['id' => (int)$pdo->lastInsertId(), 'login' => $login];
 }
 
 function modifierStagiaire(int $id, string $nom, string $prenom, int $groupeId, string $annee, string $login): void {
     $pdo = getDB();
     $pdo->prepare("UPDATE stagiaires SET nom=?, prenom=?, groupe_id=?, annee_scolaire=?, login=? WHERE id=?")
-        ->execute([trim($nom), trim($prenom), $groupeId, $annee, trim($login), $id]);
+        ->execute([mb_strtoupper(trim($nom), 'UTF-8'), trim($prenom), $groupeId, $annee, trim($login), $id]);
 }
 
 function supprimerStagiaire(int $id): bool {

@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postAction = $_POST['action'] ?? '';
 
     if ($postAction === 'ajouter' || $postAction === 'modifier') {
-        $nom              = trim($_POST['nom'] ?? '');
+        $nom              = mb_strtoupper(trim($_POST['nom'] ?? ''), 'UTF-8');
         $prenom           = trim($_POST['prenom'] ?? '');
         $matricule        = trim($_POST['matricule'] ?? '') ?: null;
         $specialite       = trim($_POST['specialite'] ?? '') ?: null;
