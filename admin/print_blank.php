@@ -10,7 +10,8 @@ if (!$module) {
     echo '<p class="text-danger p-4">Module introuvable. <a href="modules.php">Retour</a></p>'; exit;
 }
 
-$isEfm = ($module['type'] ?? 'qcm') === 'efm';
+$isEfm  = ($module['type'] ?? 'qcm') === 'efm';
+$ccNum  = (int)($_GET['cc_num'] ?? 0);   // 1 = CC1, 2 = CC2, 3 = CC3, 0 = non spécifié
 
 $codeModule  = htmlspecialchars($module['efm_code_module']   ?? '', ENT_QUOTES, 'UTF-8');
 $filiere     = htmlspecialchars($module['efm_filiere']       ?? '', ENT_QUOTES, 'UTF-8');
@@ -141,6 +142,21 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         .info-table .label { font-weight: bold; white-space: nowrap; }
         .info-table .sep   { text-align: center; width: 8mm; }
         .info-table .val-r { text-align: center; }
+
+        /* ── Badge CC ── */
+        .badge-cc {
+            display: inline-block;
+            padding: 1mm 4mm;
+            border-radius: 3mm;
+            font-size: 13pt;
+            font-weight: 900;
+            letter-spacing: 1px;
+            vertical-align: middle;
+            margin-left: 4mm;
+        }
+        .badge-cc1 { background: #0d6efd; color: #fff; }
+        .badge-cc2 { background: #198754; color: #fff; }
+        .badge-cc3 { background: #e67e00; color: #fff; }
 
         /* ── Séparateur ── */
         hr.section-sep {
@@ -359,7 +375,12 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
             </tr>
             <tr>
                 <td class="h-efm" style="font-style:normal;font-weight:bold">
-                    Contrôle Continue N°&nbsp;<span style="display:inline-block;min-width:12mm;border-bottom:1px solid #000">&nbsp;</span>
+                    <?php if ($ccNum > 0): ?>
+                        Contrôle Continu
+                        <span class="badge-cc badge-cc<?= $ccNum ?>">CC<?= $ccNum ?></span>
+                    <?php else: ?>
+                        Contrôle Continu N°&nbsp;<span style="display:inline-block;min-width:12mm;border-bottom:1px solid #000">&nbsp;</span>
+                    <?php endif; ?>
                 </td>
             </tr>
             <tr>

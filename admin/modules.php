@@ -299,12 +299,25 @@ if ($action === 'edit' && $id > 0) {
                                             <i class="bi bi-file-earmark-ruled"></i>
                                         </a>
                                         <?php else: ?>
-                                        <a href="print_blank.php?module_id=<?= $m['id'] ?>"
-                                           target="_blank"
-                                           class="btn btn-sm btn-outline-secondary rounded-3"
-                                           title="Imprimer sujet vierge">
-                                            <i class="bi bi-printer"></i>
-                                        </a>
+                                        <div class="btn-group btn-group-sm">
+                                            <a href="print_blank.php?module_id=<?= $m['id'] ?>&cc_num=1" target="_blank"
+                                               class="btn btn-outline-secondary rounded-start-3" title="Imprimer CC1">
+                                                <i class="bi bi-printer"></i>
+                                            </a>
+                                            <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split rounded-end-3"
+                                                    data-bs-toggle="dropdown" title="Choisir le numéro de CC"></button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a class="dropdown-item" href="print_blank.php?module_id=<?= $m['id'] ?>&cc_num=1" target="_blank">
+                                                    <span class="badge bg-primary me-2">CC1</span> Imprimer CC1</a></li>
+                                                <li><a class="dropdown-item" href="print_blank.php?module_id=<?= $m['id'] ?>&cc_num=2" target="_blank">
+                                                    <span class="badge bg-success me-2">CC2</span> Imprimer CC2</a></li>
+                                                <li><a class="dropdown-item" href="print_blank.php?module_id=<?= $m['id'] ?>&cc_num=3" target="_blank">
+                                                    <span class="badge" style="background:#e67e00" class="me-2">CC3</span> Imprimer CC3</a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item text-muted" href="print_blank.php?module_id=<?= $m['id'] ?>" target="_blank">
+                                                    <i class="bi bi-printer me-1"></i> Sans étiquette</a></li>
+                                            </ul>
+                                        </div>
                                         <?php endif; ?>
                                         <a href="results.php?module_id=<?= $m['id'] ?>"
                                            class="btn btn-sm btn-outline-info rounded-3"

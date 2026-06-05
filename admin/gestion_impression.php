@@ -215,6 +215,11 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
             .note-inp{border:none!important;box-shadow:none!important;
                       background:transparent!important;width:auto!important;padding:0}
             .print-header{margin-bottom:2mm;line-height:1.4;text-align:center;width:100%}
+        .badge-cc{display:inline-block;padding:1mm 5mm;border-radius:3mm;font-size:14pt;font-weight:900;letter-spacing:1px;vertical-align:middle;margin-left:3mm}
+        .badge-cc1{background:#0d6efd;color:#fff}
+        .badge-cc2{background:#198754;color:#fff}
+        .badge-cc3{background:#e67e00;color:#fff}
+        .badge-efm{background:#dc3545;color:#fff}
             thead{display:table-header-group}
         }
     </style>
@@ -242,7 +247,14 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
             <?= htmlspecialchars(getEtablissementDefaut()) ?>
         </div>
         <div style="font-size:11pt;font-weight:600;margin-top:1mm">
+            <?php
+            $badgeMap = ['cc1_pratique'=>'cc1','cc2_pratique'=>'cc2','cc3_theorique'=>'cc3','efm'=>'efm'];
+            $badgeCls = $badgeMap[$type] ?? '';
+            ?>
             <?= htmlspecialchars($cfg['label']) ?>
+            <?php if ($badgeCls): ?>
+            <span class="badge-cc badge-<?= $badgeCls ?>"><?= strtoupper(str_replace('_','',$badgeCls)) ?></span>
+            <?php endif; ?>
         </div>
         <div style="font-size:10pt;font-weight:normal;margin-top:1mm">
             <?= htmlspecialchars($moduleNom) ?> &nbsp;|&nbsp; Groupe : <strong><?= htmlspecialchars($groupeNom) ?></strong>
