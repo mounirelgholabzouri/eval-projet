@@ -143,20 +143,10 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         .info-table .sep   { text-align: center; width: 8mm; }
         .info-table .val-r { text-align: center; }
 
-        /* ── Badge CC ── */
-        .badge-cc {
-            display: inline-block;
-            padding: 1mm 4mm;
-            border-radius: 3mm;
-            font-size: 13pt;
-            font-weight: 900;
-            letter-spacing: 1px;
-            vertical-align: middle;
-            margin-left: 4mm;
-        }
-        .badge-cc1 { background: #0d6efd; color: #fff; }
-        .badge-cc2 { background: #198754; color: #fff; }
-        .badge-cc3 { background: #e67e00; color: #fff; }
+        /* ── Cellule CC colorée (équivalent EFM) ── */
+        .h-efm-cc1 { background: #0d6efd !important; color: #fff !important; }
+        .h-efm-cc2 { background: #198754 !important; color: #fff !important; }
+        .h-efm-cc3 { background: #e67e00 !important; color: #fff !important; }
 
         /* ── Séparateur ── */
         hr.section-sep {
@@ -374,10 +364,10 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
                 </td>
             </tr>
             <tr>
-                <td class="h-efm" style="font-style:normal;font-weight:bold">
+                <td class="h-efm<?= $ccNum > 0 ? ' h-efm-cc'.$ccNum : '' ?>"
+                    style="font-style:normal;font-weight:bold<?= $ccNum > 0 ? ';letter-spacing:1px' : '' ?>">
                     <?php if ($ccNum > 0): ?>
-                        Contrôle Continu
-                        <span class="badge-cc badge-cc<?= $ccNum ?>">CC<?= $ccNum ?></span>
+                        CONTRÔLE CONTINU N°<?= $ccNum ?> — CC<?= $ccNum ?>
                     <?php else: ?>
                         Contrôle Continu N°&nbsp;<span style="display:inline-block;min-width:12mm;border-bottom:1px solid #000">&nbsp;</span>
                     <?php endif; ?>
