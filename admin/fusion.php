@@ -106,7 +106,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_fusion'])) {
                 }
             }
             $pdo->commit();
-            header("Location: questions.php?module_id={$newModuleId}&msg=fusion_ok"); exit;
+            header("Location: gestion_questions.php?tab=gerer&module_id={$newModuleId}&msg=fusion_ok"); exit;
         } catch (Exception $e) {
             $pdo->rollBack();
             $erreur = "Erreur lors de la fusion : " . $e->getMessage();
@@ -303,7 +303,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                     <a href="print_efm.php?<?= $printParams ?>&corrige=1" target="_blank" class="btn btn-success btn-sm">
                         <i class="bi bi-check2-square me-1"></i>Imprimer le corrigé
                     </a>
-                    <a href="questions.php?module_id=<?= $efmOk['id'] ?>" class="btn btn-outline-primary btn-sm">
+                    <a href="gestion_questions.php?tab=gerer&module_id=<?= $efmOk['id'] ?>" class="btn btn-outline-primary btn-sm">
                         <i class="bi bi-list-check me-1"></i>Voir les questions
                     </a>
                     <a href="modules.php?action=edit&id=<?= $efmOk['id'] ?>" class="btn btn-outline-secondary btn-sm">
