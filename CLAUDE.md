@@ -78,6 +78,8 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - HTML : `sanitize($str)` = `htmlspecialchars(trim($str), ENT_QUOTES, 'UTF-8')`
 - SQL : PDO préparé uniquement — jamais de concaténation
 - `form.submit()` JS n'envoie pas les boutons submit → ajouter `<input type="hidden" name="submit_final" value="1">`
+- Formulaires créés dynamiquement en JS → **toujours ajouter le token CSRF manuellement** (`name="csrf_token"`, valeur `<?= csrfToken() ?>`)
+- `groupes_emploi.code` est UNIQUE NOT NULL → attraper `PDOException` code `23000` pour doublon, et valider `filiere_id` non null avant INSERT
 
 ### Encodage — RÈGLE D'OR
 
@@ -115,6 +117,9 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 | `admin/results.php` | Liste plate de toutes les sessions (filtrée, `?module_id=X` pour filtre direct) |
 | `admin/detail.php` | Détail question par question d'une session |
 | `admin/modules.php` | Bouton résultats (icône graphique bleu) → `results.php?module_id=X` sur chaque ligne |
+| `admin/resultat_audit.php` | Audit CC1/CC2/CC3/EFM par groupe — `?type=cc3_theorique&groupe_id=X` — filtre module déroulant JS |
+| `admin/generer_cc_pratique.php` | Génère CC1 (CC3−1) et CC2 (CC3+1) avec distribution aléatoire — CC3 éditable, absents, impression |
+| `admin/cc_pratique.php` | Saisie manuelle des grilles CC pratique (7 cellules, max 2.5 par sous-Q, 5 pour P4) |
 
 ## Invariants métier
 
