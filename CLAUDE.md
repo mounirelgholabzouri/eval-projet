@@ -121,6 +121,14 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 | `admin/generer_cc_pratique.php` | Génère CC1 (CC3−1) et CC2 (CC3+1) avec distribution aléatoire — CC3 éditable, absents, impression |
 | `admin/cc_pratique.php` | Saisie manuelle des grilles CC pratique (7 cellules, max 2.5 par sous-Q, 5 pour P4) |
 
+### Pages unifiées (multi-onglets) — préférer celles-ci dans la navbar
+| Page unifiée | Remplace | Onglets |
+|--------------|----------|---------|
+| `admin/gestion_questions.php` | questions, move_questions, import_questions, import_evaluation_json | `?tab=gerer\|deplacer\|import_sync\|import_eval` |
+| `admin/gestion_impression.php` | cc_pratique, generer_cc_pratique, resultat_audit | `?type=cc1_pratique\|cc2_pratique\|cc3_theorique\|efm` — filtres groupe+module, tableau éditable, génération CC1/CC2 depuis CC3, **impression A4 paysage une page** (auto-zoom JS) |
+
+> Les anciennes pages existent encore mais ne sont plus liées dans la navbar. Modifier la version unifiée.
+
 ## Invariants métier
 
 - Chaque module a ≥1 partie (« Général » par défaut — auto-créée à l'insertion via SELECT/INSERT inline, **pas** de fonction `ensurePartieDefault()`)
@@ -130,6 +138,13 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - Clés API : table `config` — `anthropic_api_key`, `openai_api_key`, `google_api_key`, `ollama_base_url`
 - Provider IA actif : `config.ai_provider` ∈ {`anthropic`, `openai`, `google`, `ollama`}
 - **Résultats visibles admin uniquement** — stagiaire ne voit pas l'historique de ses sessions après `result.php`
+- **Noms + prénoms stagiaires/formateurs en MAJUSCULES** — `mb_strtoupper($x, 'UTF-8')` à la saisie (`creerStagiaireAdmin`, `modifierStagiaire`, stagiaires.php, formateurs_emploi.php). Jamais le CLI MySQL pour convertir (encodage)
+- **Année de formation** : `getAnneeFormation(bool $short=true)` (functions.php) — calendrier scolaire sept→juil (mois ≥9 → an/an+1, sinon an-1/an). Ne plus utiliser `date('Y').'/'.(date('Y')+1)`
+- **Impression** : choix QCM en `<ul class="choix-list">` flex (4 col si ≤20 chars, 2 col défaut, 1 col si >60). Étiquette CC via `print_blank.php?cc_num=1|2|3` (cellule colorée). Ne jamais mettre de contenu HTML après un `style="..."` sans quote fermante (bug print_efm_result)
+
+## Docker
+- **Ollama optionnel** : sous `profiles: [ollama]` dans docker-compose.yml → `docker compose up -d` lance seulement db+app. IA locale : `docker compose --profile ollama up -d`
+- Modifier `docker-compose.yml` ne nécessite **pas** de rebuild image (lu à l'exécution)
 
 ## IA multi-providers (`includes/ai_provider.php`)
 
