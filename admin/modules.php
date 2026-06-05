@@ -9,7 +9,7 @@ $action = $_GET['action'] ?? 'list';
 $id     = (int)($_GET['id'] ?? 0);
 
 // ── Traitement formulaires ───────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['confirm_delete_module']) && !isset($_POST['bulk_action'])) {
     $nom      = trim($_POST['nom'] ?? '');
     $desc     = trim($_POST['description'] ?? '');
     $duree    = (int)($_POST['duree_minutes'] ?? 30);
@@ -403,6 +403,9 @@ function bulkDelete() {
     confirmAction('Supprimer ' + checkboxes.length + ' module(s) ? Cette action est irréversible.', function () {
         const form = document.createElement('form');
         form.method = 'POST';
+        const csrfInput = document.createElement('input');
+        csrfInput.type = 'hidden'; csrfInput.name = 'csrf_token'; csrfInput.value = '<?= csrfToken() ?>';
+        form.appendChild(csrfInput);
         const input1 = document.createElement('input');
         input1.type = 'hidden'; input1.name = 'bulk_action'; input1.value = 'delete';
         form.appendChild(input1);
@@ -425,6 +428,9 @@ function bulkToggleStatus() {
 
     const form = document.createElement('form');
     form.method = 'POST';
+    const csrfInput = document.createElement('input');
+    csrfInput.type = 'hidden'; csrfInput.name = 'csrf_token'; csrfInput.value = '<?= csrfToken() ?>';
+    form.appendChild(csrfInput);
     const input1 = document.createElement('input');
     input1.type = 'hidden';
     input1.name = 'bulk_action';
