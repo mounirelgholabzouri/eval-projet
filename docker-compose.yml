@@ -46,6 +46,11 @@ services:
     image: ollama/ollama:latest
     container_name: eval_ollama
     restart: unless-stopped
+    # Profil "ollama" : NE démarre PAS avec `docker compose up -d` (IA locale optionnelle).
+    # Pour l'activer : `docker compose --profile ollama up -d`
+    # Sans Ollama, l'app utilise les providers cloud (anthropic/openai/google).
+    profiles:
+      - ollama
     ports:
       - "11434:11434"
     volumes:
