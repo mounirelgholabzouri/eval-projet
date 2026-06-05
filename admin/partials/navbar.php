@@ -10,8 +10,7 @@ $etabNavbar  = !empty($_SESSION['admin_etablissement_nom'])
 $navItems = [
     ['file' => 'index.php',          'icon' => 'bi-speedometer2',     'label' => 'Dashboard'],
     ['file' => 'modules.php',        'icon' => 'bi-journal-text',      'label' => 'Modules'],
-    ['file' => 'questions.php',      'icon' => 'bi-question-circle',   'label' => 'Questions'],
-    ['file' => 'move_questions.php', 'icon' => 'bi-arrow-left-right',  'label' => 'Déplacer'],
+    ['file' => 'gestion_questions.php', 'icon' => 'bi-question-circle', 'label' => 'Questions'],
     ['file' => 'groupes_emploi.php',  'icon' => 'bi-people',            'label' => 'Groupes'],
     ['file' => 'stagiaires.php',     'icon' => 'bi-person-lines-fill', 'label' => 'Stagiaires'],
     ['file' => 'formateurs_emploi.php', 'icon' => 'bi-person-badge',   'label' => 'Formateurs'],
@@ -29,14 +28,6 @@ $dropdowns = [
             ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc2_pratique',  'type' => 'cc2_pratique',  'icon' => 'bi-2-circle-fill', 'label' => 'CC2 Pratique'],
             ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc3_theorique', 'type' => 'cc3_theorique', 'icon' => 'bi-3-circle-fill', 'label' => 'CC3 Théorique'],
             ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=efm',           'type' => 'efm',           'icon' => 'bi-award-fill',    'label' => 'EFM'],
-        ],
-    ],
-    'importer' => [
-        'icon' => 'bi-cloud-upload', 'label' => 'Importer',
-        'files' => ['import_questions.php', 'import_evaluation_json.php'],
-        'items' => [
-            ['file' => 'import_questions.php',       'icon' => 'bi-pc-display',            'label' => 'PC distant (sync)'],
-            ['file' => 'import_evaluation_json.php', 'icon' => 'bi-file-earmark-arrow-up', 'label' => 'Évaluation JSON'],
         ],
     ],
     'efm' => [
