@@ -178,6 +178,17 @@ $pageTitle = 'AUDIT ' . $cfg['label'] . ($groupeNom ? ' — ' . $groupeNom : '')
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <?php if ($groupeId > 0 && !empty($modules)): ?>
+                <div class="col-md-6 col-lg-4">
+                    <label class="form-label fw-semibold">Module</label>
+                    <select id="moduleFilter" class="form-select" onchange="filterModule(this.value)">
+                        <option value="0">— Tous les modules —</option>
+                        <?php foreach ($modules as $mid => $mod): ?>
+                        <option value="<?= $mid ?>"><?= htmlspecialchars($mod['nom']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php endif; ?>
             </form>
         </div>
     </div>
@@ -197,7 +208,7 @@ $pageTitle = 'AUDIT ' . $cfg['label'] . ($groupeNom ? ' — ' . $groupeNom : '')
     <?php foreach ($modules as $mid => $mod):
         $nbPres = count($mod['present']); $nbAbs = count($mod['absent']);
     ?>
-    <div class="audit-mod">
+    <div class="audit-mod" data-mid="<?= $mid ?>">
         <div class="d-flex justify-content-between align-items-center border-bottom pb-2 mb-2 flex-wrap gap-2">
             <h5 class="h6 fw-bold mb-0"><?= htmlspecialchars($mod['nom']) ?></h5>
             <div class="small">
@@ -281,6 +292,13 @@ $pageTitle = 'AUDIT ' . $cfg['label'] . ($groupeNom ? ' — ' . $groupeNom : '')
 
 <?php if (!$printMode): ?>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function filterModule(mid) {
+    document.querySelectorAll('.audit-mod').forEach(function(el) {
+        el.style.display = (!mid || mid === '0' || el.dataset.mid === mid) ? '' : 'none';
+    });
+}
+</script>
 <?php else: ?>
 <script>window.addEventListener('load', () => window.print());</script>
 <?php endif; ?>

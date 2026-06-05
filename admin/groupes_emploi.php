@@ -20,6 +20,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (strlen($code) < 2 || strlen($annee) < 1) {
             $msg = "Code et année obligatoires.";
             $msgType = 'danger';
+        } elseif ($filiereId === null) {
+            $msg = "La filière est obligatoire.";
+            $msgType = 'danger';
         } elseif ($postAction === 'modifier') {
             $gid = (int)($_POST['id'] ?? 0);
             $pdo->prepare("UPDATE groupes_emploi SET code=?, annee=?, filiere_id=?, effectif=?, mode_formation=?, creneau=? WHERE id=?")
@@ -297,9 +300,9 @@ $filieres = $pdo->query("SELECT id, code, nom FROM ref_filieres ORDER BY nom")->
                     </select>
                 </div>
                 <div class="col-12">
-                    <label class="form-label fw-semibold">Filière</label>
-                    <select name="filiere_id" class="form-select">
-                        <option value="">— Non définie —</option>
+                    <label class="form-label fw-semibold">Filière <span class="text-danger">*</span></label>
+                    <select name="filiere_id" class="form-select" required>
+                        <option value="">— Choisir une filière —</option>
                         <?php foreach ($filieres as $f): ?>
                             <option value="<?= $f['id'] ?>"><?= sanitize($f['code']) ?> — <?= sanitize($f['nom']) ?></option>
                         <?php endforeach; ?>
@@ -354,9 +357,9 @@ $filieres = $pdo->query("SELECT id, code, nom FROM ref_filieres ORDER BY nom")->
                     </select>
                 </div>
                 <div class="col-12">
-                    <label class="form-label fw-semibold">Filière</label>
-                    <select name="filiere_id" id="mod_filiere" class="form-select">
-                        <option value="">— Non définie —</option>
+                    <label class="form-label fw-semibold">Filière <span class="text-danger">*</span></label>
+                    <select name="filiere_id" id="mod_filiere" class="form-select" required>
+                        <option value="">— Choisir une filière —</option>
                         <?php foreach ($filieres as $f): ?>
                             <option value="<?= $f['id'] ?>"><?= sanitize($f['code']) ?> — <?= sanitize($f['nom']) ?></option>
                         <?php endforeach; ?>

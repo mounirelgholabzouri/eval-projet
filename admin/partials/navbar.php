@@ -17,7 +17,8 @@ $navItems = [
     ['file' => 'formateurs_emploi.php', 'icon' => 'bi-person-badge',   'label' => 'Formateurs'],
     ['file' => 'sessions_view.php',  'icon' => 'bi-calendar-check',    'label' => 'Sessions'],
     ['file' => 'results.php',        'icon' => 'bi-bar-chart',         'label' => 'Résultats'],
-    ['file' => 'cc_pratique.php',    'icon' => 'bi-grid-3x3-gap',      'label' => 'CC Pratique'],
+    ['file' => 'cc_pratique.php',        'icon' => 'bi-grid-3x3-gap', 'label' => 'CC Pratique'],
+    ['file' => 'generer_cc_pratique.php','icon' => 'bi-magic',        'label' => 'Générer CC1/CC2'],
     ['file' => 'etablissements.php', 'icon' => 'bi-building',          'label' => 'Établissements'],
 ];
 
