@@ -460,15 +460,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                             <div class="text-muted small mt-1">Cochez les questions à inclure et ajustez leur pondération</div>
                         </div>
                         <div class="card-body p-3">
-                            <div class="mb-3">
-                                <label class="form-label fw-semibold small mb-1">
-                                    <i class="bi bi-funnel me-1 text-warning"></i>Filtrer par code module
-                                </label>
-                                <input type="text" id="efmCodeFilter" class="form-control form-control-sm"
-                                       placeholder="Ex : M205 — affiche tous les modules commençant par ce code"
-                                       autocomplete="off">
-                                <div class="form-text" id="efmFilterHint"></div>
-                            </div>
                             <div class="d-flex gap-2 mb-3 flex-wrap">
                                 <button type="button" class="btn btn-sm btn-outline-secondary" id="efmExpandAll">
                                     <i class="bi bi-arrows-expand me-1"></i>Tout développer
@@ -972,30 +963,6 @@ document.getElementById('btnNormaliser')?.addEventListener('click', () => {
     updateEfmUI();
 });
 
-// ── Filtrage par code module ──────────────────────────────────
-function applyEfmCodeFilter(code) {
-    const codeNorm = code.trim().toLowerCase();
-    const blocks   = document.querySelectorAll('.efm-module-block');
-    const hint     = document.getElementById('efmFilterHint');
-    let visible = 0;
-
-    blocks.forEach(block => {
-        const match = !codeNorm || (block.dataset.moduleName || '').startsWith(codeNorm);
-        block.style.display = match ? '' : 'none';
-        if (match) visible++;
-    });
-
-    hint.textContent = codeNorm ? visible + ' module(s) correspondant à « ' + code.trim() + ' »' : '';
-    updateEfmUI();
-}
-
-// Filtre par code module (indépendant du champ Code module des métadonnées)
-const efmCodeFilter = document.getElementById('efmCodeFilter');
-if (efmCodeFilter) {
-    efmCodeFilter.addEventListener('input', () => {
-        applyEfmCodeFilter(efmCodeFilter.value);
-    });
-}
 
 // Sélectionner toutes les questions des modules visibles
 document.getElementById('efmSelectFiltered')?.addEventListener('click', () => {
