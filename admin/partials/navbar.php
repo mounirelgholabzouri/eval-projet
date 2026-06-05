@@ -17,20 +17,19 @@ $navItems = [
     ['file' => 'formateurs_emploi.php', 'icon' => 'bi-person-badge',   'label' => 'Formateurs'],
     ['file' => 'sessions_view.php',  'icon' => 'bi-calendar-check',    'label' => 'Sessions'],
     ['file' => 'results.php',        'icon' => 'bi-bar-chart',         'label' => 'Résultats'],
-    ['file' => 'cc_pratique.php',        'icon' => 'bi-grid-3x3-gap', 'label' => 'CC Pratique'],
-    ['file' => 'generer_cc_pratique.php','icon' => 'bi-magic',        'label' => 'Générer CC1/CC2'],
+    ['file' => 'gestion_impression.php', 'icon' => 'bi-clipboard2-data', 'label' => 'Gestion CC/EFM'],
     ['file' => 'etablissements.php', 'icon' => 'bi-building',          'label' => 'Établissements'],
 ];
 
 $dropdowns = [
     'audit' => [
-        'icon' => 'bi-clipboard-data', 'label' => 'Résultat Audit',
-        'files' => ['resultat_audit.php'],
+        'icon' => 'bi-clipboard-data', 'label' => 'Gestion CC/EFM',
+        'files' => ['gestion_impression.php', 'resultat_audit.php'],
         'items' => [
-            ['file' => 'resultat_audit.php', 'href' => 'resultat_audit.php?type=cc1_pratique',  'type' => 'cc1_pratique',  'icon' => 'bi-grid-3x3-gap', 'label' => 'CC1 Pratique'],
-            ['file' => 'resultat_audit.php', 'href' => 'resultat_audit.php?type=cc2_pratique',  'type' => 'cc2_pratique',  'icon' => 'bi-grid-3x3-gap', 'label' => 'CC2 Pratique'],
-            ['file' => 'resultat_audit.php', 'href' => 'resultat_audit.php?type=cc3_theorique', 'type' => 'cc3_theorique', 'icon' => 'bi-ui-checks',     'label' => 'CC3 Théorique'],
-            ['file' => 'resultat_audit.php', 'href' => 'resultat_audit.php?type=efm',           'type' => 'efm',           'icon' => 'bi-award',        'label' => 'EFM'],
+            ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc1_pratique',  'type' => 'cc1_pratique',  'icon' => 'bi-1-circle-fill', 'label' => 'CC1 Pratique'],
+            ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc2_pratique',  'type' => 'cc2_pratique',  'icon' => 'bi-2-circle-fill', 'label' => 'CC2 Pratique'],
+            ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc3_theorique', 'type' => 'cc3_theorique', 'icon' => 'bi-3-circle-fill', 'label' => 'CC3 Théorique'],
+            ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=efm',           'type' => 'efm',           'icon' => 'bi-award-fill',    'label' => 'EFM'],
         ],
     ],
     'importer' => [
