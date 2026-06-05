@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($postAction === 'ajouter' || $postAction === 'modifier') {
         $nom              = mb_strtoupper(trim($_POST['nom'] ?? ''), 'UTF-8');
-        $prenom           = trim($_POST['prenom'] ?? '');
+        $prenom           = mb_strtoupper(trim($_POST['prenom'] ?? ''), 'UTF-8');
         $matricule        = trim($_POST['matricule'] ?? '') ?: null;
         $specialite       = trim($_POST['specialite'] ?? '') ?: null;
         $email            = trim($_POST['email'] ?? '') ?: null;

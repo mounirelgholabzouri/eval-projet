@@ -545,8 +545,8 @@ function genererLogin(string $prenom, string $nom, int $excludeId = 0): string {
 
 function creerStagiaireAdmin(string $nom, string $prenom, int $groupeId, string $annee): array {
     $pdo = getDB();
-    $nom = mb_strtoupper(trim($nom), 'UTF-8');   // NOM toujours en majuscules
-    $prenom = trim($prenom);
+    $nom = mb_strtoupper(trim($nom), 'UTF-8');       // NOM en majuscules
+    $prenom = mb_strtoupper(trim($prenom), 'UTF-8');  // PRÉNOM en majuscules
     $stmt = $pdo->prepare("SELECT id FROM stagiaires WHERE nom=? AND prenom=? AND groupe_id=? AND annee_scolaire=? LIMIT 1");
     $stmt->execute([$nom, $prenom, $groupeId, $annee]);
     if ($stmt->fetchColumn()) {
@@ -562,7 +562,7 @@ function creerStagiaireAdmin(string $nom, string $prenom, int $groupeId, string 
 function modifierStagiaire(int $id, string $nom, string $prenom, int $groupeId, string $annee, string $login): void {
     $pdo = getDB();
     $pdo->prepare("UPDATE stagiaires SET nom=?, prenom=?, groupe_id=?, annee_scolaire=?, login=? WHERE id=?")
-        ->execute([mb_strtoupper(trim($nom), 'UTF-8'), trim($prenom), $groupeId, $annee, trim($login), $id]);
+        ->execute([mb_strtoupper(trim($nom), 'UTF-8'), mb_strtoupper(trim($prenom), 'UTF-8'), $groupeId, $annee, trim($login), $id]);
 }
 
 function supprimerStagiaire(int $id): bool {
