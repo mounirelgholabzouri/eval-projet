@@ -25,13 +25,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msgType = 'danger';
         } elseif ($postAction === 'modifier') {
             $gid = (int)($_POST['id'] ?? 0);
-            $pdo->prepare("UPDATE groupes_emploi SET code=?, annee=?, filiere_id=?, effectif=?, mode_formation=?, creneau=? WHERE id=?")
-                ->execute([$code, $annee, $filiereId, $effectif, $modeFormation, $creneau, $gid]);
-            $msg = "Groupe mis à jour.";
+            try {
+                $pdo->prepare("UPDATE groupes_emploi SET code=?, annee=?, filiere_id=?, effectif=?, mode_formation=?, creneau=? WHERE id=?")
+                    ->execute([$code, $annee, $filiereId, $effectif, $modeFormation, $creneau, $gid]);
+                $msg = "Groupe mis à jour.";
+            } catch (PDOException $e) {
+                if ($e->getCode() === '23000') {
+                    $msg = "Le code <strong>" . sanitize($code) . "</strong> est déjà utilisé par un autre groupe.";
+                } else { throw $e; }
+                $msgType = 'danger';
+            }
         } else {
-            $pdo->prepare("INSERT INTO groupes_emploi (code, annee, filiere_id, effectif, mode_formation, creneau) VALUES (?,?,?,?,?,?)")
-                ->execute([$code, $annee, $filiereId, $effectif, $modeFormation, $creneau]);
-            $msg = "Groupe <strong>" . sanitize($code) . "</strong> créé.";
+            try {
+                $pdo->prepare("INSERT INTO groupes_emploi (code, annee, filiere_id, effectif, mode_formation, creneau) VALUES (?,?,?,?,?,?)")
+                    ->execute([$code, $annee, $filiereId, $effectif, $modeFormation, $creneau]);
+                $msg = "Groupe <strong>" . sanitize($code) . "</strong> créé.";
+            } catch (PDOException $e) {
+                if ($e->getCode() === '23000') {
+                    $msg = "Un groupe avec le code <strong>" . sanitize($code) . "</strong> existe déjà.";
+                } else { throw $e; }
+                $msgType = 'danger';
+            }
         }
 
     } elseif ($postAction === 'toggle_actif') {
