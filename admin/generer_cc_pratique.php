@@ -68,12 +68,13 @@ function fmtN($v): string {
 }
 
 // ── Paramètres ────────────────────────────────────────────────
-$groupes   = getGroupes();
-$groupeId  = (int)($_POST['groupe_id'] ?? $_GET['groupe_id'] ?? 0);
-$genCC1    = !empty($_POST['gen_cc1']) || !empty($_GET['gen_cc1']);
-$genCC2    = !empty($_POST['gen_cc2']) || !empty($_GET['gen_cc2']);
-$printMode = isset($_GET['print']);
-$printCC   = (int)($_GET['cc'] ?? 0);
+$groupes      = getGroupes();
+$groupeId     = (int)($_POST['groupe_id']  ?? $_GET['groupe_id']  ?? 0);
+$moduleFilter = (int)($_POST['module_id']  ?? $_GET['module_id']  ?? 0);
+$genCC1       = !empty($_POST['gen_cc1'])  || !empty($_GET['gen_cc1']);
+$genCC2       = !empty($_POST['gen_cc2'])  || !empty($_GET['gen_cc2']);
+$printMode    = isset($_GET['print']);
+$printCC      = (int)($_GET['cc'] ?? 0);
 
 $groupeNom = '';
 foreach ($groupes as $g) {
@@ -118,6 +119,12 @@ if ($groupeId > 0) {
         $mid = (int)$r['module_id'];
         if ($sid > 0) $cc3DB[$mid][$sid] = (float)$r['score'];
     }
+}
+
+// ── Filtre module ─────────────────────────────────────────────
+if ($moduleFilter > 0) {
+    $modInfo = array_intersect_key($modInfo, [$moduleFilter => true]);
+    $cc3DB   = array_intersect_key($cc3DB,   [$moduleFilter => true]);
 }
 
 // ── Reconstruction cc3Data depuis POST (si édition manuelle) ─
@@ -274,15 +281,19 @@ if ($printMode && $printCC > 0 && $groupeId > 0) {
         .note-input-cc3:focus { border-color:#e6a000; box-shadow:0 0 0 2px rgba(255,193,7,.2); }
         td.total-cell { font-weight:bold; background:#f8f9fa; min-width:46px; }
         tr.absent-row td { opacity:.5; }
+        @page { margin: 0; size: A4 portrait; }
         @media print {
             .no-print { display:none !important; }
-            body { background:#fff !important; }
-            .container-fluid { padding:10mm !important; }
-            .page-block { page-break-inside:avoid; margin-bottom:1.5rem; }
-            .grille { font-size:11px; }
+            html, body { margin:0 !important; padding:0 !important; background:#fff !important; }
+            .container-fluid { padding:12mm 10mm 8mm !important; }
+            .page-block { page-break-before:always; page-break-inside:avoid; margin-bottom:0; }
+            .page-block:first-of-type { page-break-before:auto; }
+            .grille { font-size:10.5px; }
             .grille th, .grille td { border:1px solid #000 !important; padding:3px 5px; }
-            .note-input { border:none !important; box-shadow:none !important; background:transparent !important; width:auto; }
-            .print-title { font-size:13pt; font-weight:bold; margin-bottom:4mm; }
+            .note-input { border:none !important; box-shadow:none !important;
+                          background:transparent !important; width:auto !important; padding:0; }
+            .print-title { font-size:13pt; font-weight:bold; margin-bottom:6mm; }
+            thead { display:table-header-group; }
         }
     </style>
 </head>
@@ -300,6 +311,9 @@ if ($printMode && $printCC > 0 && $groupeId > 0) {
         <button onclick="window.print()" class="btn btn-dark btn-sm">
             <i class="bi bi-printer me-1"></i>Imprimer
         </button>
+        <span class="text-muted small">
+            <i class="bi bi-info-circle me-1"></i>Dans la boîte d'impression : décocher <strong>En-têtes et pieds de page</strong>, marges = <strong>Aucune</strong>
+        </span>
         <button form="saveFormPrint" type="submit" name="do_save" value="1" class="btn btn-success btn-sm">
             <i class="bi bi-floppy me-1"></i>Sauvegarder les modifications
         </button>
@@ -426,7 +440,12 @@ function toggleAbsent(cb, uid) {
 }
 </script>
 <?php if (!empty($printData)): ?>
-<script>window.addEventListener('load', () => window.print());</script>
+<script>
+window.addEventListener('load', function() {
+    // Attendre que Bootstrap soit prêt puis imprimer
+    setTimeout(function() { window.print(); }, 300);
+});
+</script>
 <?php endif; ?>
 
 <?php else: ?>
@@ -467,7 +486,28 @@ function toggleAbsent(cb, uid) {
                             <?php endforeach; ?>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <?php if ($groupeId > 0 && !empty($modInfo)): ?>
+                    <div class="col-md-3">
+                        <label class="form-label fw-semibold">Module</label>
+                        <select name="module_id" class="form-select" onchange="this.form.submit()">
+                            <option value="0">— Tous les modules —</option>
+                            <?php
+                            // Liste complète des modules cc_theorique pour ce groupe
+                            $allMods = $pdo->query("
+                                SELECT DISTINCT e.module_id, m.nom AS module_nom
+                                FROM evaluations e JOIN modules m ON m.id = e.module_id
+                                WHERE e.categorie = 'cc_theorique' ORDER BY m.nom
+                            ")->fetchAll();
+                            foreach ($allMods as $am):
+                            ?>
+                            <option value="<?= (int)$am['module_id'] ?>" <?= $moduleFilter === (int)$am['module_id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($am['module_nom']) ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <?php endif; ?>
+                    <div class="col-md-<?= ($groupeId > 0 && !empty($modInfo)) ? '2' : '4' ?>">
                         <label class="form-label fw-semibold">CC à générer</label>
                         <div class="d-flex gap-4 mt-1">
                             <div class="form-check">
@@ -628,8 +668,9 @@ function renderEditableTable(array $preview, array $roster, array $modInfo, int 
     </div>
     <form method="POST" id="formCC1">
         <?= csrfField() ?>
-        <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
-        <input type="hidden" name="save_cc"   value="1">
+        <input type="hidden" name="groupe_id"  value="<?= $groupeId ?>">
+        <input type="hidden" name="module_id"  value="<?= $moduleFilter ?>">
+        <input type="hidden" name="save_cc"    value="1">
         <?php renderEditableTable($preview, $roster, $modInfo, 1, $groupeId); ?>
     </form>
     <?php endif; ?>
@@ -649,8 +690,9 @@ function renderEditableTable(array $preview, array $roster, array $modInfo, int 
     </div>
     <form method="POST" id="formCC2">
         <?= csrfField() ?>
-        <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
-        <input type="hidden" name="save_cc"   value="2">
+        <input type="hidden" name="groupe_id"  value="<?= $groupeId ?>">
+        <input type="hidden" name="module_id"  value="<?= $moduleFilter ?>">
+        <input type="hidden" name="save_cc"    value="2">
         <?php renderEditableTable($preview, $roster, $modInfo, 2, $groupeId); ?>
     </form>
     <?php endif; ?>

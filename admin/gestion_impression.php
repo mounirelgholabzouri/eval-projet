@@ -76,7 +76,7 @@ $data       = [];
 $evalId     = null;
 $noteMaxMod = $cfg['note_max'];
 
-function loadData(PDO $pdo, bool $isPrat, string $categ, int $moduleId, int $groupeId, int $numero, int &$evalId, int &$noteMaxMod): array {
+function loadData(PDO $pdo, bool $isPrat, string $categ, int $moduleId, int $groupeId, int $numero, ?int &$evalId, int &$noteMaxMod): array {
     $data = [];
     if ($isPrat) {
         $s = $pdo->prepare("SELECT id FROM evaluations WHERE module_id=? AND categorie='cc_pratique' AND JSON_UNQUOTE(JSON_EXTRACT(meta_json,'$.groupe_id'))=? AND JSON_UNQUOTE(JSON_EXTRACT(meta_json,'$.numero'))=? LIMIT 1");
@@ -202,17 +202,20 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
         td.tot{font-weight:bold;background:#f8f9fa;min-width:50px}
         tr.abs-row td{opacity:.55}
         .type-tab{cursor:pointer}
-        @page{margin:0;size:A4 portrait}
+        @page{margin:0;size:A4 landscape}
         @media print{
             .no-print{display:none !important}
-            html,body{margin:0!important;padding:0!important;background:#fff!important}
-            .container-fluid{padding:12mm 10mm 8mm!important}
-            .page-block{page-break-before:always;page-break-inside:avoid;margin-bottom:0}
-            .page-block:first-of-type{page-break-before:auto}
-            .grille{font-size:10.5px}
-            .grille th,.grille td{border:1px solid #000!important;padding:3px 5px}
-            .note-inp{border:none!important;box-shadow:none!important;background:transparent!important;width:auto!important;padding:0}
-            .print-header{font-size:13pt;font-weight:bold;margin-bottom:5mm}
+            html,body{margin:0!important;padding:0!important;background:#fff!important;
+                      width:297mm;height:210mm;overflow:hidden}
+            .container-fluid{padding:5mm 6mm!important;width:297mm!important;box-sizing:border-box}
+            .page-block{page-break-inside:avoid;margin-bottom:0}
+            .grille{font-size:8.5px;width:100%}
+            .grille th,.grille td{border:1px solid #000!important;padding:2px 3px;white-space:nowrap}
+            .grille td.name{max-width:85px;overflow:hidden;text-overflow:ellipsis}
+            .note-inp{border:none!important;box-shadow:none!important;
+                      background:transparent!important;width:auto!important;padding:0}
+            .print-header{margin-bottom:2mm;line-height:1.4;text-align:center;width:100%}
+            thead{display:table-header-group}
         }
     </style>
 </head>
@@ -235,10 +238,16 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
     </div>
 
     <div class="print-header">
-        <?= htmlspecialchars(getEtablissementDefaut()) ?><br>
-        <span style="font-size:.88em;font-weight:normal">
-            <?= htmlspecialchars($cfg['label']) ?> — <?= htmlspecialchars($moduleNom) ?> — Groupe : <strong><?= htmlspecialchars($groupeNom) ?></strong>
-        </span>
+        <div style="font-size:13pt;font-weight:bold;letter-spacing:.3px">
+            <?= htmlspecialchars(getEtablissementDefaut()) ?>
+        </div>
+        <div style="font-size:11pt;font-weight:600;margin-top:1mm">
+            <?= htmlspecialchars($cfg['label']) ?>
+        </div>
+        <div style="font-size:10pt;font-weight:normal;margin-top:1mm">
+            <?= htmlspecialchars($moduleNom) ?> &nbsp;|&nbsp; Groupe : <strong><?= htmlspecialchars($groupeNom) ?></strong>
+        </div>
+        <hr style="border:1.5px solid #000;margin:2mm 0 2mm">
     </div>
 
     <form method="POST" id="printSaveForm">
@@ -250,7 +259,6 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
     <div class="page-block">
     <?php if ($isPrat): ?>
         <!-- Grille pratique -->
-        <?php include_once __DIR__ . '/partials/_table_pratique.php'; // inline below ?>
         <?php
         $nbPres2 = 0; $nbAbs2 = 0;
         foreach ($roster as $sid => $s) {
@@ -331,7 +339,25 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
     </div><!-- /page-block -->
     </form>
 </div>
-<script>setTimeout(()=>window.print(),300);</script>
+<script>
+window.addEventListener('load', function() {
+    // Ajuste le zoom pour tenir sur une seule page A4 paysage
+    var body   = document.body;
+    var pw     = 297 * 3.7795; // 297mm en px (96dpi)
+    var ph     = 210 * 3.7795; // 210mm en px
+    var bw     = body.scrollWidth;
+    var bh     = body.scrollHeight;
+    var scaleW = pw / bw;
+    var scaleH = ph / bh;
+    var scale  = Math.min(scaleW, scaleH, 1);
+    if (scale < 0.99) {
+        body.style.transformOrigin = 'top left';
+        body.style.transform = 'scale(' + scale + ')';
+        body.style.width = (100 / scale) + '%';
+    }
+    setTimeout(function() { window.print(); }, 350);
+});
+</script>
 
 <?php else: ?>
 <!-- ═══════════════════════  MODE NORMAL  ════════════════════════ -->
