@@ -224,6 +224,22 @@ $tamponB64  = file_exists($tamponPath)
         }
         .q-reponse.vide { color: #bbb; }
 
+        /* ── Choix résultat ── */
+        .choix-list {
+            list-style: none; margin: 1mm 0 0 4mm; padding: 0;
+            display: flex; flex-wrap: wrap; gap: 0.5mm 5mm;
+        }
+        .choix-item {
+            display: flex; align-items: baseline; gap: 1.5mm;
+            font-size: 10pt; line-height: 1.4; padding: 0.3mm 0;
+            flex: 0 0 calc(50% - 5mm); min-width: 0;
+        }
+        .choix-list.cols-4 .choix-item { flex: 0 0 calc(25% - 5mm); }
+        .choix-list.cols-1 .choix-item { flex: 0 0 100%; }
+        .choix-lettre { font-weight: bold; min-width: 5mm; flex-shrink: 0; }
+        .choix-correct { font-weight: bold; color: #1a7a2e; }
+        .choix-selected { text-decoration: underline; }
+
 
         .tampon-ofppt {
             position: fixed;
@@ -345,18 +361,26 @@ $tamponB64  = file_exists($tamponPath)
                         <div style="border-bottom:1px solid #999;min-height:18px">&nbsp;</div>
                     </div>
                     <?php elseif (!empty($choices)): ?>
-                    <div style="margin:3px 0 0 6px;font-size:10pt;line-height:1.7">
-                        <?php foreach ($choices as $c):
+                    <?php
+                        $lettresR = ['A','B','C','D','E','F','G','H'];
+                        $maxLR = max(array_map(fn($c) => mb_strlen($c['texte']), $choices));
+                        $nbCR  = count($choices);
+                        $colClsR = ($maxLR <= 20 && $nbCR >= 4) ? 'cols-4' : ($maxLR > 60 ? 'cols-1' : '');
+                    ?>
+                    <ul class="choix-list <?= $colClsR ?>">
+                        <?php foreach ($choices as $ir => $c):
                             $isCorrect  = (int)$c['is_correct'];
                             $isSelected = $choixId !== null && (int)$c['id'] === $choixId;
+                            $cls = ($isCorrect ? 'choix-correct ' : '') . ($isSelected ? 'choix-selected' : '');
+                            $lettre = $lettresR[$ir] ?? chr(65+$ir);
                         ?>
-                        <span style="display:inline-block;<?= $isCorrect ? 'font-weight:bold;color:#1a7a2e' : '' ?>;margin-right:16px;margin-bottom:4px;vertical-align:middle">
-                            <?= $isSelected ? '&#9745;' : '&#9744;' ?>
-                            <?php if ($isCorrect): ?><span style="color:#1a7a2e">&#10003;</span><?php endif; ?>
-                            <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?>
-                        </span>
+                        <li class="choix-item <?= $cls ?>">
+                            <span style="min-width:3.5mm;flex-shrink:0"><?= $isSelected ? '&#9745;' : '&#9744;' ?></span>
+                            <span class="choix-lettre"><?= $lettre ?>)</span>
+                            <span><?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?><?= $isCorrect ? ' <span style="color:#1a7a2e">&#10003;</span>' : '' ?></span>
+                        </li>
                         <?php endforeach; ?>
-                    </div>
+                    </ul>
                     <?php else: ?>
                     <div class="q-reponse vide">&nbsp;</div>
                     <?php endif; ?>

@@ -134,9 +134,36 @@ $tamponB64  = file_exists($tamponPath) ? 'data:image/png;base64,' . base64_encod
 
         .q-texte { font-weight: normal; margin-bottom: 4px; }
 
-        /* Choix corrigé */
-        .correct-choice { font-weight: bold; color: #198754; }
-        .correct-mark   { color: #198754; }
+        /* ── Choix QCM ── */
+        .choix-list {
+            list-style: none;
+            margin: 1mm 0 0 6mm;
+            padding: 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5mm 5mm;
+        }
+        .choix-item {
+            display: flex;
+            align-items: baseline;
+            gap: 1.5mm;
+            font-size: 10pt;
+            line-height: 1.4;
+            padding: 0.5mm 0;
+            flex: 0 0 calc(50% - 5mm);
+            min-width: 0;
+        }
+        .choix-list.cols-4 .choix-item { flex: 0 0 calc(25% - 5mm); }
+        .choix-list.cols-1 .choix-item { flex: 0 0 100%; }
+        .choix-lettre { font-weight: bold; min-width: 5mm; flex-shrink: 0; }
+        .choix-circle {
+            width: 3.5mm; height: 3.5mm;
+            border: 1px solid #000; border-radius: 50%;
+            flex-shrink: 0; margin-top: 0.8mm; display: inline-block;
+        }
+        /* Corrigé */
+        .correct-choice { font-weight: bold; color: #1a7a2e; }
+        .correct-mark   { color: #1a7a2e; }
 
         /* Tampon */
         .tampon-ofppt {
@@ -257,18 +284,24 @@ $tamponB64  = file_exists($tamponPath) ? 'data:image/png;base64,' . base64_encod
                     </div>
 
                     <?php elseif (!empty($q['choix'])): ?>
-                    <div style="margin:3px 0 0 6px;font-size:10pt;line-height:1.8">
-                        <?php foreach ($q['choix'] as $c):
+                    <?php
+                        $lettresEfm = ['A','B','C','D','E','F','G','H'];
+                        $maxL = max(array_map(fn($c) => mb_strlen($c['texte']), $q['choix']));
+                        $nbC  = count($q['choix']);
+                        $colCls = ($maxL <= 20 && $nbC >= 4) ? 'cols-4' : ($maxL > 60 ? 'cols-1' : '');
+                    ?>
+                    <ul class="choix-list <?= $colCls ?>">
+                        <?php foreach ($q['choix'] as $i => $c):
                             $isCorrect = $corrige && (int)$c['is_correct'];
+                            $lettre = $lettresEfm[$i] ?? chr(65+$i);
                         ?>
-                        <span style="display:inline-block;margin-right:16px;margin-bottom:4px;vertical-align:middle"
-                              class="<?= $isCorrect ? 'correct-choice' : '' ?>">
-                            <?= $isCorrect ? '&#9745;' : '&#9744;' ?>
-                            <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?>
-                            <?php if ($isCorrect): ?><span class="correct-mark"> &#10003;</span><?php endif; ?>
-                        </span>
+                        <li class="choix-item <?= $isCorrect ? 'correct-choice' : '' ?>">
+                            <span class="choix-circle"><?= $isCorrect ? '&#10003;' : '' ?></span>
+                            <span class="choix-lettre"><?= $lettre ?>)</span>
+                            <span><?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?></span>
+                        </li>
                         <?php endforeach; ?>
-                    </div>
+                    </ul>
 
                     <?php else: ?>
                     <div style="margin-left:6px;border-bottom:1px solid #999;min-height:18px">&nbsp;</div>

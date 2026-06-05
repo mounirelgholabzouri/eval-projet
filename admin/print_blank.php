@@ -196,28 +196,42 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
         /* ── Choix QCM ── */
         .choix-list {
             list-style: none;
-            margin: 0 0 0 14mm;
+            margin: 1mm 0 0 14mm;
             padding: 0;
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 0.5mm 4mm;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5mm 5mm;
         }
         .choix-item {
             display: flex;
-            align-items: flex-start;
-            gap: 2mm;
+            align-items: baseline;
+            gap: 1.5mm;
             font-size: 10pt;
             line-height: 1.4;
             padding: 0.5mm 0;
+            flex: 0 0 calc(50% - 5mm);   /* 2 par ligne par défaut */
+            min-width: 0;
+        }
+        /* 4 par ligne si textes courts */
+        .choix-list.cols-4 .choix-item { flex: 0 0 calc(25% - 5mm); }
+        /* 1 par ligne si textes longs */
+        .choix-list.cols-1 .choix-item { flex: 0 0 100%; }
+
+        .choix-lettre {
+            font-weight: bold;
+            min-width: 5mm;
+            flex-shrink: 0;
         }
         .choix-circle {
-            width: 4mm;
-            height: 4mm;
+            width: 3.5mm;
+            height: 3.5mm;
             border: 1px solid #000;
             border-radius: 50%;
             flex-shrink: 0;
-            margin-top: 1mm;
+            margin-top: 0.8mm;
+            display: inline-block;
         }
+        .choix-correct { font-weight: bold; color: #1a7a2e; }
 
         /* ── Réponse texte libre ── */
         .reponse-libre { margin: 2mm 0 0 14mm; }
@@ -388,18 +402,26 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
                 <span class="q-points">(<?= $q['points'] ?> pt<?= $q['points'] > 1 ? 's' : '' ?>)</span>
             </div>
 
-            <?php if ($q['type'] === 'qcm' && !empty($q['choix'])): ?>
-            <ul class="choix-list">
-                <?php foreach ($q['choix'] as $i => $c): ?>
+            <?php if (in_array($q['type'], ['qcm','multiple','vrai_faux']) && !empty($q['choix'])): ?>
+            <?php
+                $maxL = max(array_map(fn($c) => mb_strlen($c['texte']), $q['choix']));
+                $nbC  = count($q['choix']);
+                $colClass = ($maxL <= 20 && $nbC >= 4) ? 'cols-4' : ($maxL > 60 ? 'cols-1' : '');
+            ?>
+            <ul class="choix-list <?= $colClass ?>">
+                <?php foreach ($q['choix'] as $i => $c):
+                    $lettre = $lettres[$i] ?? chr(65 + $i);
+                ?>
                 <li class="choix-item">
                     <span class="choix-circle"></span>
-                    <span><strong><?= $lettres[$i] ?? chr(65 + $i) ?>)</strong> <?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?></span>
+                    <span class="choix-lettre"><?= $lettre ?>)</span>
+                    <span><?= htmlspecialchars($c['texte'], ENT_QUOTES, 'UTF-8') ?></span>
                 </li>
                 <?php endforeach; ?>
             </ul>
 
-            <?php elseif ($q['type'] === 'vrai_faux'): ?>
-            <ul class="choix-list">
+            <?php elseif ($q['type'] === 'vrai_faux' && empty($q['choix'])): ?>
+            <ul class="choix-list cols-4">
                 <li class="choix-item"><span class="choix-circle"></span><span>Vrai</span></li>
                 <li class="choix-item"><span class="choix-circle"></span><span>Faux</span></li>
             </ul>
