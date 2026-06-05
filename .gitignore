@@ -19,8 +19,13 @@ desktop.ini
 # Fichiers internes Claude Code
 .claude/
 
-# Exports base de données
+# Exports base de données (contiennent clés API dans table config)
 db_export_*.sql
+db/_sync_dump.sql
+*_dump.sql
+
+# Scripts diagnostic avec credentials SSH en clair
+_vm_docker.py
 
 # PDFs générés
 /pdfs/
