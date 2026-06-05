@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generer_efm'])) {
     }
 }
 
-$anneeDefaut = date('y') . '/' . (date('y') + 1);
+$anneeDefaut = getAnneeFormation();
 ?>
 <!DOCTYPE html>
 <html lang="fr">

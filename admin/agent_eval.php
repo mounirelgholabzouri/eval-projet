@@ -158,7 +158,7 @@ $efmModules = $modules;
                 </div>
                 <div class="mb-4">
                     <label class="form-label fw-semibold small">Année scolaire</label>
-                    <input type="text" id="e_annee" class="form-control form-control-sm" value="<?= date('Y') . '-' . (date('Y')+1) ?>">
+                    <input type="text" id="e_annee" class="form-control form-control-sm" value="<?= getAnneeFormation() ?>">
                 </div>
 
                 <button class="btn btn-primary w-100" onclick="generer('efm')">

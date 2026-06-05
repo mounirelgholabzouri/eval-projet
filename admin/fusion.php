@@ -621,7 +621,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action_efm'])) {
                                     <label class="form-label fw-semibold">Année scolaire</label>
                                     <input type="text" name="efm_annee" class="form-control"
                                            placeholder="25/26"
-                                           value="<?= sanitize($_POST['efm_annee'] ?? (date('y') . '/' . (date('y')+1))) ?>">
+                                           value="<?= sanitize($_POST['efm_annee'] ?? getAnneeFormation()) ?>">
                                 </div>
                                 <div class="col-sm-4">
                                     <label class="form-label fw-semibold">Note max</label>

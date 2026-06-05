@@ -40,6 +40,22 @@ function verifyCsrfToken(): void {
     }
 }
 
+/**
+ * Retourne l'année de formation courante.
+ * Année scolaire : septembre → juillet.
+ * Ex : en oct. 2025 → "25/26" (short) ou "2025/2026" (long)
+ *      en mars 2025 → "24/25" (short) ou "2024/2025" (long)
+ */
+function getAnneeFormation(bool $short = true): string {
+    $m = (int)date('n'); // mois 1-12
+    $y = (int)date('Y');
+    $debut = ($m >= 9) ? $y : $y - 1;
+    $fin   = $debut + 1;
+    return $short
+        ? substr((string)$debut, -2) . '/' . substr((string)$fin, -2)
+        : $debut . '/' . $fin;
+}
+
 function formatDuration(int $minutes): string {
     if ($minutes < 60) return "{$minutes} min";
     $h = intdiv($minutes, 60);

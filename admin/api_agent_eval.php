@@ -27,7 +27,7 @@ if ($type === 'continue') {
     $codeModule   = trim($_POST['code_module'] ?? '');
     $filiere      = trim($_POST['filiere'] ?? '');
     $etablissement = trim($_POST['etablissement'] ?? '');
-    $annee        = trim($_POST['annee'] ?? date('Y') . '-' . (date('Y') + 1));
+    $annee        = trim($_POST['annee'] ?? getAnneeFormation());
 
     if (empty($moduleIds)) {
         echo json_encode(['error' => 'Sélectionnez au moins un module.']);
