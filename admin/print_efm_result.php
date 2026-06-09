@@ -22,7 +22,7 @@ if (!$module) { header('Location: results.php'); exit; }
 $codeModule    = $module['efm_code_module']   ?? '';
 $filiere       = $module['efm_filiere']       ?? '';
 $etablissement = $module['efm_etablissement'] ?? '';
-$annee         = $module['efm_annee']         ?? '';
+$annee         = $module['efm_annee'] ?: getAnneeFormation();
 $noteMax       = (int)($module['note_max'] ?? 20);
 $duree         = $module['duree_minutes'] ? formatDuration((int)$module['duree_minutes']) : '';
 $intitule      = $module['nom'];

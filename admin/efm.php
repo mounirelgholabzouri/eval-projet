@@ -22,15 +22,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generer_efm'])) {
     if (!$module) {
         $erreur = "Module invalide.";
     } else {
+        $codeModule    = trim($_POST['code_module'] ?? '');
+        $filiere       = trim($_POST['filiere'] ?? '');
+        $etablissement = trim($_POST['etablissement'] ?? '');
+        $annee         = trim($_POST['annee'] ?? '');
+
+        // Sauvegarder meta_json pour que print_efm_result puisse les relire
+        if ($module['evaluation_id']) {
+            $meta = json_encode([
+                'code_module'   => $codeModule,
+                'filiere'       => $filiere,
+                'etablissement' => $etablissement,
+                'annee'         => $annee,
+            ], JSON_UNESCAPED_UNICODE);
+            $pdo->prepare("UPDATE evaluations SET meta_json = ? WHERE id = ?")
+                ->execute([$meta, $module['evaluation_id']]);
+        }
+
         // Construire les paramètres GET pour la page d'impression
         $params = [
             'module_id'    => $moduleId,
-            'etablissement'=> trim($_POST['etablissement'] ?? ''),
-            'filiere'      => trim($_POST['filiere'] ?? ''),
+            'etablissement'=> $etablissement,
+            'filiere'      => $filiere,
             'duree'        => trim($_POST['duree'] ?? ''),
-            'annee'        => trim($_POST['annee'] ?? ''),
+            'annee'        => $annee,
             'note_max'     => (int)($_POST['note_max'] ?? $module['note_max']),
-            'code_module'  => trim($_POST['code_module'] ?? ''),
+            'code_module'  => $codeModule,
             'intitule'     => trim($_POST['intitule'] ?? $module['nom']),
             'shuffle'      => isset($_POST['shuffle']) ? 1 : 0,
             'shuffle_choix'=> isset($_POST['shuffle_choix']) ? 1 : 0,
@@ -122,13 +139,13 @@ $anneeDefaut = getAnneeFormation();
                                 <label class="form-label fw-semibold">Code module</label>
                                 <input type="text" name="code_module" class="form-control"
                                        placeholder="Ex : M205"
-                                       value="<?= sanitize($_POST['code_module'] ?? '') ?>">
+                                       value="<?= sanitize($_POST['code_module'] ?? $module['efm_code_module'] ?? '') ?>">
                             </div>
                             <div class="col-sm-6">
                                 <label class="form-label fw-semibold">Filière</label>
                                 <input type="text" name="filiere" class="form-control"
                                        placeholder="Ex : IDOCC"
-                                       value="<?= sanitize($_POST['filiere'] ?? '') ?>">
+                                       value="<?= sanitize($_POST['filiere'] ?? $module['efm_filiere'] ?? '') ?>">
                             </div>
                             <div class="col-12">
                                 <label class="form-label fw-semibold">Intitulé du module</label>
@@ -139,7 +156,7 @@ $anneeDefaut = getAnneeFormation();
                                 <label class="form-label fw-semibold">Établissement</label>
                                 <input type="text" name="etablissement" class="form-control"
                                        placeholder="Ex : ISTA NTIC Rabat"
-                                       value="<?= sanitize($_POST['etablissement'] ?? '') ?>">
+                                       value="<?= sanitize($_POST['etablissement'] ?? $module['efm_etablissement'] ?? '') ?>">
                             </div>
                             <div class="col-sm-4">
                                 <label class="form-label fw-semibold">Durée</label>
@@ -151,7 +168,7 @@ $anneeDefaut = getAnneeFormation();
                                 <label class="form-label fw-semibold">Année scolaire</label>
                                 <input type="text" name="annee" class="form-control"
                                        placeholder="25/26"
-                                       value="<?= sanitize($_POST['annee'] ?? $anneeDefaut) ?>">
+                                       value="<?= sanitize($_POST['annee'] ?? ($module['efm_annee'] ?: $anneeDefaut)) ?>">
                             </div>
                             <div class="col-sm-4">
                                 <label class="form-label fw-semibold">Note max</label>
