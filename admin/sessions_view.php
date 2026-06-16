@@ -129,7 +129,7 @@ if ($filterModule && $filterJour) {
                     <?php foreach ($stagiaires as $i => $s):
                         $mention = getMention((float)$s['pourcentage']);
                         $nm      = (int)($s['note_max'] ?? 20);
-                        $sc      = $s['total_points'] > 0 ? round($s['score'] / $s['total_points'] * $nm, 2) : 0;
+                        $sc      = arrondiNote((float)$s['score'], (float)$s['total_points'], $nm);
                         $duree   = ($s['date_fin'] && $s['date_debut'])
                             ? round((strtotime($s['date_fin']) - strtotime($s['date_debut'])) / 60) . ' min'
                             : '—';

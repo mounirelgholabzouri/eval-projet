@@ -511,7 +511,7 @@ $stats = getStatsGlobales();
                         <td class="text-center small fw-semibold" id="score-<?= $s['id'] ?>">
                             <?php if ($s['statut'] === 'termine'):
                                 $nm = (int)($s['note_max'] ?? 20);
-                                $sc = $s['total_points'] > 0 ? round($s['score'] / $s['total_points'] * $nm, 2) : 0;
+                                $sc = arrondiNote((float)$s['score'], (float)$s['total_points'], $nm);
                             ?>
                                 <?= number_format($sc, 2) ?> / <?= $nm ?>
                             <?php else: ?>—<?php endif; ?>

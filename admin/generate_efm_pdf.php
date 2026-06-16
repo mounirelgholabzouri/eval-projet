@@ -126,7 +126,7 @@ function buildEfmHtml(array $session, array $questions, string $logoB64, string 
     $noteMax  = (int)($session['note_max'] ?? 40);
     $total    = (float)$session['total_points'];
     $scoreRaw = (float)$session['score'];
-    $noteFinale = $total > 0 ? round($scoreRaw / $total * $noteMax, 2) : 0;
+    $noteFinale = arrondiNote($scoreRaw, $total, $noteMax);
 
     $dureeMin = (int)($session['duree_minutes'] ?? 0);
     $duree    = $dureeMin >= 60

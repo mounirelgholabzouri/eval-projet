@@ -14,7 +14,7 @@ $groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
 $module   = getModule((int)$session['module_id']);
 $noteMax  = (int)($module['note_max'] ?? 20);
 $totalPts = (float)$session['total_points'];
-$scoreSur = $totalPts > 0 ? round((float)$session['score'] / $totalPts * $noteMax, 2) : 0;
+$scoreSur = arrondiNote((float)$session['score'], $totalPts, $noteMax);
 ?>
 <!DOCTYPE html>
 <html lang="fr">

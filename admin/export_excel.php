@@ -260,7 +260,7 @@ echo '<?mso-application progid="Excel.Sheet"?>' . "\n";
     $total     = (float)$e['total_points'];
     $score     = (float)$e['score'];
     $pct       = (float)$e['pourcentage'];
-    $noteSur   = $total > 0 ? round($score / $total * $noteMax, 2) : 0;
+    $noteSur   = arrondiNote($score, $total, $noteMax);
     $mention   = getMentionLabel($pct);
     $stylePct  = $pct >= 50 ? 'success' : 'danger';
     $even      = ($i % 2 === 1);

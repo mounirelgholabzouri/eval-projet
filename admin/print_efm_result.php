@@ -36,7 +36,7 @@ $filiere = isset($fm[1]) ? strtoupper($fm[1]) : ($filiere ?: '');
 
 $score      = (float)$session['score'];
 $totalPts   = (float)$session['total_points'];
-$noteFinale = $totalPts > 0 ? round($score / $totalPts * $noteMax, 2) : 0;
+$noteFinale = arrondiNote($score, $totalPts, $noteMax);
 
 // ── Toutes les questions du module + réponse du stagiaire ──────────────────
 $stmt = $pdo->prepare("

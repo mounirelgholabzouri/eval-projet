@@ -122,6 +122,15 @@ function getAllModules(): array {
     return $modules;
 }
 
+/**
+ * Calcule la note finale sur $noteMax arrondie au demi-point (0.5) le plus proche.
+ * Ex. : 9.09 → 9.0 | 13.64 → 13.5 | 8.64 → 8.5
+ */
+function arrondiNote(float $score, float $total, int $noteMax = 20): float {
+    if ($total <= 0) return 0.0;
+    return round($score / $total * $noteMax * 2) / 2;
+}
+
 /** Récupère toutes les évaluations actives (avec le nom du module parent). */
 function getEvaluationsActives(): array {
     $pdo = getDB();
@@ -397,16 +406,57 @@ function terminerSession(int $sessionId): array {
 
 function getReponsesSession(int $sessionId): array {
     $pdo = getDB();
-    $stmt = $pdo->prepare("
-        SELECT rs.*, q.texte AS question_texte, q.type, q.points AS points_max,
-               cr.texte AS choix_texte
-        FROM reponses_stagiaires rs
-        JOIN questions q ON q.id = rs.question_id
-        LEFT JOIN choix_reponses cr ON cr.id = rs.choix_id
-        WHERE rs.session_id = ?
-        ORDER BY q.ordre, q.id
-    ");
-    $stmt->execute([$sessionId]);
+
+    // Récupérer le module et les IDs de questions figés pour cette session
+    $se = $pdo->prepare("SELECT se.questions_ids, e.module_id FROM sessions_eval se JOIN evaluations e ON e.id = se.evaluation_id WHERE se.id = ?");
+    $se->execute([$sessionId]);
+    $meta = $se->fetch();
+    if (!$meta) return [];
+
+    $questionIds = $meta['questions_ids'] ? json_decode($meta['questions_ids'], true) : null;
+
+    if ($questionIds) {
+        // Tirage figé connu → LEFT JOIN : toutes les questions du tirage, répondues ou non
+        $in   = implode(',', array_fill(0, count($questionIds), '?'));
+        $stmt = $pdo->prepare("
+            SELECT q.id AS question_id, q.texte AS question_texte, q.type, q.points AS points_max, q.ordre,
+                   rs.id,
+                   rs.reponse_texte,
+                   COALESCE(rs.is_correct, 0)     AS is_correct,
+                   COALESCE(rs.points_obtenus, 0) AS points_obtenus,
+                   rs.choix_id,
+                   rs.correction_ia_niveau,
+                   rs.correction_ia_feedback,
+                   rs.correction_ia_date,
+                   cr.texte AS choix_texte
+            FROM questions q
+            LEFT JOIN reponses_stagiaires rs ON rs.question_id = q.id AND rs.session_id = ?
+            LEFT JOIN choix_reponses cr ON cr.id = rs.choix_id
+            WHERE q.id IN ($in)
+            ORDER BY q.ordre, q.id
+        ");
+        $stmt->execute(array_merge([$sessionId], $questionIds));
+    } else {
+        // Tirage non stocké (anciennes sessions) → seulement les questions répondues
+        $stmt = $pdo->prepare("
+            SELECT q.id AS question_id, q.texte AS question_texte, q.type, q.points AS points_max, q.ordre,
+                   rs.id,
+                   rs.reponse_texte,
+                   COALESCE(rs.is_correct, 0)     AS is_correct,
+                   COALESCE(rs.points_obtenus, 0) AS points_obtenus,
+                   rs.choix_id,
+                   rs.correction_ia_niveau,
+                   rs.correction_ia_feedback,
+                   rs.correction_ia_date,
+                   cr.texte AS choix_texte
+            FROM reponses_stagiaires rs
+            JOIN questions q ON q.id = rs.question_id
+            LEFT JOIN choix_reponses cr ON cr.id = rs.choix_id
+            WHERE rs.session_id = ?
+            ORDER BY q.ordre, q.id
+        ");
+        $stmt->execute([$sessionId]);
+    }
     return $stmt->fetchAll();
 }
 

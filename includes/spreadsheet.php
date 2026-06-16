@@ -101,12 +101,8 @@ function readSpreadsheet(string $path): array {
     return _readCsv($content);
 }
 
-/** Lit un .xlsx. */
-function _readXlsx(string $path): array {
-    $zip = new ZipArchive();
-    if ($zip->open($path) !== true) return [];
-
-    // Shared strings
+/** Charge les chaînes partagées (xl/sharedStrings.xml) d'un classeur ouvert. */
+function _loadSharedStrings(ZipArchive $zip): array {
     $shared = [];
     $ssXml = $zip->getFromName('xl/sharedStrings.xml');
     if ($ssXml !== false) {
@@ -119,21 +115,11 @@ function _readXlsx(string $path): array {
             $shared[] = $txt;
         }
     }
+    return $shared;
+}
 
-    // Première feuille
-    $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
-    if ($sheetXml === false) {
-        for ($i = 0; $i < $zip->numFiles; $i++) {
-            $name = $zip->getNameIndex($i);
-            if (strpos($name, 'xl/worksheets/') === 0 && substr($name, -4) === '.xml') {
-                $sheetXml = $zip->getFromName($name);
-                break;
-            }
-        }
-    }
-    $zip->close();
-    if ($sheetXml === false || $sheetXml === null) return [];
-
+/** Convertit le XML d'une feuille (<sheetData>) en tableau 2D de chaînes. */
+function _parseSheetRows(string $sheetXml, array $shared): array {
     $dom = new DOMDocument();
     @$dom->loadXML($sheetXml);
     $rows = [];
@@ -157,6 +143,79 @@ function _readXlsx(string $path): array {
         $rows[] = _normalizeRow($cells);
     }
     return $rows;
+}
+
+/** Lit un .xlsx (première feuille uniquement). */
+function _readXlsx(string $path): array {
+    $zip = new ZipArchive();
+    if ($zip->open($path) !== true) return [];
+
+    $shared = _loadSharedStrings($zip);
+
+    // Première feuille
+    $sheetXml = $zip->getFromName('xl/worksheets/sheet1.xml');
+    if ($sheetXml === false) {
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (strpos($name, 'xl/worksheets/') === 0 && substr($name, -4) === '.xml') {
+                $sheetXml = $zip->getFromName($name);
+                break;
+            }
+        }
+    }
+    $zip->close();
+    if ($sheetXml === false || $sheetXml === null) return [];
+
+    return _parseSheetRows($sheetXml, $shared);
+}
+
+/**
+ * Lit toutes les feuilles d'un .xlsx → ['Nom de feuille' => tableau 2D de chaînes, ...]
+ * (ordre = ordre des feuilles dans le classeur)
+ */
+function readXlsxSheets(string $path): array {
+    $zip = new ZipArchive();
+    if ($zip->open($path) !== true) return [];
+
+    $shared = _loadSharedStrings($zip);
+
+    // Nom de feuille → r:id (ordre du classeur)
+    $sheetIds = []; // rId => name, dans l'ordre
+    $wbXml = $zip->getFromName('xl/workbook.xml');
+    if ($wbXml !== false) {
+        $dom = new DOMDocument();
+        @$dom->loadXML($wbXml);
+        foreach ($dom->getElementsByTagName('sheet') as $sh) {
+            $rid = $sh->getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+            $sheetIds[$rid] = $sh->getAttribute('name');
+        }
+    }
+
+    // r:id → chemin du fichier worksheet
+    $targets = [];
+    $relsXml = $zip->getFromName('xl/_rels/workbook.xml.rels');
+    if ($relsXml !== false) {
+        $dom = new DOMDocument();
+        @$dom->loadXML($relsXml);
+        foreach ($dom->getElementsByTagName('Relationship') as $rel) {
+            if (strpos($rel->getAttribute('Type'), '/worksheet') !== false) {
+                $targets[$rel->getAttribute('Id')] = $rel->getAttribute('Target');
+            }
+        }
+    }
+
+    $result = [];
+    foreach ($sheetIds as $rid => $name) {
+        $target = $targets[$rid] ?? null;
+        if (!$target) continue;
+        $target = ltrim($target, '/');
+        $path2 = (strpos($target, 'xl/') === 0) ? $target : 'xl/' . $target;
+        $sheetXml = $zip->getFromName($path2);
+        if ($sheetXml === false) continue;
+        $result[$name] = _parseSheetRows($sheetXml, $shared);
+    }
+    $zip->close();
+    return $result;
 }
 
 /** Lit un SpreadsheetML (.xls XML). */

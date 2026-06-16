@@ -55,27 +55,37 @@ if (empty($sessions)) {
     exit;
 }
 
-// Pré-charger les réponses de toutes les sessions en une requête
+// Toutes les questions du module (pour sessions avec tirage figé)
+$stmtAllQ = $pdo->prepare("SELECT id, texte AS question_texte, type, points AS points_max, ordre FROM questions WHERE module_id = ? ORDER BY ordre, id");
+$stmtAllQ->execute([$filterModule]);
+$allModuleQuestions = array_column($stmtAllQ->fetchAll(), null, 'id'); // indexé par id
+
+// Réponses indexées par (session_id → question_id)
 $sessionIds = array_column($sessions, 'id');
+$repBySessionQ = [];
 if ($sessionIds) {
-    $inPlaceholders = implode(',', array_fill(0, count($sessionIds), '?'));
-    $stmtAllRep = $pdo->prepare("
-        SELECT rs.session_id, rs.question_id, rs.reponse_texte, rs.is_correct, rs.points_obtenus,
-               q.texte AS question_texte, q.type, q.points AS points_max, q.ordre,
+    $in = implode(',', array_fill(0, count($sessionIds), '?'));
+    $stmtRep = $pdo->prepare("
+        SELECT rs.session_id, rs.question_id, rs.reponse_texte,
+               COALESCE(rs.is_correct, 0)     AS is_correct,
+               COALESCE(rs.points_obtenus, 0) AS points_obtenus,
                cr.texte AS choix_etudiant
         FROM reponses_stagiaires rs
-        JOIN questions q ON q.id = rs.question_id
         LEFT JOIN choix_reponses cr ON cr.id = rs.choix_id
-        WHERE rs.session_id IN ($inPlaceholders)
-        ORDER BY rs.session_id, q.ordre, q.id
+        WHERE rs.session_id IN ($in)
     ");
-    $stmtAllRep->execute($sessionIds);
-    $allReponses = [];
-    foreach ($stmtAllRep->fetchAll() as $row) {
-        $allReponses[$row['session_id']][] = $row;
+    $stmtRep->execute($sessionIds);
+    foreach ($stmtRep->fetchAll() as $row) {
+        $repBySessionQ[$row['session_id']][$row['question_id']] = $row;
     }
-} else {
-    $allReponses = [];
+}
+
+// questions_ids figés par session
+$qIdsBySession = [];
+foreach ($sessions as $s) {
+    if ($s['questions_ids']) {
+        $qIdsBySession[$s['id']] = json_decode($s['questions_ids'], true) ?: null;
+    }
 }
 
 function s($str): string {
@@ -187,12 +197,30 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
 </div>
 
 <?php foreach ($sessions as $idx => $session):
-    $reponses   = $allReponses[$session['id']] ?? [];
+    $repByQ      = $repBySessionQ[$session['id']] ?? [];
+    $sessionQIds = $qIdsBySession[$session['id']] ?? null;
+
+    if ($sessionQIds) {
+        // Tirage figé → toutes les questions du tirage (répondues + non répondues)
+        $questions = [];
+        foreach ($sessionQIds as $qid) {
+            if (isset($allModuleQuestions[$qid])) $questions[] = $allModuleQuestions[$qid];
+        }
+        usort($questions, fn($a, $b) => $a['ordre'] <=> $b['ordre']);
+    } else {
+        // Tirage non stocké (ancienne session) → seulement les questions répondues
+        $questions = array_map(
+            fn($rep) => isset($allModuleQuestions[$rep['question_id']]) ? $allModuleQuestions[$rep['question_id']] : null,
+            $repByQ
+        );
+        $questions = array_values(array_filter($questions));
+        usort($questions, fn($a, $b) => $a['ordre'] <=> $b['ordre']);
+    }
     $mention    = getMention((float)$session['pourcentage']);
     $groupe     = s($session['groupe_nom'] ?: '—');
     $nomPrenom  = s(strtoupper($session['nom']) . ' ' . $session['prenom']);
     $totalPts   = (float)$session['total_points'];
-    $noteSur    = $totalPts > 0 ? round((float)$session['score'] / $totalPts * $noteMax, 2) : 0;
+    $noteSur    = arrondiNote((float)$session['score'], $totalPts, $noteMax);
     $qNum = 0;
     preg_match('/^([A-Za-zÀ-ÿ]+)/u', $session['groupe_nom'] ?? '', $fm);
     $sessionFiliere = isset($fm[1]) ? strtoupper($fm[1]) : ($filiere ?: '');
@@ -266,28 +294,29 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
     <hr class="section-sep">
 
     <!-- Questions et réponses -->
-    <?php if (empty($reponses)): ?>
-        <p style="margin-top:12px;color:#888;font-style:italic">Aucune réponse enregistrée.</p>
+    <?php if (empty($questions)): ?>
+        <p style="margin-top:12px;color:#888;font-style:italic">Aucune question trouvée pour ce module.</p>
     <?php else: ?>
-        <?php foreach ($reponses as $r):
+        <?php foreach ($questions as $q):
             $qNum++;
-            $isTexte  = ($r['type'] === 'texte_libre');
-            $qNote = number_format((float)$r['points_obtenus'], 2);
-            $qMax  = number_format((float)$r['points_max'], 2);
+            $rep      = $repByQ[$q['id']] ?? null;
+            $isTexte  = ($q['type'] === 'texte_libre');
+            $qNote    = number_format((float)($rep['points_obtenus'] ?? 0), 2);
+            $qMax     = number_format((float)$q['points_max'], 2);
         ?>
         <div class="question">
             <div class="q-header">
                 <span class="q-num">Q<?= $qNum ?>.</span>
-                <span class="q-text"><?= s($r['question_texte']) ?></span>
+                <span class="q-text"><?= s($q['question_texte']) ?></span>
                 <span class="q-pts"><strong><?= $qNote ?></strong> / <?= $qMax ?></span>
             </div>
             <div class="q-answer">
                 <span class="lbl">Réponse&nbsp;:</span>
                 <span class="ans">
                     <?php if ($isTexte): ?>
-                        <?= $r['reponse_texte'] ? s($r['reponse_texte']) : '<em>—</em>' ?>
+                        <?= ($rep && $rep['reponse_texte']) ? s($rep['reponse_texte']) : '<em style="color:#aaa">Sans réponse</em>' ?>
                     <?php else: ?>
-                        <?= $r['choix_etudiant'] ? s($r['choix_etudiant']) : '<em>Sans réponse</em>' ?>
+                        <?= ($rep && $rep['choix_etudiant']) ? s($rep['choix_etudiant']) : '<em style="color:#aaa">Sans réponse</em>' ?>
                     <?php endif; ?>
                 </span>
             </div>
