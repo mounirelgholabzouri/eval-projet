@@ -8,7 +8,10 @@ require_once __DIR__ . '/../includes/functions.php';
 
 $pdo = getDB();
 
-// Récupérer toutes les questions avec module, partie, choix
+$moduleId = (int)($_GET['module_id'] ?? 0);
+$whereModule = $moduleId > 0 ? "AND m.id = $moduleId" : '';
+
+// Récupérer les questions (optionnellement filtrées par module)
 $stmt = $pdo->query("
     SELECT q.id, q.texte, q.type, q.points, q.ordre, q.image_path,
            p.nom AS partie_nom, p.ordre AS partie_ordre,
@@ -16,6 +19,7 @@ $stmt = $pdo->query("
     FROM questions q
     JOIN parties p ON p.id = q.partie_id
     JOIN modules m ON m.id = q.module_id
+    WHERE 1=1 $whereModule
     ORDER BY m.nom, p.ordre, q.ordre, q.id
 ");
 $questions = $stmt->fetchAll();

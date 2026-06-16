@@ -11,6 +11,7 @@ $navItems = [
     ['file' => 'index.php',          'icon' => 'bi-speedometer2',     'label' => 'Dashboard'],
     ['file' => 'modules.php',        'icon' => 'bi-journal-text',      'label' => 'Modules'],
     ['file' => 'gestion_questions.php', 'icon' => 'bi-question-circle', 'label' => 'Questions'],
+    ['file' => 'banque_questions.php',  'icon' => 'bi-archive',          'label' => 'Banque Q'],
     ['file' => 'groupes_emploi.php',  'icon' => 'bi-people',            'label' => 'Groupes'],
     ['file' => 'stagiaires.php',     'icon' => 'bi-person-lines-fill', 'label' => 'Stagiaires'],
     ['file' => 'formateurs_emploi.php', 'icon' => 'bi-person-badge',   'label' => 'Formateurs'],
