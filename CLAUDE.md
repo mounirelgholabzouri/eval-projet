@@ -96,18 +96,22 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - Données historiques corrompues (CP850) : corriger via `iconv('UTF-8','CP850//IGNORE', $str)`
 - Si corruption détectée en masse : script `db/restore_encoding.php` (import dump → DB temp → UPDATE sélectif)
 
-## Modules consolidés (après ménage 2026-05-14)
+## Modules actifs (état 2026-06-16)
 
-| ID | Nom | Type | Questions | Quota contrôle |
-|----|-----|------|-----------|----------------|
-| 31 | M205 | qcm | 63 | **20** (tirage aléatoire par session) |
-| 32 | M206 | qcm | 105 | toutes |
-| 33 | Culture et techniques avancées du numérique | qcm | 70 | toutes |
+| ID | Nom | Questions | Quota contrôle | note_max |
+|----|-----|-----------|----------------|----------|
+| 31 | M205 Sécuriser un environnement Cloud propriétaire | 60 | **20** (tirage aléatoire) | 20 |
+| 32 | M206 – Gouverner les données dans le Cloud | 49 | **20** (tirage aléatoire) | 20 |
+| 33 | Culture et techniques avancées du numérique | 21 | toutes | 20 |
+| 63 | M207 COMPLET (maintien SI Cloud) | 20 | toutes | 20 |
+| 79 | M105 cc2 | 20 | toutes | 20 |
 
 - `modules.nb_questions_controle` (INT NULL) : nb de questions tirées aléatoirement à chaque session. NULL = toutes.
 - `sessions_eval.questions_ids` (TEXT NULL) : JSON array des IDs tirés pour la session (figé à la création, inchangé jusqu'à la fin).
 - Tirage dans `creerSession()` via `ORDER BY RAND()` + `array_slice()`.
 - `getQuestionsModule($moduleId, $questionIds)` accepte un tableau d'IDs optionnel.
+- `getReponsesSession($sessionId)` : si `questions_ids` présent → **LEFT JOIN** (toutes les questions du tirage, répondues ou non) ; sinon → JOIN classique (anciennes sessions).
+- **⚠ Import JSON** : vérifier que `is_correct = 1` est bien positionné sur au moins un choix par question — sinon tous les stagiaires obtiennent 0.
 
 ## Vues admin
 
@@ -140,6 +144,7 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - **Résultats visibles admin uniquement** — stagiaire ne voit pas l'historique de ses sessions après `result.php`
 - **Noms + prénoms stagiaires/formateurs en MAJUSCULES** — `mb_strtoupper($x, 'UTF-8')` à la saisie (`creerStagiaireAdmin`, `modifierStagiaire`, stagiaires.php, formateurs_emploi.php). Jamais le CLI MySQL pour convertir (encodage)
 - **Année de formation** : `getAnneeFormation(bool $short=true)` (functions.php) — calendrier scolaire sept→juil (mois ≥9 → an/an+1, sinon an-1/an). Ne plus utiliser `date('Y').'/'.(date('Y')+1)`
+- **Note finale** : `arrondiNote(float $score, float $total, int $noteMax=20): float` — arrondi au **demi-point** (0.5) le plus proche. Utilisée dans `print_efm_result.php`. Ex : 13.64/20 → 13.5, 8.64/20 → 8.5.
 - **Impression** : choix QCM en `<ul class="choix-list">` flex (4 col si ≤20 chars, 2 col défaut, 1 col si >60). Étiquette CC via `print_blank.php?cc_num=1|2|3` (cellule colorée). Ne jamais mettre de contenu HTML après un `style="..."` sans quote fermante (bug print_efm_result)
 
 ## Docker
