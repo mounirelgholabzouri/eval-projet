@@ -334,6 +334,18 @@ document.addEventListener('DOMContentLoaded', function () {
 
     var bsGcm = new bootstrap.Modal(gcm);
 
+    /* 9. Afficher l'ID de module dans tous les <select> de modules */
+    document.querySelectorAll('select').forEach(function (sel) {
+        var name = sel.name || '';
+        if (!/(module|banque|cible|source)/i.test(name)) return;
+        sel.querySelectorAll('option').forEach(function (opt) {
+            var v = opt.value;
+            if (/^\d+$/.test(v) && v !== '0' && !opt.text.startsWith('#')) {
+                opt.text = '#' + v + ' — ' + opt.text;
+            }
+        });
+    });
+
     window.confirmAction = function (msg, onOk) {
         document.getElementById('_gcm-msg').textContent = msg;
         var okBtn = document.getElementById('_gcm-ok');

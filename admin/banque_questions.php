@@ -313,6 +313,7 @@ if (isset($_GET['banque_id']) && (int)$_GET['banque_id'] > 0) {
                                    class="form-check-input flex-shrink-0 mt-0"
                                    onchange="this.closest('label').classList.toggle('selected',this.checked)">
                             <span class="flex-grow-1 text-truncate" title="<?= htmlspecialchars($m['nom']) ?>">
+                                <span class="badge bg-light text-secondary border fw-normal me-1" style="font-size:.68rem">#<?= $m['id'] ?></span>
                                 <?= htmlspecialchars($m['nom']) ?>
                                 <?php if (str_contains((string)$m['description'], '[BANQUE]')): ?>
                                 <span class="badge bg-warning text-dark ms-1 badge-nb">BANQUE</span>

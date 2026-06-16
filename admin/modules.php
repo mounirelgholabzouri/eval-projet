@@ -234,6 +234,7 @@ if ($action === 'edit' && $id > 0) {
                                 </td>
                                 <td class="ps-4">
                                     <div class="fw-semibold d-flex align-items-center gap-2 flex-wrap">
+                                        <span class="badge bg-light text-secondary border fw-normal" style="font-size:.7rem">#<?= $m['id'] ?></span>
                                         <?= htmlspecialchars($m['nom']) ?>
                                         <?php if (($m['type'] ?? 'qcm') === 'efm'): ?>
                                             <span class="badge bg-danger">EFM</span>
