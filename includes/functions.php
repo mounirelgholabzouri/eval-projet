@@ -140,6 +140,7 @@ function getEvaluationsActives(): array {
         FROM evaluations e
         JOIN modules m ON m.id = e.module_id
         WHERE e.actif = 1 AND m.actif = 1
+          AND (m.description IS NULL OR m.description NOT LIKE '%[BANQUE]%')
         ORDER BY e.nom
     ")->fetchAll();
 }
@@ -486,7 +487,7 @@ function getStatsGlobales(): array {
         'total_sessions'   => (int)$pdo->query("SELECT COUNT(*) FROM sessions_eval")->fetchColumn(),
         'terminees'        => (int)$pdo->query("SELECT COUNT(*) FROM sessions_eval WHERE statut='termine'")->fetchColumn(),
         'moy_pourcentage'  => (float)$pdo->query("SELECT COALESCE(AVG(pourcentage),0) FROM sessions_eval WHERE statut='termine'")->fetchColumn(),
-        'nb_modules'       => (int)$pdo->query("SELECT COUNT(*) FROM modules WHERE actif=1")->fetchColumn(),
+        'nb_modules'       => (int)$pdo->query("SELECT COUNT(*) FROM modules WHERE actif=1 AND (description IS NULL OR description NOT LIKE '%[BANQUE]%')")->fetchColumn(),
         'nb_stagiaires'    => (int)$pdo->query("SELECT COUNT(*) FROM stagiaires")->fetchColumn(),
         'nb_groupes'       => (int)$pdo->query("SELECT COUNT(*) FROM groupes")->fetchColumn(),
     ];
