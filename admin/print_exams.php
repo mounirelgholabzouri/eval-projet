@@ -40,10 +40,11 @@ if ($filterSession) {
     }
 }
 $stmtSes = $pdo->prepare("
-    SELECT s.*, COALESCE(g.nom, s.groupe_libre) AS groupe_nom
+    SELECT s.*, COALESCE(g.nom, s.groupe_libre) AS groupe_nom, st.numero_classe
     FROM sessions_eval s
     JOIN evaluations e ON e.id = s.evaluation_id
     LEFT JOIN groupes g ON g.id = s.groupe_id
+    LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
     WHERE " . implode(' AND ', $where) . "
     ORDER BY s.nom, s.prenom
 ");
@@ -138,12 +139,20 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
 
         /* ── Page A4 ── */
         .exam-page {
+            position: relative;
             width: 210mm;
             min-height: 297mm;
             margin: 20px auto;
             padding: 10mm 12mm 15mm 12mm;
             background: #fff;
             box-shadow: 0 4px 20px rgba(0,0,0,.2);
+        }
+        .num-classe {
+            position: absolute;
+            bottom: 4mm;
+            left: 6mm;
+            font-size: 7pt;
+            color: #bbb;
         }
 
         /* ── Questions ── */
@@ -322,6 +331,10 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
             </div>
         </div>
         <?php endforeach; ?>
+    <?php endif; ?>
+
+    <?php if ($session['numero_classe']): ?>
+    <span class="num-classe"><?= (int)$session['numero_classe'] ?></span>
     <?php endif; ?>
 
 </div>

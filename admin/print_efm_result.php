@@ -250,6 +250,13 @@ $tamponB64  = file_exists($tamponPath)
             pointer-events: none;
             z-index: 100;
         }
+        .num-classe {
+            position: fixed;
+            bottom: 4mm;
+            left: 6mm;
+            font-size: 7pt;
+            color: #bbb;
+        }
 
         @page { size: A4; margin: 0; }
         @media print {
@@ -392,6 +399,10 @@ $tamponB64  = file_exists($tamponPath)
     <?php endif; ?>
 
 </div>
+
+<?php if (!empty($session['numero_classe'])): ?>
+<span class="num-classe"><?= (int)$session['numero_classe'] ?></span>
+<?php endif; ?>
 
 </body>
 </html>

@@ -51,8 +51,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stagiaireId = (int)$existing;
         } else {
             // Créer nouveau stagiaire
-            $pdo->prepare("INSERT INTO stagiaires (nom, prenom, groupe_id, annee_scolaire, login, password_hash) VALUES (?,?,?,?,?,?)")
-                ->execute([$nom, $prenom, $groupeId, $annee, $login, $hash]);
+            $numeroClasse = nextNumeroClasse($groupeId);
+            $pdo->prepare("INSERT INTO stagiaires (nom, prenom, groupe_id, annee_scolaire, login, password_hash, numero_classe) VALUES (?,?,?,?,?,?,?)")
+                ->execute([$nom, $prenom, $groupeId, $annee, $login, $hash, $numeroClasse]);
             $stagiaireId = (int)$pdo->lastInsertId();
         }
 

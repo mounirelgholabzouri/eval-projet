@@ -31,6 +31,7 @@ if ($sessionId > 0) {
         SELECT s.*,
                COALESCE(st.nom,    s.nom)    AS nom,
                COALESCE(st.prenom, s.prenom) AS prenom,
+               st.numero_classe,
                m.nom AS module_nom, e.type AS module_type,
                e.note_max, e.duree_minutes,
                e.meta_json AS eval_meta_json,
@@ -324,7 +325,9 @@ foreach ($sessions as $session) {
             'tempDir'       => sys_get_temp_dir(),
         ]);
         $mpdf->SetTitle('EFM — ' . ($session['prenom'] ?? '') . ' ' . ($session['nom'] ?? ''));
-
+        if (!empty($session['numero_classe'])) {
+            $mpdf->SetHTMLFooter('<div style="font-size:7pt;color:#bbb">' . (int)$session['numero_classe'] . '</div>');
+        }
 
         $mpdf->WriteHTML($fullHtml);
         $mpdf->Output($pdfFile, \Mpdf\Output\Destination::FILE);

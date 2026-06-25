@@ -205,6 +205,7 @@ $stagiaires = getStagiaires(
                         <th style="width: 40px;">
                             <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
                         </th>
+                        <th class="text-center">N°</th>
                         <th>Stagiaire</th>
                         <th>Établissement</th>
                         <th>Groupe</th>
@@ -218,13 +219,14 @@ $stagiaires = getStagiaires(
                 </thead>
                 <tbody>
                 <?php if (empty($stagiaires)): ?>
-                    <tr><td colspan="10" class="text-center text-muted py-4">Aucun stagiaire trouvé.</td></tr>
+                    <tr><td colspan="11" class="text-center text-muted py-4">Aucun stagiaire trouvé.</td></tr>
                 <?php else: ?>
                     <?php foreach ($stagiaires as $s): ?>
                     <tr>
                         <td>
                             <input type="checkbox" class="form-check-input stagiaire-checkbox" value="<?= $s['id'] ?>" onchange="updateBulkActionBar()">
                         </td>
+                        <td class="text-center text-muted"><?= $s['numero_classe'] !== null ? (int)$s['numero_classe'] : '—' ?></td>
                         <td>
                             <div class="fw-semibold"><?= sanitize($s['prenom']) ?> <?= sanitize(strtoupper($s['nom'])) ?></div>
                             <?php if (!empty($s['must_change_password'])): ?>

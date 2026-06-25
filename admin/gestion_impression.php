@@ -156,7 +156,7 @@ $moduleLabel = $moduleId > 0 ? "#$moduleId — $moduleNom" : '';
 // ── Roster ────────────────────────────────────────────────────
 $roster = [];
 if ($groupeId > 0) {
-    $r = $pdo->prepare("SELECT id, nom, prenom FROM stagiaires WHERE groupe_id=? ORDER BY nom, prenom");
+    $r = $pdo->prepare("SELECT id, nom, prenom, numero_classe FROM stagiaires WHERE groupe_id=? ORDER BY nom, prenom");
     $r->execute([$groupeId]);
     foreach ($r->fetchAll() as $row) $roster[(int)$row['id']] = $row;
 }
@@ -585,6 +585,7 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
         <table class="table table-bordered grille mb-0 bg-white">
             <thead class="table-light">
                 <tr>
+                    <th rowspan="2" class="text-center">N°</th>
                     <th rowspan="2" class="name">NOM</th><th rowspan="2" class="name">PRÉNOM</th>
                     <th colspan="2">PARTIE 1 (5 pts)</th><th colspan="2">PARTIE 2 (5 pts)</th>
                     <th colspan="2">PARTIE 3 (5 pts)</th><th rowspan="2">P4<br>(5 pts)</th>
@@ -597,6 +598,7 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
             <?php foreach ($roster as $sid => $stg):
                 $row=$data[$sid]??null; $abs=$row&&(int)($row['absent']??0)===1; $uid="p_{$sid}"; ?>
             <tr class="<?= $abs?'abs-row':'' ?>" id="tr_<?= $uid ?>">
+                <td class="text-center text-muted"><?= $stg['numero_classe'] !== null ? (int)$stg['numero_classe'] : '—' ?></td>
                 <td class="name"><?= htmlspecialchars($stg['nom']) ?></td>
                 <td class="name"><?= htmlspecialchars($stg['prenom']) ?></td>
                 <?php if ($abs): ?>
@@ -620,6 +622,7 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
         <table class="table table-bordered grille mb-0 bg-white">
             <thead class="table-light">
                 <tr>
+                    <th class="text-center">N°</th>
                     <th class="name">NOM</th><th class="name">PRÉNOM</th>
                     <th>Note /<?= $noteMaxMod ?></th><th>%</th><th>Mention</th>
                     <th class="no-print">Absent</th>
@@ -629,6 +632,7 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
             <?php foreach ($roster as $sid => $stg):
                 $row=$data[$sid]??null; $abs=!$row; $uid="t_{$sid}"; ?>
             <tr class="<?= $abs?'abs-row':'' ?>" id="tr_<?= $uid ?>">
+                <td class="text-center text-muted"><?= $stg['numero_classe'] !== null ? (int)$stg['numero_classe'] : '—' ?></td>
                 <td class="name"><?= htmlspecialchars($stg['nom']) ?></td>
                 <td class="name"><?= htmlspecialchars($stg['prenom']) ?></td>
                 <?php if ($abs): ?>
@@ -969,6 +973,7 @@ window.addEventListener('load', function() {
             <table class="table table-hover table-bordered grille mb-0 bg-white">
                 <thead class="table-<?= $cfg['color'] ?> bg-opacity-50">
                     <tr>
+                        <th rowspan="2" class="text-center">N°</th>
                         <th rowspan="2" class="name" style="min-width:110px">NOM</th>
                         <th rowspan="2" class="name" style="min-width:100px">PRÉNOM</th>
                         <th colspan="2">PARTIE 1<small class="d-block">(5 pts)</small></th>
@@ -984,6 +989,7 @@ window.addEventListener('load', function() {
                 <?php foreach ($roster as $sid => $stg):
                     $row=$data[$sid]??null; $abs=$row&&(int)($row['absent']??0)===1; $uid="n_{$sid}"; ?>
                 <tr class="<?= $abs?'abs-row':'' ?>" id="tr_<?= $uid ?>">
+                    <td class="text-center text-muted"><?= $stg['numero_classe'] !== null ? (int)$stg['numero_classe'] : '—' ?></td>
                     <td class="name"><?= htmlspecialchars($stg['nom']) ?></td>
                     <td class="name"><?= htmlspecialchars($stg['prenom']) ?></td>
                     <?php if ($abs): ?>
@@ -1005,6 +1011,7 @@ window.addEventListener('load', function() {
             <table class="table table-hover table-bordered grille mb-0 bg-white">
                 <thead class="table-<?= $cfg['color'] ?> bg-opacity-50">
                     <tr>
+                        <th class="text-center">N°</th>
                         <th class="name" style="min-width:130px">NOM &amp; PRÉNOM</th>
                         <th>Note /<?= $noteMaxMod ?></th>
                         <th>%</th>
@@ -1017,6 +1024,7 @@ window.addEventListener('load', function() {
                     $row=$data[$sid]??null; $abs=!$row; $uid="t_{$sid}";
                     $ment=$row?getMention((float)($row['pourcentage']??0)):null; ?>
                 <tr class="<?= $abs?'abs-row':'' ?>" id="tr_<?= $uid ?>">
+                    <td class="text-center text-muted"><?= $stg['numero_classe'] !== null ? (int)$stg['numero_classe'] : '—' ?></td>
                     <td class="name text-start"><?= htmlspecialchars($stg['nom'].' '.$stg['prenom']) ?></td>
                     <?php if ($abs): ?>
                         <td colspan="3" class="text-muted fst-italic text-center">Absent</td>

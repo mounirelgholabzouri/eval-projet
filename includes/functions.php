@@ -357,6 +357,7 @@ function _fetchSession(string $where, array $params): ?array {
                e.note_max,
                e.type AS module_type,
                e.meta_json AS eval_meta_json,
+               st.numero_classe,
                COALESCE(g.nom, s.groupe_libre) AS groupe_nom
         FROM sessions_eval s
         JOIN evaluations e  ON e.id  = s.evaluation_id
@@ -594,6 +595,13 @@ function genererLogin(string $prenom, string $nom, int $excludeId = 0): string {
     return $login;
 }
 
+function nextNumeroClasse(int $groupeId): int {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT COALESCE(MAX(numero_classe), 0) + 1 FROM stagiaires WHERE groupe_id = ?");
+    $stmt->execute([$groupeId]);
+    return (int)$stmt->fetchColumn();
+}
+
 function creerStagiaireAdmin(string $nom, string $prenom, int $groupeId, string $annee): array {
     $pdo = getDB();
     $nom = mb_strtoupper(trim($nom), 'UTF-8');       // NOM en majuscules
@@ -605,15 +613,31 @@ function creerStagiaireAdmin(string $nom, string $prenom, int $groupeId, string 
     }
     $login = genererLogin($prenom, $nom);
     $hash  = password_hash('123456', PASSWORD_BCRYPT);
-    $pdo->prepare("INSERT INTO stagiaires (nom, prenom, groupe_id, annee_scolaire, login, password_hash, must_change_password) VALUES (?,?,?,?,?,?,1)")
-        ->execute([$nom, $prenom, $groupeId, $annee, $login, $hash]);
+    $numeroClasse = nextNumeroClasse($groupeId);
+    $pdo->prepare("INSERT INTO stagiaires (nom, prenom, groupe_id, annee_scolaire, login, password_hash, must_change_password, numero_classe) VALUES (?,?,?,?,?,?,1,?)")
+        ->execute([$nom, $prenom, $groupeId, $annee, $login, $hash, $numeroClasse]);
     return ['id' => (int)$pdo->lastInsertId(), 'login' => $login];
 }
 
 function modifierStagiaire(int $id, string $nom, string $prenom, int $groupeId, string $annee, string $login): void {
     $pdo = getDB();
-    $pdo->prepare("UPDATE stagiaires SET nom=?, prenom=?, groupe_id=?, annee_scolaire=?, login=? WHERE id=?")
-        ->execute([mb_strtoupper(trim($nom), 'UTF-8'), mb_strtoupper(trim($prenom), 'UTF-8'), $groupeId, $annee, trim($login), $id]);
+    $stmt = $pdo->prepare("SELECT groupe_id FROM stagiaires WHERE id=?");
+    $stmt->execute([$id]);
+    $oldGroupeId = (int)$stmt->fetchColumn();
+
+    $nom = mb_strtoupper(trim($nom), 'UTF-8');
+    $prenom = mb_strtoupper(trim($prenom), 'UTF-8');
+    $login = trim($login);
+
+    if ($oldGroupeId && $oldGroupeId !== $groupeId) {
+        // Changement de groupe → nouveau numéro de classe dans le groupe d'arrivée
+        $numeroClasse = nextNumeroClasse($groupeId);
+        $pdo->prepare("UPDATE stagiaires SET nom=?, prenom=?, groupe_id=?, annee_scolaire=?, login=?, numero_classe=? WHERE id=?")
+            ->execute([$nom, $prenom, $groupeId, $annee, $login, $numeroClasse, $id]);
+    } else {
+        $pdo->prepare("UPDATE stagiaires SET nom=?, prenom=?, groupe_id=?, annee_scolaire=?, login=? WHERE id=?")
+            ->execute([$nom, $prenom, $groupeId, $annee, $login, $id]);
+    }
 }
 
 function supprimerStagiaire(int $id): bool {
