@@ -15,7 +15,7 @@ try {
     $pdo = getDB();
 
     $stmt = $pdo->prepare("
-        SELECT rs.id, rs.reponse_texte, rs.session_id, q.texte AS question_texte, q.points
+        SELECT rs.id, rs.reponse_texte, rs.session_id, q.id AS question_id, q.texte AS question_texte, q.points
         FROM reponses_stagiaires rs
         JOIN questions q ON rs.question_id = q.id
         WHERE rs.id = ? AND q.type = 'texte_libre'
@@ -27,8 +27,9 @@ try {
     if (empty($reponse['reponse_texte'])) throw new Exception('Aucun texte à corriger');
 
     $sessionId = $sessionId ?: (int)$reponse['session_id'];
+    $reponseAttendue = getReponseAttendue((int)$reponse['question_id']);
 
-    $resultat = correcterAvecIA($repId, $reponse['reponse_texte'], $reponse['question_texte'], (float)$reponse['points']);
+    $resultat = correcterAvecIA($repId, $reponse['reponse_texte'], $reponse['question_texte'], (float)$reponse['points'], $reponseAttendue);
 
     if (!$resultat['success']) throw new Exception($resultat['error']);
 

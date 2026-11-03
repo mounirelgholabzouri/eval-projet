@@ -14,7 +14,7 @@ try {
 
     // Récupérer toutes les réponses texte_libre non vides de cette session
     $stmt = $pdo->prepare("
-        SELECT rs.id, rs.reponse_texte, q.texte AS question_texte, q.points
+        SELECT rs.id, rs.reponse_texte, q.id AS question_id, q.texte AS question_texte, q.points
         FROM reponses_stagiaires rs
         JOIN questions q ON rs.question_id = q.id
         WHERE rs.session_id = ? AND q.type = 'texte_libre' AND rs.reponse_texte IS NOT NULL AND rs.reponse_texte != ''
@@ -36,7 +36,8 @@ try {
             (int)$r['id'],
             $r['reponse_texte'],
             $r['question_texte'],
-            (float)$r['points']
+            (float)$r['points'],
+            getReponseAttendue((int)$r['question_id'])
         );
 
         if ($res['success']) {

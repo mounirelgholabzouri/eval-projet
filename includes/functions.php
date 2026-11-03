@@ -803,7 +803,14 @@ function niveauToPoints(int $niveau, float $pointsMax): float {
     return $niveau === 0 ? 0.0 : ceil($raw * 2) / 2;
 }
 
-function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte, float $pointsMax): array {
+function getReponseAttendue(int $questionId): string {
+    $pdo = getDB();
+    $stmt = $pdo->prepare("SELECT texte FROM choix_reponses WHERE question_id = ? AND is_correct = 1 ORDER BY ordre, id");
+    $stmt->execute([$questionId]);
+    return implode(' | ', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte, float $pointsMax, string $reponseAttendue = ''): array {
     $provider = getAIProvider();
     $apiKey   = getAPIKeyForProvider($provider);
     if (empty($apiKey)) {
@@ -812,9 +819,10 @@ function correcterAvecIA(int $repId, string $reponseTexte, string $questionTexte
     }
 
     try {
+        $refBlock = $reponseAttendue !== '' ? "\n\n**Éléments de réponse attendus :** $reponseAttendue" : '';
         $prompt = "Tu es un correcteur d'examens expert. Évalue cette réponse d'étudiant selon 4 niveaux de proximité.
 
-**Question :** $questionTexte
+**Question :** $questionTexte$refBlock
 
 **Réponse de l'étudiant :** $reponseTexte
 

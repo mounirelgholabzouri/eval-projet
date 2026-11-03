@@ -118,6 +118,10 @@ $scoreSur = arrondiNote((float)$session['score'], $totalPts, $noteMax);
                     <div class="fw-semibold mb-1">Q<?= $idx + 1 ?>. <?= htmlspecialchars($r['question_texte']) ?></div>
                     <?php if ($r['type'] === 'texte_libre'): ?>
                         <div class="small text-muted">
+                            <?php $reponseAttendue = getReponseAttendue((int)$r['question_id']); ?>
+                            <?php if ($reponseAttendue !== ''): ?>
+                                <div class="mb-2"><i class="bi bi-key me-1"></i>Réponse attendue : <span class="text-dark"><?= htmlspecialchars($reponseAttendue) ?></span></div>
+                            <?php endif; ?>
                             <?php if ($r['reponse_texte']): ?>
                                 <div class="fst-italic mb-2">"<?= htmlspecialchars($r['reponse_texte']) ?>"</div>
 

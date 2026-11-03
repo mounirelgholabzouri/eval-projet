@@ -363,7 +363,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['import_type'] ?? '') === '
                         }
 
                     } elseif ($type === 'texte_libre') {
-                        if (isset($q['elements_droite'])) {
+                        // Association : paires gauche/droite explicites ("paires"/"associations"),
+                        // sinon zip elements_gauche + elements_droite (même ordre), stockées comme
+                        // réponse attendue (is_correct=1) pour servir de référence à la correction.
+                        $paires = $q['paires'] ?? $q['associations'] ?? null;
+                        if (is_array($paires) && !empty($paires)) {
+                            foreach (array_values($paires) as $ord => $p) {
+                                $g = trim((string)(is_array($p) ? ($p['gauche'] ?? $p[0] ?? '') : ''));
+                                $d = trim((string)(is_array($p) ? ($p['droite'] ?? $p[1] ?? '') : ''));
+                                if ($g === '' && $d === '') continue;
+                                $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?, ?, 1, ?)")
+                                    ->execute([$qidEval, $g . ' → ' . $d, $ord + 1]);
+                            }
+                        } elseif (isset($q['elements_gauche']) && isset($q['elements_droite'])) {
+                            $gaucheOpts = normaliserOptions($q['elements_gauche']);
+                            $droiteOpts = normaliserOptions($q['elements_droite']);
+                            // Mapping explicite clé_gauche => clé_droite (ex: {"1":"C","2":"A","3":"B"})
+                            $mapping = (is_array($q['reponse_correcte'] ?? null)
+                                && array_keys($q['reponse_correcte']) !== range(0, count($q['reponse_correcte']) - 1))
+                                ? $q['reponse_correcte'] : null;
+                            $droiteParLettre = [];
+                            foreach ($droiteOpts as $d) {
+                                $droiteParLettre[$d['lettre']] = $d['texte'];
+                            }
+                            foreach ($gaucheOpts as $ord => $g) {
+                                if ($mapping !== null && isset($mapping[$g['lettre']]) && isset($droiteParLettre[strtoupper((string)$mapping[$g['lettre']])])) {
+                                    $d = $droiteParLettre[strtoupper((string)$mapping[$g['lettre']])];
+                                } else {
+                                    $d = $droiteOpts[$ord]['texte'] ?? '';
+                                }
+                                $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?, ?, 1, ?)")
+                                    ->execute([$qidEval, $g['texte'] . ' → ' . $d, $ord + 1]);
+                            }
+                        } elseif (isset($q['elements_droite'])) {
+                            // Pas d'éléments gauche fournis : on garde la liste à titre informatif
                             foreach (normaliserOptions($q['elements_droite']) as $ord => $opt) {
                                 $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?, ?, 0, ?)")
                                     ->execute([$qidEval, $opt['texte'], $ord + 1]);
