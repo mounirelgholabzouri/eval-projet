@@ -1,0 +1,307 @@
+{
+  "titre": "M203 — QCM Composants et architecture OpenStack",
+  "module": "M203 Déployer une infrastructure Cloud Computing",
+  "questions": [
+    {
+      "enonce": "Quel modèle de service Cloud fournit des machines virtuelles, du stockage et du réseau à la demande ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. SaaS (Software as a Service)",
+        "B. PaaS (Platform as a Service)",
+        "C. IaaS (Infrastructure as a Service)",
+        "D. FaaS (Function as a Service)"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "OpenStack est un projet open source géré par quelle fondation ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Apache Software Foundation",
+        "B. Linux Foundation",
+        "C. OpenInfra Foundation",
+        "D. Cloud Native Computing Foundation"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quel composant OpenStack gère l'authentification, l'autorisation et le catalogue de services ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Nova",
+        "B. Neutron",
+        "C. Keystone",
+        "D. Glance"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quel composant OpenStack est responsable du provisionnement et de la gestion des machines virtuelles ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Cinder",
+        "B. Nova",
+        "C. Swift",
+        "D. Heat"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quel composant OpenStack gère les images de machines virtuelles (templates) ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Nova",
+        "B. Cinder",
+        "C. Glance",
+        "D. Barbican"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quel composant OpenStack fournit le service de réseau virtuel (SDN) ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Nova",
+        "B. Neutron",
+        "C. Swift",
+        "D. Zun"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quel composant OpenStack offre du stockage bloc persistant (volumes) pour les instances ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Swift",
+        "B. Glance",
+        "C. Cinder",
+        "D. Manila"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quel composant OpenStack fournit du stockage objet distribué et hautement disponible ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Cinder",
+        "B. Swift",
+        "C. Ceph",
+        "D. Barbican"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Dans OpenStack, qu'est-ce qu'un « flavor » (gabarit) ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Une image de système d'exploitation préinstallée",
+        "B. Un template définissant les ressources matérielles d'une instance (vCPU, RAM, disque)",
+        "C. Un réseau virtuel isolé",
+        "D. Un volume de stockage bloc"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quel service OpenStack est l'orchestrateur de stacks d'infrastructure via des templates YAML/HOT ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Mistral",
+        "B. Zaqar",
+        "C. Heat",
+        "D. Magnum"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Dans le modèle de déploiement Keystone, que représente un « projet » (ou tenant) ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Un utilisateur individuel avec ses droits",
+        "B. Un ensemble de ressources et d'utilisateurs partageant un espace isolé",
+        "C. Un nœud physique du cluster",
+        "D. Un service OpenStack enregistré"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quel type de token Keystone est utilisé par défaut dans les déploiements modernes (OpenStack Yoga+) ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. UUID token",
+        "B. PKI token",
+        "C. Fernet token",
+        "D. SAML token"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Dans une installation OpenStack multinode, quel nœud héberge les services API et les composants de contrôle ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Nœud de calcul (Compute node)",
+        "B. Nœud de stockage (Storage node)",
+        "C. Nœud de contrôle (Controller node)",
+        "D. Nœud réseau (Network node)"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quel hyperviseur est utilisé par défaut par Nova dans la plupart des déploiements OpenStack sur Linux ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. VMware ESXi",
+        "B. Hyper-V",
+        "C. KVM/QEMU",
+        "D. Xen"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Que fait le service Nova-Scheduler dans OpenStack ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Il gère les snapshots des instances",
+        "B. Il détermine sur quel nœud de calcul une nouvelle instance doit être créée",
+        "C. Il provisionne les volumes Cinder",
+        "D. Il surveille la santé des services OpenStack"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Dans Neutron, quel type de réseau est accessible depuis l'extérieur (internet) et routé vers les réseaux des tenants ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Réseau interne (tenant network)",
+        "B. Réseau de gestion (management network)",
+        "C. Réseau externe (provider/external network)",
+        "D. Réseau VXLAN privé"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Qu'est-ce qu'une « Floating IP » dans OpenStack Neutron ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Une adresse IP privée assignée à une interface réseau interne",
+        "B. Une adresse IP publique associable dynamiquement à une instance pour l'accès depuis l'extérieur",
+        "C. Une adresse IP de gestion du nœud contrôleur",
+        "D. Une adresse IPv6 Link-Local automatique"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quel outil en ligne de commande permet d'interagir avec l'API OpenStack en combinant tous les services en un seul CLI ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. nova",
+        "B. glance",
+        "C. openstack (client unifié OpenStack)",
+        "D. keystone"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quel fichier contient les variables d'environnement nécessaires pour s'authentifier à OpenStack depuis le CLI (credentials, URL, projet) ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. openstack.conf",
+        "B. nova.conf",
+        "C. clouds.yaml ou le fichier RC (openrc.sh)",
+        "D. keystone.json"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Dans OpenStack, qu'est-ce qu'un groupe de sécurité (security group) ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Un groupe d'utilisateurs avec les mêmes droits d'accès dans Keystone",
+        "B. Un ensemble de règles de firewall (iptables/nftables) appliquées au niveau du port réseau d'une instance",
+        "C. Un cluster de nœuds de calcul avec la même configuration matérielle",
+        "D. Un profil de chiffrement pour les volumes Cinder"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quelle commande OpenStack CLI crée une instance (machine virtuelle) avec le gabarit m1.small et l'image Ubuntu 22.04 ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. openstack server add --flavor m1.small --image ubuntu-22.04 mon-instance",
+        "B. openstack server create --flavor m1.small --image ubuntu-22.04 mon-instance",
+        "C. nova boot --flavor m1.small --image ubuntu-22.04 mon-instance",
+        "D. openstack instance create m1.small ubuntu-22.04 mon-instance"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Que signifie la technologie VXLAN utilisée par Neutron pour les réseaux des tenants ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Un protocole d'authentification réseau",
+        "B. Un protocole d'encapsulation L2 sur L3 permettant d'isoler les réseaux virtuels via un identifiant VNI",
+        "C. Un protocole de routage dynamique entre les nœuds OpenStack",
+        "D. Un mécanisme de chiffrement des données au repos"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Dans OpenStack Placement (anciennement Nova Placement), quel est son rôle principal ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Gérer l'emplacement géographique des datacenters",
+        "B. Inventorier et allouer les ressources (vCPU, RAM, disque) disponibles sur les nœuds de calcul",
+        "C. Configurer les règles de routage réseau",
+        "D. Stocker les images système dans Glance"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quelle commande permet de lister toutes les instances de tous les projets en tant qu'administrateur OpenStack ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. openstack server list",
+        "B. openstack server list --project all",
+        "C. openstack server list --all-projects",
+        "D. openstack server list --admin"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Qu'est-ce que Horizon dans l'écosystème OpenStack ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Le service de monitoring et d'alertes",
+        "B. Le tableau de bord web (dashboard) pour administrer OpenStack graphiquement",
+        "C. Le service d'orchestration de conteneurs",
+        "D. L'API principale de communication entre composants"
+      ],
+      "reponse_correcte": "B"
+    }
+  ]
+}
+
