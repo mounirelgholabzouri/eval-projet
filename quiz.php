@@ -144,7 +144,13 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
             line-height: 26px; text-align: center; color: #fff; cursor: pointer;
         }
         .dd-slot.over   { background: rgba(138,180,248,.25); }
-        .dd-slot.filled { border-style: solid; border-color: #4caf50; background: #2e7d32; }
+        .dd-slot.filled { border-style: solid; border-color: #4caf50; background: #2e7d32; cursor: grab; }
+        .dd-remove {
+            display: inline-block; margin-left: 6px; padding: 0 5px; border-radius: 4px;
+            background: rgba(0,0,0,.35); color: #ffcdd2; font-weight: bold; line-height: 18px; cursor: pointer;
+        }
+        .dd-remove:hover { background: #c62828; color: #fff; }
+        .dd-bank.over { background: #e7f1ff; border-color: #0d6efd; }
         .dd-bank { display: flex; flex-wrap: wrap; gap: 8px; min-height: 44px;
                    padding: 10px; border: 1px dashed #ced4da; border-radius: 10px; background: #fff; }
         .dd-token {
@@ -300,7 +306,8 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
                                 else: echo sanitize($seg); endif;
                             endforeach; ?></div>
                         <div class="small text-muted mb-2">
-                            <i class="bi bi-hand-index me-1"></i>Glissez les mots-clés dans les cases (ou cliquez un mot-clé puis une case). Cliquez une case remplie pour la vider. Certains mots-clés sont des pièges.
+                            <i class="bi bi-hand-index me-1"></i>Glissez les mots-clés dans les cases (ou cliquez un mot-clé puis une case).
+                            Pour retirer un mot : cliquez <strong>×</strong> ou faites-le glisser vers la zone des mots-clés. Certains mots-clés sont des pièges.
                         </div>
                         <div class="dd-bank">
                             <?php foreach ($etiquettes as $c): ?>
@@ -598,6 +605,7 @@ document.querySelectorAll('.dd-question').forEach(box => {
         delete slot.dataset.id;
         slot.textContent = '';
         slot.classList.remove('filled');
+        slot.draggable = false;
         slot.nextElementSibling.value = '';
     }
 
@@ -608,13 +616,30 @@ document.querySelectorAll('.dd-question').forEach(box => {
         const t = token(id);
         slot.dataset.id = id;
         slot.textContent = t.textContent;
+        const x = document.createElement('span');
+        x.className = 'dd-remove';
+        x.title = 'Retirer';
+        x.textContent = '×';
+        x.addEventListener('click', e => { e.stopPropagation(); clearSlot(slot); refresh(); });
+        slot.appendChild(x);
         slot.classList.add('filled');
+        slot.draggable = true;
         slot.nextElementSibling.value = id;
         t.classList.add('used');
         t.classList.remove('selected');
         selected = null;
         refresh();
     }
+
+    const bank = box.querySelector('.dd-bank');
+    bank.addEventListener('dragover', e => { e.preventDefault(); bank.classList.add('over'); });
+    bank.addEventListener('dragleave', () => bank.classList.remove('over'));
+    bank.addEventListener('drop', e => {
+        e.preventDefault();
+        bank.classList.remove('over');
+        const from = [...slots].find(s => s.dataset.id === e.dataTransfer.getData('text/plain'));
+        if (from) { clearSlot(from); refresh(); }
+    });
 
     box.querySelectorAll('.dd-token').forEach(t => {
         t.addEventListener('dragstart', e => {
@@ -630,6 +655,12 @@ document.querySelectorAll('.dd-question').forEach(box => {
     });
 
     slots.forEach(slot => {
+        slot.addEventListener('dragstart', e => {
+            e.stopPropagation();
+            if (!slot.dataset.id) { e.preventDefault(); return; }
+            e.dataTransfer.setData('text/plain', slot.dataset.id);
+            e.dataTransfer.effectAllowed = 'move';
+        });
         slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('over'); });
         slot.addEventListener('dragleave', () => slot.classList.remove('over'));
         slot.addEventListener('drop', e => {
