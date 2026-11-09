@@ -203,7 +203,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <span class="small text-muted">
                     <i class="bi bi-list-check me-1"></i><?= $nbQ ?> question<?= $nbQ > 1 ? 's' : '' ?>
-                    — Total : <?= getTotalPoints((int)$session['module_id']) ?> pts
+                    — Total : <?= number_format((float)$session['total_points'], 1) ?> pts
                 </span>
                 <span class="small text-muted" id="progress-text">0 / <?= $nbQ ?> répondu(s)</span>
             </div>

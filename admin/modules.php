@@ -5,8 +5,8 @@ require_once __DIR__ . '/../includes/functions.php';
 $pdo = getDB();
 $msg = '';
 $erreur = '';
-$action = $_GET['action'] ?? 'list';
-$id     = (int)($_GET['id'] ?? 0);
+$action = $_POST['action'] ?? $_GET['action'] ?? 'list';
+$id     = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
 
 // ── Traitement formulaires ───────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['confirm_delete_module']) && !isset($_POST['bulk_action'])) {
@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
 // ── Toggle actif ─────────────────────────────────────────────
 if ($action === 'toggle' && $id > 0) {
     $pdo->prepare("UPDATE modules SET actif = NOT actif WHERE id = ?")->execute([$id]);
-    if (isset($_GET['ajax'])) {
+    if (isset($_POST['ajax']) || isset($_GET['ajax'])) {
         header('Content-Type: application/json');
         echo json_encode(['success' => true]);
         exit;
@@ -218,14 +218,14 @@ if ($action === 'edit' && $id > 0) {
                                 <th class="ps-4">Module</th>
                                 <th class="text-center">Durée</th>
                                 <th class="text-center">Questions</th>
-                                <th class="text-center">Parties</th>
+                                <th class="text-center">Parties actives</th>
                                 <th class="text-center">Statut</th>
                                 <th class="text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                         <?php if (empty($modules)): ?>
-                            <tr><td colspan="6" class="text-center text-muted py-4">Aucun module créé</td></tr>
+                            <tr><td colspan="7" class="text-center text-muted py-4">Aucun module créé</td></tr>
                         <?php endif; ?>
                         <?php foreach ($modules as $m): ?>
                             <tr>
@@ -252,12 +252,15 @@ if ($action === 'edit' && $id > 0) {
                                         <?= $m['nb_questions'] ?> Q
                                     </a>
                                 </td>
+                                <?php
+                                $stmtP = $pdo->prepare("SELECT COUNT(*) FROM parties WHERE module_id = ? AND actif = 1");
+                                $stmtP->execute([$m['id']]);
+                                $nbParties = (int)$stmtP->fetchColumn();
+                                ?>
                                 <td class="text-center">
-                                    <a href="gestion_questions.php?tab=gerer&module_id=<?= $m['id'] ?>"
-                                       class="btn btn-sm btn-outline-secondary rounded-pill px-3"
-                                       title="Gérer les questions">
-                                        <i class="bi bi-question-circle me-1"></i><?= (int)($m['nb_questions'] ?? 0) ?>
-                                    </a>
+                                    <span class="badge bg-secondary-subtle text-secondary border">
+                                        <?= $nbParties ?>
+                                    </span>
                                 </td>
                                 <td class="text-center">
                                     <div class="form-check form-switch d-flex justify-content-center align-items-center gap-2 mb-0">
@@ -325,11 +328,12 @@ if ($action === 'edit' && $id > 0) {
                                            title="Voir les résultats">
                                             <i class="bi bi-bar-chart-line"></i>
                                         </a>
-                                        <a href="delete_module.php?id=<?= $m['id'] ?>"
-                                           class="btn btn-sm btn-outline-danger rounded-3"
-                                           title="Supprimer (avec options)">
+                                        <button type="button"
+                                                class="btn btn-sm btn-outline-danger rounded-3"
+                                                title="Supprimer"
+                                                onclick="confirmDeleteModule(<?= $m['id'] ?>, <?= json_encode($m['nom']) ?>, <?= (int)$m['nb_questions'] ?>, <?= $nbParties ?>)">
                                             <i class="bi bi-trash"></i>
-                                        </a>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>
@@ -352,7 +356,12 @@ document.querySelectorAll('.toggle-actif').forEach(function(toggle) {
         // Désactiver pendant la requête
         toggle.disabled = true;
 
-        fetch('modules.php?action=toggle&id=' + id + '&ajax=1')
+        const fd = new FormData();
+        fd.append('action', 'toggle');
+        fd.append('id', id);
+        fd.append('ajax', '1');
+        fd.append('csrf_token', '<?= csrfToken() ?>');
+        fetch('modules.php', { method: 'POST', body: fd })
             .then(r => r.json())
             .then(data => {
                 toggle.disabled = false;

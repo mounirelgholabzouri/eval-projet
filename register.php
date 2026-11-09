@@ -12,8 +12,9 @@ $annees  = getAnneesDisponibles();
 $erreurs = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nom        = trim($_POST['nom'] ?? '');
-    $prenom     = trim($_POST['prenom'] ?? '');
+    verifyCsrfToken();
+    $nom        = mb_strtoupper(trim($_POST['nom'] ?? ''), 'UTF-8');
+    $prenom     = mb_strtoupper(trim($_POST['prenom'] ?? ''), 'UTF-8');
     $groupeId   = (int)($_POST['groupe_id'] ?? 0);
     $groupeLibre= trim($_POST['groupe_libre'] ?? '');
     $annee      = trim($_POST['annee_scolaire'] ?? getAnneeCourante());
@@ -46,13 +47,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($existing) {
             // Mettre à jour login/password
-            $pdo->prepare("UPDATE stagiaires SET login=?, password_hash=? WHERE id=?")
+            $pdo->prepare("UPDATE stagiaires SET login=?, password_hash=?, must_change_password=1 WHERE id=?")
                 ->execute([$login, $hash, $existing]);
             $stagiaireId = (int)$existing;
         } else {
             // Créer nouveau stagiaire
             $numeroClasse = nextNumeroClasse($groupeId);
-            $pdo->prepare("INSERT INTO stagiaires (nom, prenom, groupe_id, annee_scolaire, login, password_hash, numero_classe) VALUES (?,?,?,?,?,?,?)")
+            $pdo->prepare("INSERT INTO stagiaires (nom, prenom, groupe_id, annee_scolaire, login, password_hash, numero_classe, must_change_password) VALUES (?,?,?,?,?,?,?,1)")
                 ->execute([$nom, $prenom, $groupeId, $annee, $login, $hash, $numeroClasse]);
             $stagiaireId = (int)$pdo->lastInsertId();
         }
@@ -60,12 +61,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Connecter automatiquement
         $stagiaire = getStagiaireByLogin($login);
         session_regenerate_id(true);
-        $_SESSION['stagiaire_id']        = $stagiaire['id'];
-        $_SESSION['stagiaire_nom']        = $stagiaire['nom'];
-        $_SESSION['stagiaire_prenom']     = $stagiaire['prenom'];
-        $_SESSION['stagiaire_groupe_id']  = $stagiaire['groupe_id'];
-        $_SESSION['stagiaire_groupe_nom'] = $stagiaire['groupe_nom'];
-        $_SESSION['stagiaire_annee']      = $stagiaire['annee_scolaire'];
+        $_SESSION['stagiaire_id']           = $stagiaire['id'];
+        $_SESSION['stagiaire_nom']           = $stagiaire['nom'];
+        $_SESSION['stagiaire_prenom']        = $stagiaire['prenom'];
+        $_SESSION['stagiaire_groupe_id']     = $stagiaire['groupe_id'];
+        $_SESSION['stagiaire_groupe_nom']    = $stagiaire['groupe_nom'];
+        $_SESSION['stagiaire_annee']         = $stagiaire['annee_scolaire'];
+        $_SESSION['must_change_password']    = 1;
         redirect('index.php');
     }
 }
@@ -107,6 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php endif; ?>
 
                     <form method="POST" novalidate>
+                        <?= csrfField() ?>
 
                         <!-- Identité -->
                         <div class="row g-2 mb-3">

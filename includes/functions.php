@@ -216,7 +216,7 @@ function getQuestionsModule(int $moduleId, ?array $questionIds = null): array {
         $stmt = $pdo->prepare("SELECT q.* FROM questions q WHERE q.id IN ($placeholders) ORDER BY q.ordre, q.id");
         $stmt->execute($questionIds);
     } else {
-        $stmt = $pdo->prepare("SELECT q.* FROM questions q WHERE q.module_id = ? ORDER BY q.ordre, q.id");
+        $stmt = $pdo->prepare("SELECT q.* FROM questions q JOIN parties p ON p.id = q.partie_id WHERE q.module_id = ? AND p.actif = 1 ORDER BY q.ordre, q.id");
         $stmt->execute([$moduleId]);
     }
     $questions = $stmt->fetchAll();
@@ -237,7 +237,7 @@ function getTotalPoints(int $moduleId, ?array $questionIds = null): float {
         $stmt = $pdo->prepare("SELECT COALESCE(SUM(points), 0) FROM questions WHERE id IN ($placeholders)");
         $stmt->execute($questionIds);
     } else {
-        $stmt = $pdo->prepare("SELECT COALESCE(SUM(q.points), 0) AS total FROM questions q WHERE q.module_id = ?");
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(q.points), 0) AS total FROM questions q JOIN parties p ON p.id = q.partie_id WHERE q.module_id = ? AND p.actif = 1");
         $stmt->execute([$moduleId]);
     }
     return (float)$stmt->fetchColumn();
@@ -319,7 +319,7 @@ function creerSession(string $nom, string $prenom, ?int $groupeId, string $group
     // Tirage aléatoire si quota configuré
     $questionsIds = null;
     if ($nbMax !== null && $nbMax > 0) {
-        $allIds = $pdo->prepare("SELECT id FROM questions WHERE module_id = ? ORDER BY RAND()");
+        $allIds = $pdo->prepare("SELECT q.id FROM questions q JOIN parties p ON p.id = q.partie_id WHERE q.module_id = ? AND p.actif = 1 ORDER BY RAND()");
         $allIds->execute([$moduleId]);
         $ids = $allIds->fetchAll(PDO::FETCH_COLUMN);
         $questionsIds = array_slice($ids, 0, $nbMax);

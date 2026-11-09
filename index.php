@@ -205,7 +205,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 document.addEventListener('DOMContentLoaded', function () {
     const cb      = document.getElementById('accepte');
     const btn     = document.getElementById('btn-submit');
-    const sel     = document.getElementById('module_id');
+    const sel     = document.getElementById('evaluation_id');
     const info    = document.getElementById('module-info');
     const typeTxt = document.getElementById('module-types-text');
 
