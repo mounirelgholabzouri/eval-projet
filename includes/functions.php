@@ -390,6 +390,62 @@ function sauvegarderReponse(int $sessionId, int $questionId, ?int $choixId, ?str
     $stmt->execute([$sessionId, $questionId, $choixId, $reponseTxt, $isCorrect ? 1 : 0, $points]);
 }
 
+// Question glisser_deposer : texte = "énoncé\n---\ngabarit avec {{1}}, {{2}}…" ;
+// choix is_correct=1 → bonne étiquette du trou n° ordre ; is_correct=0 → leurres.
+function splitGlisserDeposer(string $texte): array {
+    $parts = preg_split('/\R-{3,}\R/', $texte, 2);
+    return [trim($parts[0]), trim($parts[1] ?? '')];
+}
+
+function corrigerGlisserDeposer(array $q, array $placement): array {
+    $attendu = [];
+    $valides = [];
+    foreach ($q['choix'] as $c) {
+        $valides[(int)$c['id']] = true;
+        if ($c['is_correct']) $attendu[(int)$c['ordre']] = (int)$c['id'];
+    }
+    $clean = [];
+    $ok = 0;
+    foreach ($attendu as $trou => $choixId) {
+        $donne = (int)($placement[$trou] ?? 0);
+        if ($donne && isset($valides[$donne])) $clean[$trou] = $donne;
+        if ($donne === $choixId) $ok++;
+    }
+    $nb = count($attendu);
+    return [
+        'json'    => $clean ? json_encode($clean) : null,
+        'correct' => $nb > 0 && $ok === $nb,
+        'points'  => $nb > 0 ? round((float)$q['points'] * $ok / $nb, 2) : 0.0,
+    ];
+}
+
+// Gabarit HTML avec la réponse du stagiaire (vert = juste, rouge = faux + attendu).
+function renderGlisserDeposerReponse(int $questionId, string $texte, ?string $reponseJson): string {
+    $stmt = getDB()->prepare("SELECT id, texte, is_correct, ordre FROM choix_reponses WHERE question_id = ?");
+    $stmt->execute([$questionId]);
+    $byId = [];
+    $attendu = [];
+    foreach ($stmt->fetchAll() as $c) {
+        $byId[(int)$c['id']] = $c['texte'];
+        if ($c['is_correct']) $attendu[(int)$c['ordre']] = (int)$c['id'];
+    }
+    $donne = $reponseJson ? (json_decode($reponseJson, true) ?: []) : [];
+    [, $gabarit] = splitGlisserDeposer($texte);
+    $html = preg_replace_callback('/\{\{(\d+)\}\}|[^{]+|\{/', function ($m) use ($byId, $attendu, $donne) {
+        if (!isset($m[1]) || $m[1] === '') return htmlspecialchars($m[0], ENT_QUOTES, 'UTF-8');
+        $n = (int)$m[1];
+        $d = (int)($donne[$n] ?? 0);
+        $bon = $attendu[$n] ?? 0;
+        if ($d && $d === $bon) {
+            return '<span class="badge bg-success">' . htmlspecialchars($byId[$d], ENT_QUOTES, 'UTF-8') . '</span>';
+        }
+        $txt = $d ? '<s>' . htmlspecialchars($byId[$d] ?? '?', ENT_QUOTES, 'UTF-8') . '</s>' : '∅';
+        return '<span class="badge bg-danger">' . $txt . '</span><span class="badge bg-success-subtle text-success-emphasis ms-1">'
+             . htmlspecialchars($byId[$bon] ?? '?', ENT_QUOTES, 'UTF-8') . '</span>';
+    }, $gabarit);
+    return '<code class="d-block p-2 bg-dark text-light rounded small" style="white-space:pre-wrap;line-height:2">' . $html . '</code>';
+}
+
 function terminerSession(int $sessionId): array {
     $pdo = getDB();
     $stmt = $pdo->prepare("SELECT COALESCE(SUM(points_obtenus), 0) AS score FROM reponses_stagiaires WHERE session_id = ?");

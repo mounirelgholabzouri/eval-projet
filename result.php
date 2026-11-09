@@ -133,10 +133,14 @@ unset($_SESSION['eval_session_id'], $_SESSION['eval_session_token'], $_SESSION['
 
                 <div class="flex-grow-1">
                     <div class="fw-semibold mb-1">
-                        Q<?= $idx + 1 ?>. <?= sanitize($r['question_texte']) ?>
+                        Q<?= $idx + 1 ?>. <?= sanitize($r['type'] === 'glisser_deposer' ? splitGlisserDeposer($r['question_texte'])[0] : $r['question_texte']) ?>
                     </div>
                     <div class="small text-muted">
-                        <?php if ($r['type'] === 'texte_libre'): ?>
+                        <?php if ($r['type'] === 'glisser_deposer'): ?>
+                            <span class="<?= $r['is_correct'] ? 'text-success' : 'text-danger' ?>">
+                                Score : <?= number_format((float)$r['points_obtenus'], 2) ?> pt(s)
+                            </span>
+                        <?php elseif ($r['type'] === 'texte_libre'): ?>
                             <span class="text-warning"><i class="bi bi-info-circle me-1"></i>Correction manuelle par le formateur</span>
                             <?php if ($r['reponse_texte']): ?>
                                 <br><em>"<?= sanitize(mb_substr($r['reponse_texte'], 0, 200)) ?>"</em>

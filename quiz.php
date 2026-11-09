@@ -58,6 +58,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_final'])) {
             $repTxt  = trim($_POST["rep_$qId"] ?? '');
             $correct = false; // Correction manuelle par le formateur
             $gained  = 0;
+        } elseif ($type === 'glisser_deposer') {
+            $placement = $_POST["dd_$qId"] ?? [];
+            $res     = corrigerGlisserDeposer($q, is_array($placement) ? $placement : []);
+            $repTxt  = $res['json'];
+            $correct = $res['correct'];
+            $gained  = $res['points'];
         } else {
             $choixId = (int)($_POST["rep_$qId"] ?? 0);
             if ($choixId > 0) {
@@ -127,6 +133,27 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
         }
         #lockOverlay.show { display: flex; }
         #lockOverlay .icon { font-size: 4rem; color: #ff5252; }
+        .dd-template {
+            font-family: SFMono-Regular, Consolas, monospace; font-size: .9rem;
+            background: #1e1e2e; color: #e0e0e0; padding: 14px 16px; border-radius: 10px;
+            line-height: 2.6; white-space: pre-wrap; word-break: break-word;
+        }
+        .dd-slot {
+            display: inline-block; min-width: 90px; min-height: 30px; vertical-align: middle;
+            border: 2px dashed #8ab4f8; border-radius: 6px; padding: 0 8px; margin: 0 2px;
+            line-height: 26px; text-align: center; color: #fff; cursor: pointer;
+        }
+        .dd-slot.over   { background: rgba(138,180,248,.25); }
+        .dd-slot.filled { border-style: solid; border-color: #4caf50; background: #2e7d32; }
+        .dd-bank { display: flex; flex-wrap: wrap; gap: 8px; min-height: 44px;
+                   padding: 10px; border: 1px dashed #ced4da; border-radius: 10px; background: #fff; }
+        .dd-token {
+            font-family: SFMono-Regular, Consolas, monospace; font-size: .85rem;
+            background: #e7f1ff; color: #0b5ed7; border: 1px solid #9ec5fe;
+            padding: 4px 10px; border-radius: 6px; cursor: grab;
+        }
+        .dd-token.selected { background: #0d6efd; color: #fff; }
+        .dd-token.used { opacity: .3; pointer-events: none; }
         #violationBadge {
             position: fixed; top: 70px; right: 12px;
             background: #dc3545; color: #fff;
@@ -188,7 +215,8 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
             'qcm'         => 'QCM',
             'vrai_faux'   => 'Vrai / Faux',
             'texte_libre' => 'Réponse libre',
-            'multiple'    => 'Choix multiples'
+            'multiple'    => 'Choix multiples',
+            'glisser_deposer' => 'Glisser-déposer'
         ];
         $qNum = 0;
         foreach ($grouped as $group):
@@ -209,7 +237,11 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
         <?php endif; ?>
 
         <?php foreach ($group['questions'] as $q): ?>
-        <?php $qNum++; $qId = (int)$q['id']; ?>
+        <?php
+            $qNum++; $qId = (int)$q['id'];
+            $enonce = $q['texte'];
+            if ($q['type'] === 'glisser_deposer') [$enonce, $gabarit] = splitGlisserDeposer($q['texte']);
+        ?>
 
         <div class="card border-0 shadow-sm rounded-4 mb-4 question-card" id="card-<?= $qId ?>">
             <div class="card-body p-4">
@@ -219,7 +251,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
                     <div class="question-number"><?= $qNum ?></div>
                     <div class="flex-grow-1">
                         <div class="d-flex justify-content-between align-items-start">
-                            <p class="fw-semibold mb-1 question-text"><?= nl2br(sanitize($q['texte'])) ?></p>
+                            <p class="fw-semibold mb-1 question-text"><?= nl2br(sanitize($enonce)) ?></p>
                             <span class="badge bg-primary-subtle text-primary ms-2 flex-shrink-0">
                                 <?= $q['points'] ?> pt<?= $q['points'] > 1 ? 's' : '' ?>
                             </span>
@@ -256,6 +288,24 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
                                   data-qid="<?= $qId ?>"></textarea>
                         <div class="text-muted small mt-1">
                             <i class="bi bi-info-circle me-1"></i>Réponse corrigée par le formateur
+                        </div>
+                    </div>
+
+                <?php elseif ($q['type'] === 'glisser_deposer'): ?>
+                    <?php $etiquettes = $q['choix']; shuffle($etiquettes); ?>
+                    <div class="ps-5 dd-question" data-qid="<?= $qId ?>">
+                        <div class="dd-template mb-3"><?php
+                            foreach (preg_split('/(\{\{\d+\}\})/', $gabarit, -1, PREG_SPLIT_DELIM_CAPTURE) as $seg):
+                                if (preg_match('/^\{\{(\d+)\}\}$/', $seg, $mm)): ?><span class="dd-slot" data-slot="<?= (int)$mm[1] ?>" title="Déposer ici"></span><input type="hidden" name="dd_<?= $qId ?>[<?= (int)$mm[1] ?>]" value=""><?php
+                                else: echo sanitize($seg); endif;
+                            endforeach; ?></div>
+                        <div class="small text-muted mb-2">
+                            <i class="bi bi-hand-index me-1"></i>Glissez les mots-clés dans les cases (ou cliquez un mot-clé puis une case). Cliquez une case remplie pour la vider. Certains mots-clés sont des pièges.
+                        </div>
+                        <div class="dd-bank">
+                            <?php foreach ($etiquettes as $c): ?>
+                            <span class="dd-token" draggable="true" data-id="<?= (int)$c['id'] ?>"><?= sanitize($c['texte']) ?></span>
+                            <?php endforeach; ?>
                         </div>
                     </div>
                 <?php endif; ?>
@@ -525,6 +575,75 @@ function confirmerSoumission() {
     };
     return false;
 }
+
+// ── Questions glisser-déposer ────────────────────────────────
+document.querySelectorAll('.dd-question').forEach(box => {
+    const qid = box.dataset.qid;
+    const slots = box.querySelectorAll('.dd-slot');
+    let selected = null;
+
+    function token(id) { return box.querySelector('.dd-token[data-id="' + id + '"]'); }
+
+    function refresh() {
+        const filled = [...slots].filter(s => s.dataset.id).length;
+        const card = document.getElementById('card-' + qid);
+        if (filled > 0) { answered.add(qid); card.classList.add('answered'); }
+        else { answered.delete(qid); card.classList.remove('answered'); }
+        updateProgress();
+    }
+
+    function clearSlot(slot) {
+        if (!slot.dataset.id) return;
+        token(slot.dataset.id).classList.remove('used');
+        delete slot.dataset.id;
+        slot.textContent = '';
+        slot.classList.remove('filled');
+        slot.nextElementSibling.value = '';
+    }
+
+    function place(slot, id) {
+        const prev = [...slots].find(s => s.dataset.id === id);
+        if (prev) clearSlot(prev);
+        clearSlot(slot);
+        const t = token(id);
+        slot.dataset.id = id;
+        slot.textContent = t.textContent;
+        slot.classList.add('filled');
+        slot.nextElementSibling.value = id;
+        t.classList.add('used');
+        t.classList.remove('selected');
+        selected = null;
+        refresh();
+    }
+
+    box.querySelectorAll('.dd-token').forEach(t => {
+        t.addEventListener('dragstart', e => {
+            e.stopPropagation();
+            e.dataTransfer.setData('text/plain', t.dataset.id);
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        t.addEventListener('click', () => {
+            box.querySelectorAll('.dd-token.selected').forEach(x => x.classList.remove('selected'));
+            selected = selected === t.dataset.id ? null : t.dataset.id;
+            if (selected) t.classList.add('selected');
+        });
+    });
+
+    slots.forEach(slot => {
+        slot.addEventListener('dragover', e => { e.preventDefault(); slot.classList.add('over'); });
+        slot.addEventListener('dragleave', () => slot.classList.remove('over'));
+        slot.addEventListener('drop', e => {
+            e.preventDefault();
+            slot.classList.remove('over');
+            const id = e.dataTransfer.getData('text/plain');
+            if (id && token(id)) place(slot, id);
+        });
+        slot.addEventListener('click', () => {
+            if (selected) place(slot, selected);
+            else { clearSlot(slot); refresh(); }
+        });
+    });
+});
 </script>
 </body>
 </html>

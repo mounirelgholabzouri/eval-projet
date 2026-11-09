@@ -115,8 +115,10 @@ $scoreSur = arrondiNote((float)$session['score'], $totalPts, $noteMax);
                     <?php endif; ?>
                 </div>
                 <div class="flex-grow-1">
-                    <div class="fw-semibold mb-1">Q<?= $idx + 1 ?>. <?= htmlspecialchars($r['question_texte']) ?></div>
-                    <?php if ($r['type'] === 'texte_libre'): ?>
+                    <div class="fw-semibold mb-1">Q<?= $idx + 1 ?>. <?= htmlspecialchars($r['type'] === 'glisser_deposer' ? splitGlisserDeposer($r['question_texte'])[0] : $r['question_texte']) ?></div>
+                    <?php if ($r['type'] === 'glisser_deposer'): ?>
+                        <?= renderGlisserDeposerReponse((int)$r['question_id'], $r['question_texte'], $r['reponse_texte']) ?>
+                    <?php elseif ($r['type'] === 'texte_libre'): ?>
                         <div class="small text-muted">
                             <?php $reponseAttendue = getReponseAttendue((int)$r['question_id']); ?>
                             <?php if ($reponseAttendue !== ''): ?>
