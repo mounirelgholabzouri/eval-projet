@@ -5,13 +5,16 @@ require_once __DIR__ . '/../includes/functions.php';
 $pdo = getDB();
 
 $filterModule = (int)($_GET['module_id'] ?? 0);
+$filterEval   = (int)($_GET['evaluation_id'] ?? 0);
 $filterJour   = trim($_GET['jour'] ?? '');
 
-// ── Vue détail d'une session (module + jour) ──────────────────
-if ($filterModule && $filterJour) {
+// ── Vue détail d'une session (évaluation + jour) ──────────────
+if ($filterEval && $filterJour) {
 
-    $module = getModule($filterModule);
-    $noteMax = (int)($module['note_max'] ?? 20);
+    $module = getEvaluation($filterEval);
+    if (!$module) { header('Location: sessions_view.php'); exit; }
+    $noteMax      = (int)$module['note_max'];
+    $filterModule = (int)$module['module_id'];
 
     $stmt = $pdo->prepare("
         SELECT s.*,
@@ -24,10 +27,10 @@ if ($filterModule && $filterJour) {
         JOIN modules     m ON m.id = e.module_id
         LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
         LEFT JOIN groupes    g  ON g.id  = s.groupe_id
-        WHERE e.module_id = ? AND DATE(s.date_debut) = ?
+        WHERE e.id = ? AND DATE(s.date_debut) = ?
         ORDER BY s.pourcentage DESC, s.nom
     ");
-    $stmt->execute([$filterModule, $filterJour]);
+    $stmt->execute([$filterEval, $filterJour]);
     $stagiaires = $stmt->fetchAll();
 
     $nbTotal   = count($stagiaires);
@@ -187,12 +190,11 @@ if ($filterModule && $filterJour) {
     exit;
 }
 
-// ── Vue liste des sessions (module + jour) ────────────────────
-$whereModule = $filterModule ? "AND e.module_id = $filterModule" : '';
-
-$sessions = $pdo->query("
-    SELECT e.module_id,
-           MAX(m.nom)       AS module_nom,
+// ── Vue liste des sessions (évaluation + jour) ────────────────
+$stmtList = $pdo->prepare("
+    SELECT e.id AS evaluation_id,
+           MAX(e.module_id) AS module_id,
+           MAX(e.nom)       AS module_nom,
            MAX(e.note_max)  AS note_max,
            DATE(s.date_debut) AS jour,
            COUNT(*) AS nb_total,
@@ -204,10 +206,12 @@ $sessions = $pdo->query("
     FROM sessions_eval s
     JOIN evaluations e ON e.id = s.evaluation_id
     JOIN modules     m ON m.id = e.module_id
-    WHERE 1=1 $whereModule
-    GROUP BY e.module_id, DATE(s.date_debut)
+    WHERE (? = 0 OR e.module_id = ?)
+    GROUP BY e.id, DATE(s.date_debut)
     ORDER BY jour DESC, module_nom
-")->fetchAll();
+");
+$stmtList->execute([$filterModule, $filterModule]);
+$sessions = $stmtList->fetchAll();
 
 $allModules = getAllModules();
 ?>
@@ -318,7 +322,7 @@ $allModules = getAllModules();
                         <?php else: ?>—<?php endif; ?>
                     </td>
                     <td class="text-center">
-                        <a href="sessions_view.php?module_id=<?= $s['module_id'] ?>&jour=<?= urlencode($s['jour']) ?>"
+                        <a href="sessions_view.php?evaluation_id=<?= $s['evaluation_id'] ?>&jour=<?= urlencode($s['jour']) ?>"
                            class="btn btn-sm btn-primary rounded-3">
                             <i class="bi bi-people me-1"></i>Voir les <?= $s['nb_total'] ?> stagiaires
                         </a>

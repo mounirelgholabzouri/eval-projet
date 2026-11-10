@@ -26,12 +26,9 @@ if (!isset($_SESSION['admin_role'])) {
     }
 }
 
-// Vérification CSRF automatique sur tous les POST sauf les endpoints API
+// Vérification CSRF sur tous les POST (formulaires : champ csrf_token ; fetch : en-tête X-CSRF-Token)
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $phpSelf = basename($_SERVER['PHP_SELF']);
-    if (strpos($phpSelf, 'api_') !== 0) {
-        verifyCsrfToken();
-    }
+    verifyCsrfToken();
 }
 
 // ── Helpers de rôle ─────────────────────────────────────────────

@@ -31,9 +31,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($postAction === 'supprimer') {
         $delId = (int)($_POST['id'] ?? 0);
         if ($delId) {
-            $nb = (int)$pdo->prepare("SELECT COUNT(*) FROM stagiaires WHERE groupe_id=?")
-                           ->execute([$delId]) && $pdo->query("SELECT COUNT(*) FROM stagiaires WHERE groupe_id=$delId")->fetchColumn();
-            // Recompter proprement
             $stmt = $pdo->prepare("SELECT COUNT(*) FROM stagiaires WHERE groupe_id=?");
             $stmt->execute([$delId]);
             $nbStag = (int)$stmt->fetchColumn();

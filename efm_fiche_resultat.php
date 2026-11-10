@@ -50,7 +50,7 @@ $etablissement = $session['efm_etablissement'] ?? '';
 $annee         = $session['efm_annee']         ?? '';
 
 // ── Note / durée ──────────────────────────────────────────────────────────
-$module   = getModule((int)$session['module_id']);
+$module   = getEvaluation((int)$session['evaluation_id']);
 $noteMax  = (int)($module['note_max'] ?? 40);
 $total    = (float)$session['total_points'];
 $scoreRaw = (float)$session['score'];
@@ -62,20 +62,7 @@ $dureeStr = ($dureeMin >= 60)
     : $dureeMin . ' min';
 
 // ── Questions + réponses stagiaire (toutes les questions, même sans réponse) ──
-$stmtQ = $pdo->prepare("
-    SELECT q.id, q.texte AS question_texte, q.type, q.points AS points_max, q.ordre,
-           COALESCE(rs.points_obtenus, 0)  AS points_obtenus,
-           COALESCE(rs.reponse_texte, '')  AS reponse_texte,
-           rs.choix_id,
-           cr.texte                        AS choix_texte
-    FROM questions q
-    LEFT JOIN reponses_stagiaires rs ON rs.question_id = q.id AND rs.session_id = ?
-    LEFT JOIN choix_reponses cr ON cr.id = rs.choix_id
-    WHERE q.module_id = ?
-    ORDER BY q.ordre, q.id
-");
-$stmtQ->execute([$sid, (int)$session['module_id']]);
-$questions = $stmtQ->fetchAll();
+$questions = getQuestionsReponsesSession($session);
 
 // ── Tous les choix par question ───────────────────────────────────────────
 $questionIds = array_column($questions, 'id');

@@ -1,0 +1,246 @@
+{
+  "titre": "Partie B — Modèles et protocoles de communication IP",
+  "module": "M103 Concevoir un réseau informatique",
+  "questions": [
+    {
+      "enonce": "Dans le modèle OSI, quelle couche est responsable de l'adressage logique et du routage des paquets ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Couche 2 — Liaison de données",
+        "B. Couche 3 — Réseau",
+        "C. Couche 4 — Transport",
+        "D. Couche 5 — Session"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quel est le nom de l'unité de données (PDU) au niveau de la couche Transport du modèle OSI ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Bit",
+        "B. Trame",
+        "C. Paquet",
+        "D. Segment"
+      ],
+      "reponse_correcte": "D"
+    },
+    {
+      "enonce": "Dans le modèle TCP/IP à 4 couches, quelles couches OSI correspondent à la couche « Accès réseau » ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Couches 1 et 2",
+        "B. Couches 2 et 3",
+        "C. Couches 3 et 4",
+        "D. Couches 5, 6 et 7"
+      ],
+      "reponse_correcte": "A"
+    },
+    {
+      "enonce": "Lors de l'encapsulation, dans quel ordre les en-têtes sont-ils ajoutés aux données ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Données → trame → paquet → segment → bits",
+        "B. Données → segment → paquet → trame → bits",
+        "C. Bits → trame → paquet → segment → données",
+        "D. Données → paquet → segment → trame → bits"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quelle affirmation est correcte concernant l'adresse IP et l'adresse MAC lors du transfert d'un paquet entre deux routeurs ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Les deux adresses changent à chaque saut",
+        "B. L'adresse IP change, l'adresse MAC reste la même",
+        "C. L'adresse MAC change à chaque saut, l'adresse IP reste la même",
+        "D. Les deux adresses restent inchangées de bout en bout"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quelle est la taille minimale et maximale d'une trame Ethernet valide ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 32 à 1024 octets",
+        "B. 46 à 1500 octets",
+        "C. 64 à 1518 octets",
+        "D. 72 à 2048 octets"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Dans une trame Ethernet, quelle valeur du champ Type/Longueur indique que le protocole encapsulé est IPv4 ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 0x0806",
+        "B. 0x86DD",
+        "C. 0x0800",
+        "D. 0x8100"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Combien de bits composent une adresse MAC, et comment sont-ils répartis ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 32 bits : 16 bits OUI + 16 bits identifiant carte",
+        "B. 48 bits : 24 bits OUI + 24 bits identifiant carte",
+        "C. 64 bits : 32 bits OUI + 32 bits identifiant carte",
+        "D. 48 bits : 8 bits OUI + 40 bits identifiant carte"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Un switch Cisco utilise par défaut la méthode « store-and-forward ». Quelle est la caractéristique principale de cette méthode ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Elle transmet la trame dès la lecture de l'adresse MAC destination",
+        "B. Elle transmet après avoir reçu les 64 premiers octets",
+        "C. Elle reçoit la trame entière, vérifie le FCS, puis transmet",
+        "D. Elle ne vérifie jamais les erreurs pour minimiser la latence"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quelle est l'adresse de diffusion (broadcast) d'une interface configurée avec l'adresse 192.168.10.75 et le masque /26 ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 192.168.10.127",
+        "B. 192.168.10.255",
+        "C. 192.168.10.63",
+        "D. 192.168.10.191"
+      ],
+      "reponse_correcte": "A"
+    },
+    {
+      "enonce": "Combien d'hôtes utilisables peut-on adresser dans un sous-réseau /28 ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 30",
+        "B. 16",
+        "C. 14",
+        "D. 62"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quelle plage d'adresses IPv4 correspond à la plage privée de classe B définie par la RFC 1918 ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 10.0.0.0/8",
+        "B. 172.16.0.0/12",
+        "C. 192.168.0.0/16",
+        "D. 169.254.0.0/16"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "On doit découper 192.168.1.0/24 en sous-réseaux VLSM pour les besoins suivants : Production (100 hôtes), Administration (50 hôtes), Direction (20 hôtes). Quel masque attribuer à la Production ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. /24",
+        "B. /25",
+        "C. /26",
+        "D. /27"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quelle règle permet de compresser une adresse IPv6 en remplaçant une suite de groupes nuls par « :: » ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. On peut utiliser :: plusieurs fois dans une adresse",
+        "B. On peut utiliser :: une seule fois pour remplacer une suite continue de groupes à zéro",
+        "C. On utilise :: uniquement pour les adresses link-local",
+        "D. :: remplace les zéros de tête uniquement dans le dernier groupe"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quel type d'adresse IPv6 commence par le préfixe FE80::/10 et est obligatoirement présente sur chaque interface ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Monodiffusion globale (GUA)",
+        "B. Locale unique (ULA)",
+        "C. Link-local (LLA)",
+        "D. Multidiffusion"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Que se passe-t-il lorsque le champ TTL (Time To Live) d'un paquet IPv4 atteint la valeur 0 chez un routeur ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Le paquet est retransmis depuis la source",
+        "B. Le paquet est détruit et un message ICMP Time Exceeded est renvoyé à la source",
+        "C. Le routeur incrémente le TTL et continue de transmettre",
+        "D. Le paquet est mis en attente jusqu'à ce qu'une route soit disponible"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quelle est la principale différence entre TCP et UDP en matière de fiabilité ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. TCP n'utilise pas de numéros de port, UDP oui",
+        "B. TCP garantit l'ordre et la remise grâce aux accusés de réception ; UDP n'offre aucune garantie",
+        "C. UDP est plus lent car il vérifie chaque paquet",
+        "D. TCP ne peut pas transporter de données en temps réel"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Sur quel port et quel protocole de transport le service DNS opère-t-il principalement pour les requêtes courantes ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Port 53, TCP",
+        "B. Port 67, UDP",
+        "C. Port 53, UDP",
+        "D. Port 80, TCP"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quel est l'ordre correct des quatre étapes de l'échange DHCP (DORA) pour qu'un client obtienne une adresse IP ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Offer → Discover → Request → Ack",
+        "B. Discover → Offer → Request → Ack",
+        "C. Discover → Request → Offer → Ack",
+        "D. Request → Discover → Offer → Ack"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quelle est la différence entre POP3 et IMAP pour la récupération des e-mails ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. POP3 utilise le port 143, IMAP le port 110",
+        "B. IMAP télécharge les messages et les supprime du serveur ; POP3 les synchronise",
+        "C. POP3 télécharge et supprime généralement les messages du serveur ; IMAP les laisse sur le serveur et les synchronise",
+        "D. Les deux protocoles fonctionnent de manière identique"
+      ],
+      "reponse_correcte": "C"
+    }
+  ]
+}

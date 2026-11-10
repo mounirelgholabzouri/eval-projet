@@ -11,7 +11,7 @@ if (!$session) { header('Location: results.php'); exit; }
 $reponses = getReponsesSession($id);
 $mention  = getMention((float)$session['pourcentage']);
 $groupe   = $session['groupe_nom'] ?: $session['groupe_libre'];
-$module   = getModule((int)$session['module_id']);
+$module   = getEvaluation((int)$session['evaluation_id']);
 $noteMax  = (int)($module['note_max'] ?? 20);
 $totalPts = (float)$session['total_points'];
 $scoreSur = arrondiNote((float)$session['score'], $totalPts, $noteMax);
@@ -72,7 +72,7 @@ $scoreSur = arrondiNote((float)$session['score'], $totalPts, $noteMax);
                 <div>
                     <h5 class="mb-1 fw-bold"><?= htmlspecialchars($session['prenom'] . ' ' . $session['nom']) ?></h5>
                     <div class="opacity-75 small">
-                        <?= htmlspecialchars($groupe ?: '—') ?> — <?= htmlspecialchars($session['module_nom']) ?>
+                        <?= htmlspecialchars($groupe ?: '—') ?> — <?= htmlspecialchars($session['evaluation_nom']) ?>
                     </div>
                 </div>
                 <div class="text-end">

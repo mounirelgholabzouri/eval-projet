@@ -7,6 +7,7 @@ $pdo = getDB();
 $filterModule  = (int)($_GET['module_id'] ?? 0);
 $filterGroupe  = trim($_GET['groupe'] ?? '');
 $filterSession = (int)($_GET['session_id'] ?? 0); // impression d'un seul stagiaire
+$filterEval    = (int)($_GET['evaluation_id'] ?? 0);
 
 // Mode session unique : on déduit le module depuis la session (via évaluation)
 if ($filterSession && !$filterModule) {
@@ -33,6 +34,7 @@ if ($filterSession) {
 } else {
     $where  = ['e.module_id = ?', "s.statut = 'termine'"];
     $params = [$filterModule];
+    if ($filterEval) { $where[] = 'e.id = ?'; $params[] = $filterEval; }
     if ($filterGroupe) {
         $where[]  = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)";
         $params[] = "%$filterGroupe%";
@@ -56,11 +58,6 @@ if (empty($sessions)) {
     exit;
 }
 
-// Toutes les questions du module (pour sessions avec tirage figé)
-$stmtAllQ = $pdo->prepare("SELECT id, texte AS question_texte, type, points AS points_max, ordre FROM questions WHERE module_id = ? ORDER BY ordre, id");
-$stmtAllQ->execute([$filterModule]);
-$allModuleQuestions = array_column($stmtAllQ->fetchAll(), null, 'id'); // indexé par id
-
 // Réponses indexées par (session_id → question_id)
 $sessionIds = array_column($sessions, 'id');
 $repBySessionQ = [];
@@ -70,8 +67,9 @@ if ($sessionIds) {
         SELECT rs.session_id, rs.question_id, rs.reponse_texte,
                COALESCE(rs.is_correct, 0)     AS is_correct,
                COALESCE(rs.points_obtenus, 0) AS points_obtenus,
-               cr.texte AS choix_etudiant
+               COALESCE(cr.texte, IF(q.type = 'multiple', rs.reponse_texte, NULL)) AS choix_etudiant
         FROM reponses_stagiaires rs
+        JOIN questions q ON q.id = rs.question_id
         LEFT JOIN choix_reponses cr ON cr.id = rs.choix_id
         WHERE rs.session_id IN ($in)
     ");
@@ -79,6 +77,22 @@ if ($sessionIds) {
     foreach ($stmtRep->fetchAll() as $row) {
         $repBySessionQ[$row['session_id']][$row['question_id']] = $row;
     }
+}
+
+// Questions concernées (tirages figés + questions répondues), indexées par id — y compris d'autres modules
+$idsConcernes = [];
+foreach ($sessions as $s) {
+    foreach (json_decode($s['questions_ids'] ?? '', true) ?: [] as $qid) $idsConcernes[(int)$qid] = true;
+}
+foreach ($repBySessionQ as $reps) {
+    foreach (array_keys($reps) as $qid) $idsConcernes[(int)$qid] = true;
+}
+$allModuleQuestions = [];
+if ($idsConcernes) {
+    $ids  = array_keys($idsConcernes);
+    $stmtAllQ = $pdo->prepare("SELECT id, texte AS question_texte, type, points AS points_max, ordre FROM questions WHERE id IN (" . implode(',', array_fill(0, count($ids), '?')) . ")");
+    $stmtAllQ->execute($ids);
+    $allModuleQuestions = array_column($stmtAllQ->fetchAll(), null, 'id');
 }
 
 // questions_ids figés par session
@@ -93,13 +107,14 @@ function s($str): string {
     return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
 }
 
-$annee    = '2025/2026';
-$isEfm    = ($module['type'] ?? 'qcm') === 'efm';
-$noteMax  = (int)($module['note_max'] ?? 20);
-$filiere  = $module['efm_filiere'] ?? '';
-$codeModule = $module['efm_code_module'] ?? '';
-$etabl    = $module['efm_etablissement'] ?? 'Direction Régionale RABAT-SALÉ-KENITRA';
-$dureeMin = (int)($module['duree_minutes'] ?? 0);
+$evalInfo = getEvaluation((int)$sessions[0]['evaluation_id']);
+$annee    = $evalInfo['efm_annee'] ?: getAnneeFormation();
+$isEfm    = $evalInfo['type'] === 'efm';
+$noteMax  = (int)$evalInfo['note_max'];
+$filiere  = $evalInfo['efm_filiere'];
+$codeModule = $evalInfo['efm_code_module'];
+$etabl    = $evalInfo['efm_etablissement'] ?: 'Direction Régionale RABAT-SALÉ-KENITRA';
+$dureeMin = (int)$evalInfo['duree_minutes'];
 $dureeStr = $dureeMin ? $dureeMin . ' min' : '';
 
 $logoPath = __DIR__ . '/../assets/img/logo_efm.png';
@@ -157,7 +172,6 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
 
         /* ── Questions ── */
         hr.section-sep { border: none; border-top: 2px solid #000; margin: 2mm 0 3mm; }
-        .partie-titre { font-weight: bold; font-size: 10pt; background: #f0f0f0; padding: 3px 6px; margin: 10px 0 4px; border-left: 3px solid #000; }
         .question { margin: 6px 0; padding: 5px 8px; border: 1px solid #ccc; page-break-inside: avoid; }
         .q-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
         .q-num  { font-weight: bold; font-size: 10pt; flex-shrink: 0; }

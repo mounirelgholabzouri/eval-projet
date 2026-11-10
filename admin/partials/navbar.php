@@ -1,6 +1,9 @@
 <?php
 /* ── Script inline précoce : applique la classe de largeur AVANT le rendu ── */
 echo '<script>(function(){var w=localStorage.getItem("admin-width")||"";if(w&&["w-wide","w-normal","w-compact"].indexOf(w)>=0)document.body.classList.add(w);})();</script>';
+// Jeton CSRF ajouté à tous les fetch() POST de l'administration (API comprises)
+echo '<script>(function(){var t=' . json_encode(csrfToken()) . ',f=window.fetch;window.CSRF_TOKEN=t;'
+   . 'window.fetch=function(u,o){o=o||{};if((o.method||"GET").toUpperCase()!=="GET"){var h=new Headers(o.headers||{});h.set("X-CSRF-Token",t);o.headers=h;}return f.call(this,u,o);};})();</script>';
 
 $currentPage = basename($_SERVER['PHP_SELF']);
 $etabNavbar  = !empty($_SESSION['admin_etablissement_nom'])
@@ -10,43 +13,31 @@ $etabNavbar  = !empty($_SESSION['admin_etablissement_nom'])
 $navItems = [
     ['file' => 'index.php',          'icon' => 'bi-speedometer2',     'label' => 'Dashboard'],
     ['file' => 'modules.php',        'icon' => 'bi-journal-text',      'label' => 'Modules'],
+    ['file' => 'evaluations.php',    'icon' => 'bi-clipboard-check',   'label' => 'Évaluations CC/EFM'],
     ['file' => 'gestion_questions.php', 'icon' => 'bi-question-circle', 'label' => 'Questions'],
-    ['file' => 'banque_questions.php',  'icon' => 'bi-archive',          'label' => 'Banque Q'],
     ['file' => 'groupes_emploi.php',  'icon' => 'bi-people',            'label' => 'Groupes'],
     ['file' => 'stagiaires.php',     'icon' => 'bi-person-lines-fill', 'label' => 'Stagiaires'],
     ['file' => 'formateurs_emploi.php', 'icon' => 'bi-person-badge',   'label' => 'Formateurs'],
-    ['file' => 'sessions_view.php',  'icon' => 'bi-calendar-check',    'label' => 'Sessions'],
-    ['file' => 'results.php',        'icon' => 'bi-bar-chart',         'label' => 'Résultats'],
     ['file' => 'etablissements.php', 'icon' => 'bi-building',          'label' => 'Établissements'],
 ];
 
 $dropdowns = [
-    'audit' => [
-        'icon' => 'bi-clipboard-data', 'label' => 'Gestion CC/EFM',
-        'files' => ['gestion_impression.php'],
+    'resultats' => [
+        'icon' => 'bi-bar-chart', 'label' => 'Résultats',
+        'files' => ['results.php', 'sessions_view.php', 'gestion_impression.php', 'detail.php'],
         'items' => [
-            ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc1_pratique',  'type' => 'cc1_pratique',  'icon' => 'bi-1-circle-fill', 'label' => 'CC1 Pratique'],
-            ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc2_pratique',  'type' => 'cc2_pratique',  'icon' => 'bi-2-circle-fill', 'label' => 'CC2 Pratique'],
-            ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=cc3_theorique', 'type' => 'cc3_theorique', 'icon' => 'bi-3-circle-fill', 'label' => 'CC3 Théorique'],
-            ['file' => 'gestion_impression.php', 'href' => 'gestion_impression.php?type=efm',           'type' => 'efm',           'icon' => 'bi-award-fill',    'label' => 'EFM'],
-        ],
-    ],
-    'efm' => [
-        'icon' => 'bi-intersect', 'label' => 'Fusion / EFM',
-        'files' => ['fusion.php', 'print_efm_result.php'],
-        'items' => [
-            ['file' => 'fusion.php',           'icon' => 'bi-intersect', 'label' => 'Fusion / EFM'],
-            ['file' => 'print_efm_result.php', 'icon' => 'bi-printer',   'label' => 'Résultats EFM'],
+            ['file' => 'results.php',            'icon' => 'bi-list-ul',        'label' => 'Sessions'],
+            ['file' => 'sessions_view.php',      'icon' => 'bi-calendar-check', 'label' => 'Sessions par jour'],
+            ['file' => 'gestion_impression.php', 'icon' => 'bi-table',          'label' => 'Notes par groupe'],
         ],
     ],
     'ia' => [
         'icon' => 'bi-robot', 'label' => 'IA',
-        'files' => ['generate.php', 'config_ia.php', 'ia_pile.php', 'agent_eval.php'],
+        'files' => ['generate.php', 'agent_eval.php'],
         'items' => [
-            ['file' => 'generate.php',   'icon' => 'bi-robot',        'label' => 'Génération IA'],
-            ['file' => 'agent_eval.php', 'icon' => 'bi-magic',        'label' => 'Agent IA'],
-            ['file' => 'config_ia.php',  'icon' => 'bi-gear',         'label' => 'Config IA'],
-            ['file' => 'ia_pile.php',    'icon' => 'bi-layers',       'label' => 'Pile IA'],
+            ['file' => 'generate.php',   'href' => 'generate.php',            'tab' => 'generate', 'icon' => 'bi-stars',  'label' => 'Générer des questions'],
+            ['file' => 'agent_eval.php',                                                         'icon' => 'bi-magic',  'label' => 'Composer une évaluation'],
+            ['file' => 'generate.php',   'href' => 'generate.php?tab=config', 'tab' => 'config',   'icon' => 'bi-gear',   'label' => 'Configuration', 'admin' => true],
         ],
     ],
 ];
@@ -90,10 +81,11 @@ function renderSidebarContent(array $navItems, array $dropdowns, string $current
         </button>
         <div class="collapse <?= $isOpen ? 'show' : '' ?>" id="sb-dd-<?= $prefix ?>-<?= $key ?>">
             <?php foreach ($dd['items'] as $it):
+                if (!empty($it['admin']) && function_exists('isAdmin') && !isAdmin()) continue;
                 $href = $it['href'] ?? $it['file'];
                 $isActive = ($currentPage === $it['file']);
-                if ($isActive && isset($it['type'])) {
-                    $isActive = (($_GET['type'] ?? 'efm') === $it['type']);
+                if ($isActive && isset($it['tab'])) {
+                    $isActive = (($_GET['tab'] ?? 'generate') === $it['tab']);
                 }
             ?>
             <a href="<?= $href ?>"

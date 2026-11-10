@@ -14,6 +14,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_sessio
             supprimerSession($delId);
             $redirectParams = array_filter([
                 'module_id'  => (int)($_GET['module_id'] ?? 0) ?: null,
+                'evaluation_id' => (int)($_GET['evaluation_id'] ?? 0) ?: null,
                 'groupe_id'  => (int)($_GET['groupe_id'] ?? 0) ?: null,
                 'statut'     => $_GET['statut']     ?? null,
                 'date_from'  => $_GET['date_from']  ?? null,
@@ -51,6 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
             }
             $redirectParams = array_filter([
                 'module_id'  => (int)($_GET['module_id'] ?? 0) ?: null,
+                'evaluation_id' => (int)($_GET['evaluation_id'] ?? 0) ?: null,
                 'groupe_id'  => (int)($_GET['groupe_id'] ?? 0) ?: null,
                 'statut'     => $_GET['statut']     ?? null,
                 'date_from'  => $_GET['date_from']  ?? null,
@@ -66,6 +68,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
 
 // Filtres
 $filterModule    = (int)($_GET['module_id'] ?? 0);
+$filterEvaluation = (int)($_GET['evaluation_id'] ?? 0);
+if ($filterEvaluation && ($evalFiltree = getEvaluation($filterEvaluation))) {
+    $filterModule = (int)$evalFiltree['module_id'];
+} else {
+    $filterEvaluation = 0;
+    $evalFiltree = null;
+}
 $filterGroupeId  = (int)($_GET['groupe_id'] ?? 0);
 $filterGroupe    = trim($_GET['groupe'] ?? '');
 $filterStatut    = $_GET['statut'] ?? '';
@@ -74,7 +83,12 @@ $filterDateFrom  = trim($_GET['date_from'] ?? '');
 $filterDateTo    = trim($_GET['date_to'] ?? '');
 $filterHourFrom  = trim($_GET['hour_from'] ?? '');
 $filterHourTo    = trim($_GET['hour_to'] ?? '');
-$filterCategorie = in_array($_GET['categorie'] ?? '', ['efm','cc_theorique','cc_pratique']) ? $_GET['categorie'] : '';
+const CATEG_COND = [
+    'efm'          => "e.type = 'efm'",
+    'cc_theorique' => "e.type = 'cc' AND e.mode = 'theorique'",
+    'cc_pratique'  => "e.type = 'cc' AND e.mode = 'pratique'",
+];
+$filterCategorie = isset(CATEG_COND[$_GET['categorie'] ?? '']) ? $_GET['categorie'] : '';
 
 $datePattern = '/^\d{4}-\d{2}-\d{2}$/';
 $timePattern = '/^\d{2}:\d{2}$/';
@@ -85,6 +99,7 @@ if (!preg_match($timePattern, $filterHourTo))   $filterHourTo = '';
 
 $activeFilters = array_filter([
     'module_id'  => $filterModule ?: null,
+    'evaluation_id' => $filterEvaluation ?: null,
     'groupe_id'  => $filterGroupeId ?: null,
     'groupe'     => $filterGroupe ?: null,
     'statut'     => $filterStatut ?: null,
@@ -146,10 +161,11 @@ if (isset($_GET['export'])) {
     $csvWhere  = ['1=1'];
     $csvParams = [];
     if ($filterModule > 0)   { $csvWhere[] = 'e.module_id = ?'; $csvParams[] = $filterModule; }
+    if ($filterEvaluation)   { $csvWhere[] = 's.evaluation_id = ?'; $csvParams[] = $filterEvaluation; }
     if ($filterGroupeId > 0) { $csvWhere[] = 's.groupe_id = ?'; $csvParams[] = $filterGroupeId; }
     elseif ($filterGroupe)   { $csvWhere[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $csvParams[] = "%$filterGroupe%"; $csvParams[] = "%$filterGroupe%"; }
     if ($filterStatut)       { $csvWhere[] = "s.statut = ?"; $csvParams[] = $filterStatut; }
-    if ($filterCategorie)    { $csvWhere[] = "e.categorie = ?"; $csvParams[] = $filterCategorie; }
+    if ($filterCategorie)    { $csvWhere[] = CATEG_COND[$filterCategorie]; }
     if ($filterDateFrom)     { $csvWhere[] = "DATE(s.date_debut) >= ?"; $csvParams[] = $filterDateFrom; }
     if ($filterDateTo)       { $csvWhere[] = "DATE(s.date_debut) <= ?"; $csvParams[] = $filterDateTo; }
     if ($filterHourFrom)     { $csvWhere[] = "TIME(s.date_debut) >= ?"; $csvParams[] = $filterHourFrom . ':00'; }
@@ -168,7 +184,7 @@ if (isset($_GET['export'])) {
         SELECT COALESCE(st.nom,    s.nom)    AS nom,
                COALESCE(st.prenom, s.prenom) AS prenom,
                COALESCE(g.nom, s.groupe_libre) AS groupe,
-               m.nom AS module,
+               e.nom AS module,
                s.date_debut, s.score, s.total_points, s.pourcentage, s.statut
         FROM sessions_eval s
         JOIN evaluations e ON e.id = s.evaluation_id
@@ -198,10 +214,11 @@ $where  = ['1=1'];
 $params = [];
 
 if ($filterModule > 0) { $where[] = 'e.module_id = ?'; $params[] = $filterModule; }
+if ($filterEvaluation) { $where[] = 's.evaluation_id = ?'; $params[] = $filterEvaluation; }
 if ($filterGroupeId > 0) { $where[] = 's.groupe_id = ?'; $params[] = $filterGroupeId; }
 elseif ($filterGroupe) { $where[] = "(g.nom LIKE ? OR s.groupe_libre LIKE ?)"; $params[] = "%$filterGroupe%"; $params[] = "%$filterGroupe%"; }
 if ($filterStatut)     { $where[] = "s.statut = ?"; $params[] = $filterStatut; }
-if ($filterCategorie)  { $where[] = "e.categorie = ?"; $params[] = $filterCategorie; }
+if ($filterCategorie)  { $where[] = CATEG_COND[$filterCategorie]; }
 if ($filterDateFrom)   { $where[] = "DATE(s.date_debut) >= ?"; $params[] = $filterDateFrom; }
 if ($filterDateTo)     { $where[] = "DATE(s.date_debut) <= ?"; $params[] = $filterDateTo; }
 if ($filterHourFrom)   { $where[] = "TIME(s.date_debut) >= ?"; $params[] = $filterHourFrom . ':00'; }
@@ -223,7 +240,7 @@ $stmt = $pdo->prepare("
     SELECT s.*,
            COALESCE(st.nom,    s.nom)    AS nom,
            COALESCE(st.prenom, s.prenom) AS prenom,
-           m.nom AS module_nom, e.type AS module_type, COALESCE(e.note_max, 20) AS note_max,
+           e.nom AS module_nom, e.type AS module_type, COALESCE(e.note_max, 20) AS note_max,
            COALESCE(g.nom, s.groupe_libre) AS groupe_nom,
            (SELECT COUNT(*) FROM reponses_stagiaires rs JOIN questions q ON q.id=rs.question_id
             WHERE rs.session_id=s.id AND q.type='texte_libre') AS nb_tl,
@@ -237,43 +254,37 @@ $stmt = $pdo->prepare("
     LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
     LEFT JOIN groupes    g  ON g.id  = s.groupe_id
     WHERE $whereStr
-    ORDER BY $orderBy
-    LIMIT 200
+    ORDER BY m.code IS NULL, m.code, m.id, e.type = 'efm', e.mode = 'pratique', e.numero, e.id, $orderBy
+    LIMIT 500
 ");
 $stmt->execute($params);
 $sessions = $stmt->fetchAll();
 
 $allModules = getAllModules();
 $allGroupes = getGroupes();
+$evaluationsModule = $filterModule ? getEvaluationsModule($filterModule) : [];
 
-// Déterminer si le module filtré est un EFM et construire l'URL d'impression
-$filteredModuleIsEfm = false;
+// Regroupement par évaluation (CC1, CC2, EFM…)
+$groupesEval = [];
+foreach ($sessions as $s) {
+    $eid = (int)$s['evaluation_id'];
+    if (!isset($groupesEval[$eid])) {
+        $groupesEval[$eid] = ['nom' => $s['module_nom'], 'type' => $s['module_type'], 'note_max' => (int)$s['note_max'], 'sessions' => []];
+    }
+    $groupesEval[$eid]['sessions'][] = $s;
+}
+
+// Sujet EFM de l'évaluation / du module filtré (impression)
 $printEfmUrl = '';
 if ($filterModule) {
-    foreach ($allModules as $m) {
-        if ((int)$m['id'] === $filterModule && ($m['type'] ?? '') === 'efm') {
-            $filteredModuleIsEfm = true;
-            $dureeMin = (int)($m['duree_minutes'] ?? 0);
-            $dureeStr = $dureeMin >= 60
-                ? floor($dureeMin/60).'h'.($dureeMin%60>0 ? sprintf('%02d',$dureeMin%60) : '')
-                : ($dureeMin > 0 ? $dureeMin.' min' : '');
-            $printEfmUrl = 'print_efm.php?' . http_build_query([
-                'module_id'     => $filterModule,
-                'shuffle'       => 0,
-                'shuffle_choix' => 0,
-                'corrige'       => 0,
-                'code_module'   => $m['efm_code_module']   ?? '',
-                'filiere'       => $m['efm_filiere']        ?? '',
-                'etablissement' => $m['efm_etablissement']  ?? '',
-                'annee'         => $m['efm_annee']          ?? '',
-                'note_max'      => (int)($m['note_max']     ?? 40),
-                'intitule'      => $m['nom'],
-                'duree'         => $dureeStr,
-            ]);
+    foreach ($evaluationsModule as $e) {
+        if ($e['type'] === 'efm' && (!$filterEvaluation || $e['id'] == $filterEvaluation)) {
+            $printEfmUrl = 'print_efm.php?' . http_build_query(['evaluation_id' => $e['id'], 'shuffle' => 0, 'shuffle_choix' => 0]);
             break;
         }
     }
 }
+$filteredModuleIsEfm = $printEfmUrl !== '';
 $stats = getStatsGlobales();
 ?>
 <!DOCTYPE html>
@@ -315,7 +326,7 @@ $stats = getStatsGlobales();
                 <i class="bi bi-file-earmark-pdf me-2"></i>Générer tous les PDFs EFM
             </a>
             <?php else: ?>
-            <a href="print_exams.php?module_id=<?= $filterModule ?><?= $filterGroupe ? '&groupe='.urlencode($filterGroupe) : '' ?>"
+            <a href="print_exams.php?module_id=<?= $filterModule ?><?= $filterEvaluation ? '&evaluation_id=' . $filterEvaluation : '' ?><?= $filterGroupe ? '&groupe='.urlencode($filterGroupe) : '' ?>"
                target="_blank" class="btn btn-dark">
                 <i class="bi bi-printer me-2"></i>Imprimer les tests
             </a>
@@ -378,15 +389,29 @@ $stats = getStatsGlobales();
                 <div>
                     <label class="form-label small fw-semibold mb-1">Module</label>
                     <select name="module_id" class="form-select form-select-sm" style="min-width:200px"
-                            onchange="this.form.submit()">
+                            onchange="if (this.form.evaluation_id) this.form.evaluation_id.value = ''; this.form.submit()">
                         <option value="">Tous les modules</option>
                         <?php foreach ($allModules as $m): ?>
                         <option value="<?= $m['id'] ?>" <?= $m['id'] == $filterModule ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($m['nom']) ?>
+                            <?= htmlspecialchars($m['libelle']) ?>
                         </option>
                         <?php endforeach; ?>
                     </select>
                 </div>
+                <?php if ($filterModule): ?>
+                <div>
+                    <label class="form-label small fw-semibold mb-1">Évaluation</label>
+                    <select name="evaluation_id" class="form-select form-select-sm" style="min-width:220px"
+                            onchange="this.form.submit()">
+                        <option value="">Toutes (groupées par évaluation)</option>
+                        <?php foreach ($evaluationsModule as $e): ?>
+                        <option value="<?= $e['id'] ?>" <?= $e['id'] == $filterEvaluation ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($e['nom']) ?> (<?= (int)$e['nb_sessions'] ?>)
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php endif; ?>
                 <div>
                     <label class="form-label small fw-semibold mb-1">Groupe</label>
                     <select name="groupe_id" class="form-select form-select-sm" style="min-width:190px" onchange="this.form.submit()">
@@ -481,7 +506,7 @@ $stats = getStatsGlobales();
                         </th>
                         <th class="ps-4"><?= makeSortTh('nom',    'Stagiaire', $sortCol, $sortDir, $activeFilters) ?></th>
                         <th><?= makeSortTh('groupe', 'Groupe',    $sortCol, $sortDir, $activeFilters) ?></th>
-                        <th><?= makeSortTh('module', 'Module',    $sortCol, $sortDir, $activeFilters) ?></th>
+                        <th><?= makeSortTh('module', 'Évaluation', $sortCol, $sortDir, $activeFilters) ?></th>
                         <th><?= makeSortTh('date',   'Date / heure', $sortCol, $sortDir, $activeFilters) ?></th>
                         <th class="text-center"><?= makeSortTh('score', 'Score', $sortCol, $sortDir, $activeFilters) ?></th>
                         <th class="text-center"><?= makeSortTh('score', '%',     $sortCol, $sortDir, $activeFilters) ?></th>
@@ -496,9 +521,38 @@ $stats = getStatsGlobales();
                     <?php if (empty($sessions)): ?>
                     <tr><td colspan="12" class="text-center text-muted py-4">Aucun résultat trouvé</td></tr>
                     <?php endif; ?>
-                    <?php foreach ($sessions as $s): ?>
+                    <?php foreach ($groupesEval as $eid => $grp):
+                        $termGrp = array_filter($grp['sessions'], fn($x) => $x['statut'] === 'termine');
+                        $moyGrp  = $termGrp ? array_sum(array_map(fn($x) => arrondiNote((float)$x['score'], (float)$x['total_points'], $grp['note_max']), $termGrp)) / count($termGrp) : null;
+                        $reussGrp = count(array_filter($termGrp, fn($x) => $x['pourcentage'] >= 50));
+                    ?>
+                    <tr class="table-primary">
+                        <td class="ps-4">
+                            <input type="checkbox" class="form-check-input" title="Sélectionner cette évaluation"
+                                   onchange="toggleGroupe(<?= $eid ?>, this.checked)">
+                        </td>
+                        <td colspan="11" class="py-2">
+                            <div class="d-flex align-items-center gap-3 flex-wrap">
+                                <span class="fw-bold">
+                                    <i class="bi <?= $grp['type'] === 'efm' ? 'bi-award' : 'bi-journal-check' ?> me-1"></i><?= htmlspecialchars($grp['nom']) ?>
+                                </span>
+                                <span class="badge bg-white text-dark border"><?= count($grp['sessions']) ?> stagiaire(s)</span>
+                                <?php if ($moyGrp !== null): ?>
+                                <span class="badge bg-white text-success border">Moyenne <?= number_format($moyGrp, 2) ?> / <?= $grp['note_max'] ?></span>
+                                <span class="badge bg-white text-warning border"><?= $reussGrp ?> / <?= count($termGrp) ?> réussi(s)</span>
+                                <?php endif; ?>
+                                <?php if (!$filterEvaluation): ?>
+                                <a href="results.php?<?= htmlspecialchars(http_build_query(array_merge($activeFilters, ['evaluation_id' => $eid]))) ?>"
+                                   class="btn btn-sm btn-outline-primary py-0 ms-auto">
+                                    <i class="bi bi-funnel me-1"></i>Afficher seulement
+                                </a>
+                                <?php endif; ?>
+                            </div>
+                        </td>
+                    </tr>
+                    <?php foreach ($grp['sessions'] as $s): ?>
                     <?php $mention = getMention((float)$s['pourcentage']); ?>
-                    <tr>
+                    <tr data-eval="<?= $eid ?>">
                         <td class="ps-4">
                             <input type="checkbox" class="form-check-input result-checkbox" value="<?= $s['id'] ?>" onchange="updateBulkActionBar()">
                         </td>
@@ -611,6 +665,7 @@ $stats = getStatsGlobales();
                         </td>
                     </tr>
                     <?php endforeach; ?>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
@@ -676,6 +731,11 @@ function toggleSelectAll() {
     document.querySelectorAll('.result-checkbox').forEach(cb => {
         cb.checked = selectAll.checked;
     });
+    updateBulkActionBar();
+}
+
+function toggleGroupe(evalId, checked) {
+    document.querySelectorAll('tr[data-eval="' + evalId + '"] .result-checkbox').forEach(cb => cb.checked = checked);
     updateBulkActionBar();
 }
 

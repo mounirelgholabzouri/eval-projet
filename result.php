@@ -36,7 +36,7 @@ unset($_SESSION['eval_session_id'], $_SESSION['eval_session_token'], $_SESSION['
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Résultats — <?= sanitize($session['module_nom']) ?></title>
+    <title>Résultats — <?= sanitize($session['evaluation_nom']) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="assets/css/style.css" rel="stylesheet">
@@ -62,8 +62,7 @@ unset($_SESSION['eval_session_id'], $_SESSION['eval_session_token'], $_SESSION['
             <h2 class="fw-bold mb-1"><?= $mention['label'] ?></h2>
             <?php
             // Convertir le score sur la note max du module (20 ou 40)
-            $module   = getModule((int)$session['module_id']);
-            $noteMax  = (int)($module['note_max'] ?? 20);
+            $noteMax  = (int)($session['note_max'] ?? 20);
             $total    = (float)$session['total_points'];
             $scoreRaw = (float)$session['score'];
             $scoreSur = $total > 0 ? round($scoreRaw / $total * $noteMax, 2) : 0;

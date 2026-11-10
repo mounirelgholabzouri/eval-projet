@@ -22,7 +22,6 @@ $efmModules = $modules;
         .step-card { border: 2px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 20px; transition: border-color .2s; }
         .step-card.active { border-color: #6366f1; }
         .preview-q { border-left: 3px solid #6366f1; padding: 8px 12px; margin: 6px 0; background: #f8f9ff; border-radius: 0 6px 6px 0; font-size: 13px; }
-        .preview-partie { font-weight: 700; font-size: 13px; text-transform: uppercase; letter-spacing: .5px; color: #6366f1; margin-top: 14px; margin-bottom: 4px; }
         .badge-type { font-size: 10px; padding: 2px 6px; border-radius: 4px; }
         .spinner-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 9999; align-items: center; justify-content: center; flex-direction: column; color: #fff; }
         .spinner-overlay.show { display: flex; }
@@ -311,14 +310,10 @@ function renderPreview(data) {
 
     document.getElementById('prevTitre').textContent = data.titre || '—';
 
-    if (data.type === 'continue') {
-        document.getElementById('prevMeta').textContent =
-            (data.nb_questions || 0) + ' questions · ' + (data.duree_min || '—') + ' min · /' + (data.note_max || 20);
-    } else {
-        const total = (data.parties || []).reduce((s, p) => s + (p.questions || []).length, 0);
-        document.getElementById('prevMeta').textContent =
-            total + ' questions · ' + (data.parties || []).length + ' partie(s) · EFM';
-    }
+    const nbQ = (data.questions || []).length;
+    document.getElementById('prevMeta').textContent = data.type === 'continue'
+        ? nbQ + ' questions · ' + (data.duree_min || '—') + ' min · /' + (data.note_max || 20) + ' · CC'
+        : nbQ + ' questions · EFM';
 
     document.getElementById('prevConsignes').textContent = data.consignes || '';
 
@@ -330,30 +325,15 @@ function renderPreview(data) {
         return `<span class="badge badge-type ${map[t] || 'bg-secondary'}">${t}</span>`;
     };
 
-    if (data.type === 'continue') {
-        (data.questions || []).forEach((q, i) => {
-            container.innerHTML += `
-                <div class="preview-q">
-                    <span class="text-muted me-2">${i + 1}.</span>
-                    ${escHtml(q.texte_court || q.texte || '—')}
-                    <span class="ms-2">${typeBadge(q.type)}</span>
-                    <span class="text-muted ms-1 small">${q.points} pt</span>
-                </div>`;
-        });
-    } else {
-        (data.parties || []).forEach(p => {
-            container.innerHTML += `<div class="preview-partie"><i class="bi bi-folder me-1"></i>${escHtml(p.titre)}</div>`;
-            (p.questions || []).forEach((q, i) => {
-                container.innerHTML += `
-                    <div class="preview-q">
-                        <span class="text-muted me-2">${i + 1}.</span>
-                        ${escHtml(q.texte_court || q.texte || '—')}
-                        <span class="ms-2">${typeBadge(q.type)}</span>
-                        <span class="text-muted ms-1 small">${q.points} pt</span>
-                    </div>`;
-            });
-        });
-    }
+    (data.questions || []).forEach((q, i) => {
+        container.innerHTML += `
+            <div class="preview-q">
+                <span class="text-muted me-2">${i + 1}.</span>
+                ${escHtml(q.texte_court || q.texte || '—')}
+                <span class="ms-2">${typeBadge(q.type)}</span>
+                <span class="text-muted ms-1 small">${escHtml(q.points ?? '')} pt</span>
+            </div>`;
+    });
 }
 
 async function validerEval() {
@@ -380,13 +360,8 @@ async function validerEval() {
 
         const links = document.getElementById('successLinks');
         links.innerHTML = '';
-        if (result.type === 'efm') {
-            links.innerHTML = `<a href="modules.php" class="btn btn-sm btn-outline-primary"><i class="bi bi-box me-1"></i>Voir les modules</a>
-                               <a href="fusion.php" class="btn btn-sm btn-primary"><i class="bi bi-award me-1"></i>Gérer l'EFM</a>`;
-        } else {
-            links.innerHTML = `<a href="results.php" class="btn btn-sm btn-outline-primary"><i class="bi bi-table me-1"></i>Voir les résultats</a>
-                               <a href="agent_eval.php" class="btn btn-sm btn-primary"><i class="bi bi-robot me-1"></i>Nouvelle évaluation</a>`;
-        }
+        links.innerHTML = `<a href="evaluations.php?action=edit&id=${parseInt(result.evaluation_id, 10)}" class="btn btn-sm btn-primary"><i class="bi bi-clipboard-check me-1"></i>Ouvrir l'évaluation</a>
+                           <a href="agent_eval.php" class="btn btn-sm btn-outline-primary"><i class="bi bi-robot me-1"></i>Nouvelle génération</a>`;
     } catch (e) {
         hideSpinner();
         alert('Erreur réseau : ' + e.message);

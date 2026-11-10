@@ -24,11 +24,10 @@ try {
 
 // Tables à synchroniser : [table => colonnes à mettre à jour]
 $tables = [
-    'modules' => ['nom', 'description', 'duree_minutes', 'actif', 'type'],
-    'parties' => ['module_id', 'nom', 'ordre', 'actif'],
-    'questions' => ['module_id', 'partie_id', 'texte', 'type', 'points', 'ordre'],
+    'modules' => ['code', 'filiere', 'nom', 'description', 'actif'],
+    'evaluations' => ['nom', 'contenu'],
+    'questions' => ['module_id', 'texte', 'type', 'points', 'ordre'],
     'choix_reponses' => ['question_id', 'texte', 'is_correct', 'ordre'],
-    'modules_efm_meta' => ['module_id', 'code_module', 'filiere', 'etablissement', 'annee'],
 ];
 
 $pdo->exec("SET NAMES utf8mb4");

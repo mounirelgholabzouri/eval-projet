@@ -1,170 +1,73 @@
 <?php
+/**
+ * Enregistre la proposition de l'agent IA comme évaluation (inactive) :
+ *  - type "continue" → CC théorique du module choisi
+ *  - type "efm"      → EFM rattaché au premier module sélectionné
+ * Les questions de la banque sont liées, pas recopiées.
+ */
 require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
 $input = json_decode(file_get_contents('php://input'), true);
-if (!$input) {
+if (!$input || !in_array($input['type'] ?? '', ['continue', 'efm'], true)) {
     echo json_encode(['error' => 'Données invalides.']);
     exit;
 }
 
-$type = $input['type'] ?? '';
-$pdo  = getDB();
+$isEfm    = $input['type'] === 'efm';
+$moduleId = $isEfm ? (int)($input['module_ids'][0] ?? 0) : (int)($input['module_id'] ?? 0);
+$ids      = array_values(array_unique(array_filter(array_map(fn($q) => (int)($q['id'] ?? 0), $input['questions'] ?? []))));
 
-// ============================================================
-// SAUVEGARDE — Évaluation Continue
-// Crée un module type='qcm' dédié à cette session
-// ============================================================
-if ($type === 'continue') {
-    $titre       = trim($input['titre'] ?? 'Évaluation Continue');
-    $groupeId    = (int)($input['groupe_id'] ?? 0);
-    $moduleId    = (int)($input['module_id'] ?? 0);
-    $dureeMin    = (int)($input['duree_min'] ?? 30);
-    $noteMax     = (int)($input['note_max'] ?? 20);
-    $questions   = $input['questions'] ?? [];
+if ($moduleId <= 0 || !getModule($moduleId) || !$ids) {
+    echo json_encode(['error' => 'Données incomplètes (module ou questions manquants).']);
+    exit;
+}
 
-    if (empty($questions) || $moduleId <= 0) {
-        echo json_encode(['error' => 'Données incomplètes.']);
-        exit;
+// Seules des questions existantes (des modules sélectionnés) sont acceptées
+$modulesAutorises = $isEfm ? array_map('intval', $input['module_ids']) : [$moduleId];
+$ph1 = implode(',', array_fill(0, count($ids), '?'));
+$ph2 = implode(',', array_fill(0, count($modulesAutorises), '?'));
+$check = getDB()->prepare("SELECT COUNT(*) FROM questions WHERE id IN ($ph1) AND module_id IN ($ph2)");
+$check->execute(array_merge($ids, $modulesAutorises));
+if ((int)$check->fetchColumn() !== count($ids)) {
+    echo json_encode(['error' => "Certaines questions proposées n'existent pas dans les modules sélectionnés."]);
+    exit;
+}
+
+$numero = null;
+if (!$isEfm) {
+    $numero = 1;
+    foreach (getEvaluationsModule($moduleId) as $e) {
+        if ($e['type'] === 'cc' && $e['mode'] === 'theorique') $numero = max($numero, (int)$e['numero'] + 1);
     }
+}
 
-    // Vérifier que les IDs de questions existent bien
-    $ids = array_map(fn($q) => (int)$q['id'], $questions);
-    $placeholders = implode(',', array_fill(0, count($ids), '?'));
-    $check = $pdo->prepare("SELECT COUNT(*) FROM questions WHERE id IN ($placeholders) AND module_id = ?");
-    $check->execute(array_merge($ids, [$moduleId]));
-    if ((int)$check->fetchColumn() !== count($ids)) {
-        echo json_encode(['error' => 'Certaines questions n\'appartiennent pas au module.']);
-        exit;
-    }
-
-    // Récupérer le module source pour nommer la session
-    $mod = $pdo->prepare("SELECT nom FROM modules WHERE id=?");
-    $mod->execute([$moduleId]);
-    $modNom = $mod->fetchColumn();
-
-    // Créer une session_eval pré-remplie (sans stagiaire = session modèle admin)
-    $token = bin2hex(random_bytes(16));
-    // Résoudre evaluation_id depuis module_id (première évaluation active du module)
-    $evalLookup = $pdo->prepare("SELECT id FROM evaluations WHERE module_id = ? ORDER BY id ASC LIMIT 1");
-    $evalLookup->execute([$moduleId]);
-    $resolvedEvalId = $evalLookup->fetchColumn() ?: null;
-    $stmt = $pdo->prepare("
-        INSERT INTO sessions_eval (token, nom, prenom, groupe_id, evaluation_id, statut, total_points)
-        VALUES (?, ?, ?, ?, ?, 'en_cours', ?)
-    ");
-    $totalPoints = array_sum(array_column($questions, 'points'));
-    $stmt->execute([$token, '[AGENT] ' . $titre, $modNom, $groupeId ?: null, $resolvedEvalId, $totalPoints]);
-    $sessionId = (int)$pdo->lastInsertId();
-
+try {
+    $evalId = creerEvaluation([
+        'module_id'     => $moduleId,
+        'type'          => $isEfm ? 'efm' : 'cc',
+        'mode'          => 'theorique',
+        'numero'        => $numero,
+        'contenu'       => trim((string)($input['titre'] ?? '')),
+        'duree_minutes' => $isEfm ? 120 : (int)($input['duree_min'] ?? 30),
+        'note_max'      => $isEfm ? 40 : (int)($input['note_max'] ?? 20),
+        'meta'          => $isEfm ? array_filter([
+            'etablissement' => trim((string)($input['etablissement'] ?? '')),
+            'annee'         => trim((string)($input['annee'] ?? '')),
+        ]) : null,
+        'actif'         => false,
+        'question_ids'  => $ids,
+    ]);
+    $eval = getEvaluation($evalId);
     echo json_encode([
-        'success'    => true,
-        'type'       => 'continue',
-        'session_id' => $sessionId,
-        'message'    => 'Évaluation continue créée (session #' . $sessionId . ').',
-        'nb_questions' => count($questions),
+        'success'       => true,
+        'type'          => $input['type'],
+        'evaluation_id' => $evalId,
+        'nb_questions'  => count($ids),
+        'message'       => 'Évaluation « ' . $eval['nom'] . ' » créée (inactive) avec ' . count($ids) . ' questions.',
     ], JSON_UNESCAPED_UNICODE);
-    exit;
+} catch (Throwable $e) {
+    echo json_encode(['error' => 'Erreur DB : ' . $e->getMessage()]);
 }
-
-// ============================================================
-// SAUVEGARDE — EFM
-// Crée un module type='efm' + parties + recopie question_ids
-// ============================================================
-if ($type === 'efm') {
-    $titre        = trim($input['titre'] ?? 'EFM');
-    $groupeId     = (int)($input['groupe_id'] ?? 0);
-    $codeModule   = trim($input['code_module'] ?? '');
-    $filiere      = trim($input['filiere'] ?? '');
-    $etablissement = trim($input['etablissement'] ?? '');
-    $annee        = trim($input['annee'] ?? '');
-    $parties      = $input['parties'] ?? [];
-
-    if (empty($parties)) {
-        echo json_encode(['error' => 'Aucune partie définie.']);
-        exit;
-    }
-
-    $pdo->beginTransaction();
-    try {
-        // 1. Module contenu
-        $stmt = $pdo->prepare("INSERT INTO modules (nom, description, actif) VALUES (?, ?, 1)");
-        $stmt->execute([$titre, 'Généré par agent IA — ' . date('d/m/Y H:i')]);
-        $newModuleId = (int)$pdo->lastInsertId();
-
-        // 2. Évaluation EFM avec métadonnées dans meta_json
-        $metaJson = json_encode([
-            'code_module'   => $codeModule,
-            'filiere'       => $filiere,
-            'etablissement' => $etablissement,
-            'annee'         => $annee,
-        ], JSON_UNESCAPED_UNICODE);
-        $stmt = $pdo->prepare("
-            INSERT INTO evaluations (module_id, nom, type, note_max, meta_json, actif)
-            VALUES (?, ?, 'efm', 20, ?, 1)
-        ");
-        $stmt->execute([$newModuleId, $titre, $metaJson]);
-
-        $totalQuestions = 0;
-        $ordre = 0;
-
-        foreach ($parties as $pi => $partie) {
-            $partieQuestions = $partie['questions'] ?? [];
-            if (empty($partieQuestions)) continue;
-
-            // 3. Créer la partie dans le nouveau module
-            $stmt = $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, ?, ?, 1)");
-            $stmt->execute([$newModuleId, $partie['titre'], $pi]);
-            $partieId = (int)$pdo->lastInsertId();
-
-            // 4. Dupliquer les questions dans le nouveau module (copie physique)
-            foreach ($partieQuestions as $qi => $qRef) {
-                $qId = (int)$qRef['id'];
-                $src = $pdo->prepare("SELECT * FROM questions WHERE id=?");
-                $src->execute([$qId]);
-                $qSrc = $src->fetch();
-                if (!$qSrc) continue;
-
-                $stmt = $pdo->prepare("
-                    INSERT INTO questions (module_id, partie_id, texte, type, points, ordre)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                ");
-                $stmt->execute([$newModuleId, $partieId, $qSrc['texte'], $qSrc['type'], $qSrc['points'], $qi + 1]);
-                $newQId = (int)$pdo->lastInsertId();
-
-                // Copier les choix de réponses
-                $choix = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id=? ORDER BY ordre");
-                $choix->execute([$qId]);
-                foreach ($choix->fetchAll() as $c) {
-                    $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?,?,?,?)")
-                        ->execute([$newQId, $c['texte'], $c['is_correct'], $c['ordre']]);
-                }
-
-                $totalQuestions++;
-            }
-        }
-
-        // 5. Supprimer la partie auto créée par ensurePartieDefault si elle est vide
-        $pdo->prepare("DELETE FROM parties WHERE module_id=? AND nom='Général' AND id NOT IN (SELECT DISTINCT partie_id FROM questions WHERE module_id=?)")
-            ->execute([$newModuleId, $newModuleId]);
-
-        $pdo->commit();
-
-        echo json_encode([
-            'success'       => true,
-            'type'          => 'efm',
-            'module_id'     => $newModuleId,
-            'message'       => 'Module EFM "' . $titre . '" créé avec ' . $totalQuestions . ' questions.',
-            'nb_questions'  => $totalQuestions,
-        ], JSON_UNESCAPED_UNICODE);
-
-    } catch (Exception $e) {
-        $pdo->rollBack();
-        echo json_encode(['error' => 'Erreur DB : ' . $e->getMessage()]);
-    }
-    exit;
-}
-
-echo json_encode(['error' => 'Type inconnu.']);

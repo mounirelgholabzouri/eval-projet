@@ -31,16 +31,17 @@
 
 - **PC local** : `C:\Users\Administrateur\Eval-Projet\`
 - **PC distant** : `Administrateur@192.168.1.178` → `C:/Users/Administrateur/Desktop/Eval-Projet`
-- **Script** : `sync_remote.sh` — sync bidirectionnelle sécurisée
-- **Automatique** : tâche Windows Scheduler `EvalProjet-SyncSession` (logon) — créée par `setup_autosync.ps1`
+- **Script** : `sync_remote.sh` — `git pull` + migrations sur les 2 PCs (plus d'échange de questions)
+- **Automatique** : désactivée — tâche `EvalProjet-SyncSession` supprimée le 2026-11-09 (ne pas relancer `setup_autosync.ps1`, qui la recréerait). Lancer `sync_remote.sh` à la main si besoin.
 - **Journal** : `sync_remote.log` à la racine du projet
 
 ### Ce qui est synchronisé
 | Quoi | Comment |
 |------|---------|
 | Code | `git pull origin master` sur les 2 PCs |
-| Questions/modules | Export→Import bidirectionnel (fusion sans doublon) |
 | Migrations PHP | Détectées par marqueur `.done_*`, exécutées une seule fois |
+
+> ⚠ **Refonte CC/EFM (2026-11-09) appliquée sur le PC local uniquement** : le PC distant garde l'ancien schéma (parties). L'import de questions depuis l'autre PC (Import Sync, `export/import_questions*.php`) a été retiré. ⚠ Un `git pull` sur le distant y installerait le nouveau code sans migrer sa base : ne pas pousser tant que le distant n'est pas migré.
 
 ### Ce qui n'est JAMAIS synchronisé (données par PC)
 - `sessions_eval`, `reponses_stagiaires`, `stagiaires` — données d'examen locales
@@ -48,7 +49,7 @@
 
 ### Ajouter une migration
 Créer `db/migrations/nom_migration.php` (script PDO autonome).  
-La sync la détectera et l'exécutera automatiquement sur les 2 PCs au prochain logon.
+Elle sera exécutée au prochain lancement manuel de `sync_remote.sh`.
 
 ### ⚠ Ne jamais faire
 - Dump DB complet local → distant (`mysqldump | ssh mysql`) : **écrase les sessions d'examen distantes**
@@ -96,48 +97,36 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - Données historiques corrompues (CP850) : corriger via `iconv('UTF-8','CP850//IGNORE', $str)`
 - Si corruption détectée en masse : script `db/restore_encoding.php` (import dump → DB temp → UPDATE sélectif)
 
-## Modules actifs (état 2026-06-16)
+## Modèle Module → Évaluations CC/EFM (refonte 2026-11-09, `db/refonte_cc_efm.php`)
 
-| ID | Nom | Questions | Quota contrôle | note_max |
-|----|-----|-----------|----------------|----------|
-| 31 | M205 Sécuriser un environnement Cloud propriétaire | 60 | **20** (tirage aléatoire) | 20 |
-| 32 | M206 – Gouverner les données dans le Cloud | 49 | **20** (tirage aléatoire) | 20 |
-| 33 | Culture et techniques avancées du numérique | 21 | toutes | 20 |
-| 63 | M207 COMPLET (maintien SI Cloud) | 20 | toutes | 20 |
-| 79 | M105 cc2 | 20 | toutes | 20 |
-
-- `modules.nb_questions_controle` (INT NULL) : nb de questions tirées aléatoirement à chaque session. NULL = toutes.
-- `sessions_eval.questions_ids` (TEXT NULL) : JSON array des IDs tirés pour la session (figé à la création, inchangé jusqu'à la fin).
-- Tirage dans `creerSession()` via `ORDER BY RAND()` + `array_slice()`.
-- `getQuestionsModule($moduleId, $questionIds)` accepte un tableau d'IDs optionnel.
-- `getReponsesSession($sessionId)` : si `questions_ids` présent → **LEFT JOIN** (toutes les questions du tirage, répondues ou non) ; sinon → JOIN classique (anciennes sessions).
+- **Plus de notion de partie** (table `parties` et `questions.partie_id` supprimées).
+- `modules` = banque de questions : `code` (M207, UNIQUE de fait), `filiere` (IDOCC, ID…), `nom` (intitulé), `actif` (publié). Libellé : `moduleLibelle()` → « IDOCC-M207 — Intitulé ».
+- `evaluations` : `type` ENUM(`cc`,`efm`) · `mode` ENUM(`theorique`,`pratique`) pour les CC (NULL pour EFM) · `numero` (CCn) · `contenu` (thème) · `nb_questions` (quota de tirage, NULL = toutes) · `meta_json` (EFM : etablissement, annee ; CC pratique : groupe_id, numero).
+- `evaluation_questions (evaluation_id, question_id, ordre)` : questions d'une évaluation (peuvent venir d'autres modules, ex. EFM multi-modules).
+- **Nomenclature** : `nomEvaluation()` → `FILIERE-MODULE-CCn (contenu)`, `FILIERE-MODULE-CCn (Pratique)`, `FILIERE-MODULE-EFM`. Le nom est recalculé à chaque création/modification (`renommerEvaluationsModule()` après changement de code/filière).
+- **Point d'entrée unique** : `creerEvaluation(array)` / `modifierEvaluation()` / `setQuestionsEvaluation()` / `creerQuestion()` / `creerModule()` / `trouverOuCreerModule()` — ne jamais faire d'INSERT direct dans `evaluations` ou `questions`.
+- `creerSession()` fige **toujours** `sessions_eval.questions_ids` (tirage aléatoire `shuffle` si quota) → modifier une évaluation n'altère pas les sessions passées.
+- `getQuestionsEvaluation($evalId, $questionIds)` pour le quiz ; `getQuestionsModule($moduleId)` = banque admin.
+- `getReponsesSession($sessionId)` : si `questions_ids` présent → **LEFT JOIN** ; sinon (anciennes sessions) → réponses seules.
+- Stagiaire : seules les évaluations `actif=1`, `mode` théorique ou EFM, d'un module `actif=1` sont proposées.
 - **⚠ Import JSON** : vérifier que `is_correct = 1` est bien positionné sur au moins un choix par question — sinon tous les stagiaires obtiennent 0.
 
 ## Vues admin
 
 | Page | Rôle |
 |------|------|
-| `admin/sessions_view.php` | Sessions groupées par module + date — clic → liste des stagiaires avec scores |
-| `admin/results.php` | Liste plate de toutes les sessions (filtrée, `?module_id=X` pour filtre direct) |
+| `admin/modules.php` | Modules (code, filière, intitulé, publication) — liens banque / évaluations / résultats |
+| `admin/evaluations.php` | **Création et édition des CC/EFM** : `?module_id=X`, `?action=new&type=cc\|efm`, `?action=edit&id=Y` — sélection des questions, impressions, rééquilibrage des points |
+| `admin/gestion_questions.php` | Banque de questions — `?tab=gerer\|deplacer\|import_eval` (l'import JSON crée une évaluation inactive) |
+| `admin/gestion_impression.php` | `?type=cc1_pratique\|cc2_pratique\|cc3_theorique\|efm` — filtres groupe+module(+évaluation), saisie des grilles CC pratique, génération CC1/CC2 depuis CC3, **impression A4 paysage une page** |
+| `admin/sessions_view.php` | Sessions groupées par évaluation + date — `?evaluation_id=X&jour=Y` |
+| `admin/results.php` | Liste de toutes les sessions (`?module_id=X`, `?categorie=efm\|cc_theorique\|cc_pratique`) |
 | `admin/detail.php` | Détail question par question d'une session |
-| `admin/modules.php` | Bouton résultats (icône graphique bleu) → `results.php?module_id=X` sur chaque ligne |
-| `admin/resultat_audit.php` | Audit CC1/CC2/CC3/EFM par groupe — `?type=cc3_theorique&groupe_id=X` — filtre module déroulant JS |
-| `admin/generer_cc_pratique.php` | Génère CC1 (CC3−1) et CC2 (CC3+1) avec distribution aléatoire — CC3 éditable, absents, impression |
-| `admin/cc_pratique.php` | Saisie manuelle des grilles CC pratique (7 cellules, max 2.5 par sous-Q, 5 pour P4) |
-
-### Pages unifiées (multi-onglets) — préférer celles-ci dans la navbar
-| Page unifiée | Remplace | Onglets |
-|--------------|----------|---------|
-| `admin/gestion_questions.php` | questions, move_questions, import_questions, import_evaluation_json | `?tab=gerer\|deplacer\|import_sync\|import_eval` |
-| `admin/gestion_impression.php` | cc_pratique, generer_cc_pratique, resultat_audit | `?type=cc1_pratique\|cc2_pratique\|cc3_theorique\|efm` — filtres groupe+module, tableau éditable, génération CC1/CC2 depuis CC3, **impression A4 paysage une page** (auto-zoom JS) |
-
-> Les anciennes pages existent encore mais ne sont plus liées dans la navbar. Modifier la version unifiée.
+| Impressions | `print_blank.php?evaluation_id=X` (sujet CC), `print_efm.php?evaluation_id=X` (sujet EFM), `print_exams.php?module_id=X[&evaluation_id=Y]` (copies) |
+| CLI | `db/publier_test.php fichier.json [--dry-run]` — clés `module` (commençant par le code), `sujet`, optionnelles `code_module`, `filiere`, `type_evaluation`, `numero_cc` |
 
 ## Invariants métier
 
-- Chaque module a ≥1 partie (« Général » par défaut — auto-créée à l'insertion via SELECT/INSERT inline, **pas** de fonction `ensurePartieDefault()`)
-- Chaque question appartient à une partie (`partie_id NOT NULL`, ON DELETE RESTRICT) → **toujours passer `partie_id` dans INSERT INTO questions**
-- Partie `actif=0` → **totalement exclue** partout (quiz, index, toutes les impressions) → utiliser `getPartiesActives()` sauf interface admin
 - Suppression stagiaire : cascade manuelle `reponses_stagiaires → sessions_eval → stagiaire` (pas de FK CASCADE en DB)
 - Clés API : table `config` — `anthropic_api_key`, `openai_api_key`, `google_api_key`, `ollama_base_url`
 - Provider IA actif : `config.ai_provider` ∈ {`anthropic`, `openai`, `google`, `ollama`}
@@ -145,7 +134,7 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - **Noms + prénoms stagiaires/formateurs en MAJUSCULES** — `mb_strtoupper($x, 'UTF-8')` à la saisie (`creerStagiaireAdmin`, `modifierStagiaire`, stagiaires.php, formateurs_emploi.php). Jamais le CLI MySQL pour convertir (encodage)
 - **Année de formation** : `getAnneeFormation(bool $short=true)` (functions.php) — calendrier scolaire sept→juil (mois ≥9 → an/an+1, sinon an-1/an). Ne plus utiliser `date('Y').'/'.(date('Y')+1)`
 - **Note finale** : `arrondiNote(float $score, float $total, int $noteMax=20): float` — arrondi au **demi-point** (0.5) le plus proche. Utilisée dans `print_efm_result.php`. Ex : 13.64/20 → 13.5, 8.64/20 → 8.5.
-- **Impression** : choix QCM en `<ul class="choix-list">` flex (4 col si ≤20 chars, 2 col défaut, 1 col si >60). Étiquette CC via `print_blank.php?cc_num=1|2|3` (cellule colorée). Ne jamais mettre de contenu HTML après un `style="..."` sans quote fermante (bug print_efm_result)
+- **Impression** : choix QCM en `<ul class="choix-list">` flex (4 col si ≤20 chars, 2 col défaut, 1 col si >60). Étiquette CC = numéro de l'évaluation (surchargeable via `print_blank.php?evaluation_id=X&cc_num=1|2|3`, cellule colorée). Ne jamais mettre de contenu HTML après un `style="..."` sans quote fermante (bug print_efm_result)
 
 ## Docker
 - **Ollama optionnel** : sous `profiles: [ollama]` dans docker-compose.yml → `docker compose up -d` lance seulement db+app. IA locale : `docker compose --profile ollama up -d`
@@ -173,7 +162,7 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 
 ## EFM — Impressions OFPPT
 
-- Modules EFM : `type='efm'` + métadonnées dans `meta_json` (code_module, filiere, etablissement, annee)
+- Évaluations EFM : `evaluations.type='efm'` ; code module et filière viennent du module, établissement et année de `meta_json` (champs `efm_*` fournis par `getEvaluation()`)
 - **Images (logo, tampon)** : toujours en base64 (`base64_encode(file_get_contents($path))`) — chemins relatifs ignorés à l'impression
 
 ### Tampon `assets/img/tampon_ofppt.png` — bas droite de chaque page

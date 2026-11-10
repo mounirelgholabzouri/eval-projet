@@ -12,6 +12,7 @@ $erreurs = [];
 $succes  = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     $nouveau  = $_POST['nouveau'] ?? '';
     $confirm  = $_POST['confirm'] ?? '';
 
@@ -79,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endif; ?>
 
                         <form method="POST" novalidate>
+                        <?= csrfField() ?>
                             <div class="mb-3">
                                 <label class="form-label fw-semibold">Nouveau mot de passe <span class="text-danger">*</span></label>
                                 <div class="input-group">

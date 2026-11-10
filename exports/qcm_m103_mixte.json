@@ -1,0 +1,237 @@
+{
+  "titre": "Partie B — Évaluation mixte",
+  "module": "M103 Concevoir un réseau informatique",
+  "questions": [
+    {
+      "enonce": "Citez les 7 couches du modèle OSI dans l'ordre, de la couche 1 à la couche 7.",
+      "type": "texte_libre",
+      "points": 2,
+      "reponse_attendue_cles": [
+        "Physique",
+        "Liaison de données",
+        "Réseau",
+        "Transport",
+        "Session",
+        "Présentation",
+        "Application"
+      ]
+    },
+    {
+      "enonce": "Quel modèle réseau est réellement utilisé sur Internet : OSI ou TCP/IP ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. OSI",
+        "B. TCP/IP",
+        "C. Les deux sont utilisés de façon équivalente",
+        "D. Ni l'un ni l'autre"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Un switch Ethernet opère à quelle couche du modèle OSI ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. Couche 1",
+        "B. Couche 2",
+        "C. Couche 3",
+        "D. Couche 4"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quelle est l'adresse MAC de diffusion (broadcast) utilisée en Ethernet ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 00-00-00-00-00-00",
+        "B. FF-FF-FF-FF-FF-FF",
+        "C. 01-00-5E-00-00-01",
+        "D. 00-1A-2B-3C-4D-5E"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Expliquez en 2 ou 3 phrases le rôle du protocole ARP dans un réseau local.",
+      "type": "texte_libre",
+      "points": 2,
+      "reponse_attendue_cles": [
+        "associe adresse IPv4 à adresse MAC",
+        "diffusion (broadcast) pour demander",
+        "réponse en monodiffusion (unicast)",
+        "cache ARP"
+      ]
+    },
+    {
+      "enonce": "Combien d'hôtes utilisables contient un réseau /27 ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 32",
+        "B. 30",
+        "C. 62",
+        "D. 28"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quelle adresse IPv4 est utilisée pour tester la pile TCP/IP locale d'un équipement ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 192.168.0.1",
+        "B. 0.0.0.0",
+        "C. 127.0.0.1",
+        "D. 255.255.255.255"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quelle commande Windows permet de tester la connectivité vers un hôte distant et mesurer le délai de réponse ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. tracert",
+        "B. netstat",
+        "C. ipconfig",
+        "D. ping"
+      ],
+      "reponse_correcte": "D"
+    },
+    {
+      "enonce": "Donnez l'adresse réseau et l'adresse de diffusion du sous-réseau auquel appartient l'hôte 10.20.30.200/27.",
+      "type": "texte_libre",
+      "points": 2,
+      "reponse_attendue_cles": [
+        "réseau 10.20.30.192",
+        "diffusion 10.20.30.223",
+        "hôtes .193 à .222"
+      ]
+    },
+    {
+      "enonce": "Quel protocole de transport garantit la fiabilité, l'ordre des données et utilise un three-way handshake ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. UDP",
+        "B. ICMP",
+        "C. TCP",
+        "D. ARP"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Sur quel port TCP le protocole HTTPS (HTTP sécurisé) fonctionne-t-il ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 80",
+        "B. 22",
+        "C. 443",
+        "D. 8080"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quelle est l'adresse IPv6 de bouclage (loopback) équivalente à 127.0.0.1 en IPv4 ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. ::0",
+        "B. ::1",
+        "C. FE80::1",
+        "D. FF00::1"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Décrivez les 4 étapes DORA du protocole DHCP et précisez qui émet chaque message (client ou serveur).",
+      "type": "texte_libre",
+      "points": 2,
+      "reponse_attendue_cles": [
+        "Discover — client en diffusion",
+        "Offer — serveur propose une adresse",
+        "Request — client accepte en diffusion",
+        "Ack — serveur confirme le bail"
+      ]
+    },
+    {
+      "enonce": "Quelle est la différence entre un domaine de collision et un domaine de diffusion ?",
+      "type": "texte_libre",
+      "points": 2,
+      "reponse_attendue_cles": [
+        "collision : zone où deux trames peuvent se percuter, délimité par chaque port de switch",
+        "diffusion : zone atteinte par FF-FF-FF-FF-FF-FF, délimitée par le routeur ou les VLAN"
+      ]
+    },
+    {
+      "enonce": "Combien de sous-réseaux obtient-on en empruntant 3 bits à la partie hôte d'un /24 ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. 3",
+        "B. 6",
+        "C. 8",
+        "D. 16"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quel type d'adresse IPv6 est automatiquement configurée sur toute interface et commence par FE80:: ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. GUA (Global Unicast Address)",
+        "B. ULA (Unique Local Address)",
+        "C. LLA (Link-Local Address)",
+        "D. Multicast"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Quelle commande permet d'afficher les entrées du cache ARP sur un PC Windows ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. ipconfig /all",
+        "B. arp -a",
+        "C. netstat -r",
+        "D. route print"
+      ],
+      "reponse_correcte": "B"
+    },
+    {
+      "enonce": "Quel protocole de messagerie laisse les messages sur le serveur et permet la synchronisation entre plusieurs appareils ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. SMTP",
+        "B. POP3",
+        "C. IMAP",
+        "D. FTP"
+      ],
+      "reponse_correcte": "C"
+    },
+    {
+      "enonce": "Compressez l'adresse IPv6 suivante : 2001:0DB8:0000:0000:0000:00A1:0000:0001",
+      "type": "texte_libre",
+      "points": 1,
+      "reponse_attendue_cles": [
+        "2001:DB8::A1:0:1"
+      ]
+    },
+    {
+      "enonce": "Qu'est-ce que le MTU (Maximum Transmission Unit) en Ethernet et quelle est sa valeur standard ?",
+      "type": "QCM",
+      "points": 1,
+      "options": [
+        "A. La taille maximale d'une trame entière : 1518 octets",
+        "B. La taille maximale des données utiles d'une trame : 1500 octets",
+        "C. La taille minimale d'une trame : 64 octets",
+        "D. La taille de l'en-tête IP : 20 octets"
+      ],
+      "reponse_correcte": "B"
+    }
+  ]
+}

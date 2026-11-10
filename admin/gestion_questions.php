@@ -14,9 +14,6 @@ $moduleId = (int)($_GET['module_id'] ?? $_POST['module_id'] ?? 0);
 
 $msg        = '';
 $erreur     = '';
-$msgSync    = '';
-$statsSync  = [];
-$errorsSync = [];
 $msgEval    = '';
 $statsEval  = [];
 $errorsEval = [];
@@ -67,13 +64,28 @@ function normaliserReponseVF(mixed $rep): string {
     return in_array($s, ['true', 'vrai', '1', 'yes', 'oui'], true) ? 'Vrai' : 'Faux';
 }
 
-// ── POST : supprimer une question (GET action=delete) ────────
+/** Supprime des questions jamais répondues (les réponses des stagiaires seraient effacées en cascade). */
+function supprimerQuestionsLibres(PDO $pdo, array $ids): array {
+    $ids = array_values(array_filter(array_map('intval', $ids)));
+    if (!$ids) return [0, 0];
+    $ph = implode(',', array_fill(0, count($ids), '?'));
+    $used = $pdo->prepare("SELECT DISTINCT question_id FROM reponses_stagiaires WHERE question_id IN ($ph)");
+    $used->execute($ids);
+    $bloquees = array_map('intval', $used->fetchAll(PDO::FETCH_COLUMN));
+    $libres = array_values(array_diff($ids, $bloquees));
+    if ($libres) {
+        $ph2 = implode(',', array_fill(0, count($libres), '?'));
+        $pdo->prepare("DELETE FROM questions WHERE id IN ($ph2)")->execute($libres);
+    }
+    return [count($libres), count($bloquees)];
+}
+
+// ── POST : supprimer une question ────────────────────────────
 $questionId = (int)($_GET['id'] ?? 0);
-if (($_GET['action'] ?? '') === 'delete' && $questionId > 0) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_question'])) {
     verifyCsrfToken();
-    $pdo->prepare("DELETE FROM choix_reponses WHERE question_id=?")->execute([$questionId]);
-    $pdo->prepare("DELETE FROM questions WHERE id=?")->execute([$questionId]);
-    header("Location: gestion_questions.php?tab=gerer&module_id=$moduleId&deleted=1"); exit;
+    [$ok, $bloq] = supprimerQuestionsLibres($pdo, [(int)$_POST['delete_question']]);
+    header("Location: gestion_questions.php?tab=gerer&module_id=$moduleId&" . ($ok ? 'deleted=1' : 'blocked=1')); exit;
 }
 
 // ── POST : enregistrer une question ─────────────────────────
@@ -92,22 +104,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
     } elseif ($moduleId <= 0) {
         $erreur = "Module non sélectionné.";
         $tab = 'gerer';
+    } elseif (in_array($type, ['qcm', 'vrai_faux', 'multiple'], true) && empty(array_filter((array)$choixCorrects, fn($i) => trim($choixTextes[$i] ?? '') !== ''))) {
+        $erreur = "Cochez au moins une bonne réponse (sinon tous les stagiaires obtiendraient 0 à cette question).";
+        $tab = 'gerer';
     } else {
         if ($questionId > 0) {
             $pdo->prepare("UPDATE questions SET texte=?, type=?, points=?, ordre=? WHERE id=?")
                 ->execute([$texte, $type, $points, $ordre, $questionId]);
             $pdo->prepare("DELETE FROM choix_reponses WHERE question_id=?")->execute([$questionId]);
         } else {
-            $pStmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre, id LIMIT 1");
-            $pStmt->execute([$moduleId]);
-            $defaultPartieId = $pStmt->fetchColumn();
-            if (!$defaultPartieId) {
-                $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?, 'Général', 1)")->execute([$moduleId]);
-                $defaultPartieId = (int)$pdo->lastInsertId();
-            }
-            $pdo->prepare("INSERT INTO questions (module_id, partie_id, texte, type, points, ordre) VALUES (?,?,?,?,?,?)")
-                ->execute([$moduleId, $defaultPartieId, $texte, $type, $points, $ordre]);
-            $questionId = (int)$pdo->lastInsertId();
+            $questionId = creerQuestion($moduleId, $type, $texte, $points);
+            if ($ordre > 0) $pdo->prepare("UPDATE questions SET ordre = ? WHERE id = ?")->execute([$ordre, $questionId]);
         }
 
         if (in_array($type, ['qcm', 'vrai_faux', 'multiple'])) {
@@ -127,14 +134,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_question'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
     verifyCsrfToken();
     $bulkAction  = $_POST['bulk_action'] ?? '';
-    $selectedIds = array_map('intval', $_POST['selected_ids'] ?? []);
-    if (!empty($selectedIds) && $bulkAction === 'delete') {
-        foreach ($selectedIds as $id) {
-            $pdo->prepare("DELETE FROM choix_reponses WHERE question_id=?")->execute([$id]);
-            $pdo->prepare("DELETE FROM questions WHERE id=?")->execute([$id]);
-        }
-    }
-    header("Location: gestion_questions.php?tab=gerer&module_id=$moduleId&bulk_deleted=1&count=" . count($selectedIds)); exit;
+    [$ok, $bloq] = $bulkAction === 'delete' ? supprimerQuestionsLibres($pdo, $_POST['selected_ids'] ?? []) : [0, 0];
+    header("Location: gestion_questions.php?tab=gerer&module_id=$moduleId&bulk_deleted=1&count=$ok&blocked=$bloq"); exit;
 }
 
 // ── POST : déplacer des questions ────────────────────────────
@@ -172,82 +173,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['move_questions'])) {
     }
 }
 
-// ── POST : import sync ───────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['import_type'] ?? '') === 'sync' && isset($_FILES['json_file'])) {
-    verifyCsrfToken();
-    $tab     = 'import_sync';
-    $content = file_get_contents($_FILES['json_file']['tmp_name']);
-    $data    = json_decode($content, true);
-
-    if (!$data || !isset($data['questions'])) {
-        $errorsSync[] = 'Fichier JSON invalide.';
-    } else {
-        $nbTotal   = 0;
-        $nbImporte = 0;
-        $nbSkip    = 0;
-
-        $pdo->beginTransaction();
-        try {
-            foreach ($data['questions'] as $q) {
-                $nbTotal++;
-
-                $stmtM = $pdo->prepare("SELECT id FROM modules WHERE nom = ?");
-                $stmtM->execute([$q['module_nom']]);
-                $midSync = $stmtM->fetchColumn();
-                if (!$midSync) {
-                    $pdo->prepare("INSERT INTO modules (nom, actif) VALUES (?, 1)")->execute([$q['module_nom']]);
-                    $midSync = $pdo->lastInsertId();
-                }
-
-                $stmtP = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND nom = ?");
-                $stmtP->execute([$midSync, $q['partie_nom']]);
-                $pidSync = $stmtP->fetchColumn();
-                if (!$pidSync) {
-                    $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, ?, ?, 1)")
-                        ->execute([$midSync, $q['partie_nom'], $q['partie_ordre']]);
-                    $pidSync = $pdo->lastInsertId();
-                }
-
-                $stmtQ = $pdo->prepare("SELECT id FROM questions WHERE partie_id = ? AND texte = ?");
-                $stmtQ->execute([$pidSync, $q['texte']]);
-                if ($stmtQ->fetchColumn()) {
-                    $nbSkip++;
-                    continue;
-                }
-
-                $pdo->prepare("INSERT INTO questions (module_id, partie_id, texte, type, points, ordre, image_path)
-                               VALUES (?, ?, ?, ?, ?, ?, ?)")
-                    ->execute([
-                        $midSync, $pidSync, $q['texte'], $q['type'], $q['points'], $q['ordre'],
-                        $q['image_path'] ?? null,
-                    ]);
-                $qidSync = $pdo->lastInsertId();
-
-                foreach ($q['choix'] ?? [] as $c) {
-                    $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?, ?, ?, ?)")
-                        ->execute([$qidSync, $c['texte'], (int)$c['is_correct'], (int)$c['ordre']]);
-                }
-
-                $nbImporte++;
-            }
-
-            $pdo->commit();
-            $statsSync = [
-                'total'    => $nbTotal,
-                'importe'  => $nbImporte,
-                'skip'     => $nbSkip,
-                'machine'  => $data['machine'] ?? '?',
-                'exported' => $data['exported_at'] ?? '?',
-            ];
-            $msgSync = "Import terminé : {$nbImporte} question(s) importée(s), {$nbSkip} déjà présente(s).";
-
-        } catch (Exception $e) {
-            $pdo->rollBack();
-            $errorsSync[] = 'Erreur BD : ' . $e->getMessage();
-        }
-    }
-}
-
 // ── POST : import évaluation JSON ────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['import_type'] ?? '') === 'eval') {
     verifyCsrfToken();
@@ -260,12 +185,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['import_type'] ?? '') === '
         $raw = trim($_POST['json_text']);
     }
 
-    $moduleDestId  = (int)($_POST['module_dest_id'] ?? 0);
-    $moduleDestNom = trim($_POST['module_dest_nom'] ?? '');
+    $moduleDestId      = (int)($_POST['module_dest_id'] ?? 0);
+    $moduleDestNom     = trim($_POST['module_dest_nom'] ?? '');
+    $moduleDestCode    = strtoupper(trim($_POST['module_dest_code'] ?? ''));
+    $moduleDestFiliere = strtoupper(trim($_POST['module_dest_filiere'] ?? ''));
+    $evalType          = ($_POST['eval_type'] ?? 'cc') === 'efm' ? 'efm' : 'cc';
+    $evalNumero        = max(1, (int)($_POST['eval_numero'] ?? 1));
+    $evalContenu       = trim($_POST['eval_contenu'] ?? '');
+    if ($moduleDestId <= 0 && !preg_match('/^[A-Z0-9]{2,20}$/', $moduleDestCode)) {
+        $errorsEval[] = 'Nouveau module : indiquez un code valide (ex. M207).';
+    }
 
     if ($raw === '') {
         $errorsEval[] = 'Veuillez fournir un fichier JSON ou coller le contenu JSON.';
-    } else {
+    } elseif (!$errorsEval) {
         $data = json_decode($raw, true);
 
         if (isset($data['evaluation'])) {
@@ -280,42 +213,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['import_type'] ?? '') === '
             $cles = implode(', ', array_keys($data ?? []));
             $errorsEval[] = 'Fichier JSON invalide — structure "evaluation.questions" introuvable. Clés trouvées : ' . ($cles ?: '(aucune)');
         } else {
-            $partieNom = $eval['titre'] ?? 'Général';
+            $contenu   = $evalContenu !== '' ? $evalContenu : trim((string)($eval['titre'] ?? ''));
             $nbTotal   = 0;
             $nbImporte = 0;
             $nbSkip    = 0;
+            $idsEval   = [];
 
             $pdo->beginTransaction();
             try {
-                if ($moduleDestId > 0) {
-                    $midEval = $moduleDestId;
-                    $stmtNom = $pdo->prepare("SELECT nom FROM modules WHERE id=?");
-                    $stmtNom->execute([$midEval]);
-                    $moduleNom = $stmtNom->fetchColumn() ?: 'Module #' . $midEval;
-                } else {
-                    $moduleNom = $moduleDestNom !== '' ? $moduleDestNom : ($eval['module'] ?? 'Module importé');
-                    $stmtM = $pdo->prepare("SELECT id FROM modules WHERE nom = ?");
-                    $stmtM->execute([$moduleNom]);
-                    $midEval = $stmtM->fetchColumn();
-                    if (!$midEval) {
-                        $pdo->prepare("INSERT INTO modules (nom, actif) VALUES (?, 1)")->execute([$moduleNom]);
-                        $midEval = (int)$pdo->lastInsertId();
-                        $pdo->prepare("INSERT INTO evaluations (module_id, nom, type, duree_minutes, note_max) VALUES (?, ?, 'qcm', 30, 20)")
-                            ->execute([$midEval, $moduleNom]);
-                    }
-                }
-
-                $stmtP = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? AND nom = ?");
-                $stmtP->execute([$midEval, $partieNom]);
-                $pidEval = $stmtP->fetchColumn();
-                if (!$pidEval) {
-                    $stmtOrdre = $pdo->prepare("SELECT COALESCE(MAX(ordre),0)+1 FROM parties WHERE module_id = ?");
-                    $stmtOrdre->execute([$midEval]);
-                    $ordreP = (int)$stmtOrdre->fetchColumn();
-                    $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, ?, ?, 1)")
-                        ->execute([$midEval, $partieNom, $ordreP]);
-                    $pidEval = $pdo->lastInsertId();
-                }
+                $midEval = $moduleDestId > 0
+                    ? $moduleDestId
+                    : trouverOuCreerModule($moduleDestCode, $moduleDestFiliere,
+                                           $moduleDestNom !== '' ? $moduleDestNom : ($eval['module'] ?? $moduleDestCode));
+                $moduleImport = getModule($midEval);
+                if (!$moduleImport) throw new RuntimeException('Module destination introuvable.');
+                $moduleNom = $moduleImport['libelle'];
 
                 foreach ($eval['questions'] as $idx => $q) {
                     $nbTotal++;
@@ -331,13 +243,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['import_type'] ?? '') === '
 
                     if ($texte === '') { $nbSkip++; continue; }
 
-                    $stmtQ = $pdo->prepare("SELECT id FROM questions WHERE partie_id = ? AND texte = ?");
-                    $stmtQ->execute([$pidEval, $texte]);
-                    if ($stmtQ->fetchColumn()) { $nbSkip++; continue; }
+                    $stmtQ = $pdo->prepare("SELECT id FROM questions WHERE module_id = ? AND texte = ?");
+                    $stmtQ->execute([$midEval, $texte]);
+                    if ($existante = $stmtQ->fetchColumn()) { $idsEval[] = (int)$existante; $nbSkip++; continue; }
 
-                    $pdo->prepare("INSERT INTO questions (module_id, partie_id, texte, type, points, ordre) VALUES (?, ?, ?, ?, ?, ?)")
-                        ->execute([$midEval, $pidEval, $texte, $type, $points, $idx + 1]);
-                    $qidEval = $pdo->lastInsertId();
+                    $qidEval   = creerQuestion($midEval, $type, $texte, $points);
+                    $idsEval[] = $qidEval;
 
                     $options = normaliserOptions($rawOptions);
 
@@ -421,13 +332,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['import_type'] ?? '') === '
                     $nbImporte++;
                 }
 
+                $newEvalId = creerEvaluation([
+                    'module_id'    => $midEval,
+                    'type'         => $evalType,
+                    'mode'         => 'theorique',
+                    'numero'       => $evalNumero,
+                    'contenu'      => $contenu,
+                    'actif'        => false,
+                    'question_ids' => $idsEval,
+                ]);
                 $pdo->commit();
                 $statsEval = [
-                    'total'   => $nbTotal,
-                    'importe' => $nbImporte,
-                    'skip'    => $nbSkip,
-                    'module'  => $moduleNom,
-                    'partie'  => $partieNom,
+                    'total'      => $nbTotal,
+                    'importe'    => $nbImporte,
+                    'skip'       => $nbSkip,
+                    'module'     => $moduleNom,
+                    'evaluation' => getEvaluation($newEvalId)['nom'],
+                    'eval_id'    => $newEvalId,
                 ];
                 $msgEval = "Import terminé : {$nbImporte} question(s) importée(s), {$nbSkip} déjà présente(s).";
 
@@ -445,33 +366,12 @@ $module     = $moduleId > 0 ? getModule($moduleId) : null;
 
 $questionsCurrent = [];
 $editQuestion     = null;
-$partieId         = (int)($_GET['partie_id'] ?? 0);
-$currentPartie    = null;
 $totalPointsModule = 0;
-$evalNoteMax      = null;
 
 if ($moduleId > 0 && $module) {
-    if ($partieId > 0) {
-        $stmt = $pdo->prepare("SELECT * FROM parties WHERE id = ? AND module_id = ?");
-        $stmt->execute([$partieId, $moduleId]);
-        $currentPartie = $stmt->fetch();
-    }
-
-    $stmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
-    $stmt->execute([$moduleId]);
-    $questionsCurrent = $stmt->fetchAll();
-    foreach ($questionsCurrent as &$q) {
-        $stmt2 = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
-        $stmt2->execute([$q['id']]);
-        $q['choix'] = $stmt2->fetchAll();
-    }
-    unset($q);
+    $questionsCurrent = getQuestionsModule($moduleId);
 
     $totalPointsModule = array_sum(array_column($questionsCurrent, 'points'));
-    $evalStmt = $pdo->prepare("SELECT note_max FROM evaluations WHERE module_id = ? ORDER BY id LIMIT 1");
-    $evalStmt->execute([$moduleId]);
-    $evalRow = $evalStmt->fetch();
-    if ($evalRow) $evalNoteMax = (float)$evalRow['note_max'];
 
     if (($tab === 'gerer') && ($questionId > 0)) {
         foreach ($questionsCurrent as $q) {
@@ -496,13 +396,14 @@ if ($tab === 'deplacer') {
 }
 
 // Pour l'onglet import_eval
-$tousModules = $pdo->query("SELECT id, nom FROM modules ORDER BY nom")->fetchAll();
 
 // Flash messages
 $flash = $_GET;
 if (isset($flash['saved']))        $msg = "Question enregistrée.";
 if (isset($flash['deleted']))      $msg = "Question supprimée.";
 if (isset($flash['bulk_deleted'])) $msg = (int)$flash['count'] . " question(s) supprimée(s).";
+if (!empty($flash['blocked']))     $erreur = (isset($flash['bulk_deleted']) ? (int)$flash['blocked'] . " question(s) conservée(s)" : "Question conservée")
+                                          . " : déjà répondue(s) par des stagiaires (la supprimer effacerait leurs réponses et modifierait leurs notes).";
 if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
 ?>
 <!DOCTYPE html>
@@ -554,12 +455,6 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
             </a>
         </li>
         <li class="nav-item">
-            <a href="gestion_questions.php?tab=import_sync"
-               class="nav-link <?= $tab === 'import_sync' ? 'active' : '' ?>">
-                <i class="bi bi-cloud-download me-1"></i>Import Sync
-            </a>
-        </li>
-        <li class="nav-item">
             <a href="gestion_questions.php?tab=import_eval"
                class="nav-link <?= $tab === 'import_eval' ? 'active' : '' ?>">
                 <i class="bi bi-file-earmark-arrow-up me-1"></i>Import Évaluation
@@ -583,7 +478,7 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
                     <option value="">— Choisir un module —</option>
                     <?php foreach ($allModules as $m): ?>
                     <option value="<?= $m['id'] ?>" <?= $m['id'] == $moduleId ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($m['nom']) ?> (<?= $m['nb_questions'] ?> Q)
+                        <?= htmlspecialchars($m['libelle']) ?> (<?= $m['nb_questions'] ?> Q)
                     </option>
                     <?php endforeach; ?>
                 </select>
@@ -681,32 +576,10 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
             <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-header bg-white border-0 py-3 px-4 d-flex justify-content-between flex-wrap gap-2">
                     <h5 class="mb-0 fw-bold">
-                        <?php if ($currentPartie): ?>
-                        <i class="bi bi-bookmark-fill me-2 text-primary"></i><?= htmlspecialchars($currentPartie['nom']) ?>
-                        <?php else: ?>
-                        Questions — <?= htmlspecialchars($module['nom']) ?>
-                        <?php endif; ?>
+                        Banque — <?= htmlspecialchars($module['libelle']) ?>
                     </h5>
                     <span class="badge bg-primary"><?= count($questionsCurrent) ?> question(s)</span>
-                    <?php
-                    $ptsTot = round($totalPointsModule, 2);
-                    $ptsFmt = ($ptsTot == floor($ptsTot)) ? (int)$ptsTot : $ptsTot;
-                    $ptsMatch = $evalNoteMax !== null && abs($totalPointsModule - $evalNoteMax) < 0.01;
-                    $ptsBadgeClass = $evalNoteMax === null ? 'bg-secondary' : ($ptsMatch ? 'bg-success' : 'bg-warning text-dark');
-                    ?>
-                    <span class="badge <?= $ptsBadgeClass ?>" title="<?= $evalNoteMax !== null ? 'Note max : '.$evalNoteMax.' pts' : 'Aucune évaluation liée' ?>">
-                        ∑ <?= $ptsFmt ?> pt<?= $ptsTot > 1 ? 's' : '' ?>
-                        <?php if ($evalNoteMax !== null): ?> / <?= (int)$evalNoteMax ?><?php endif; ?>
-                    </span>
-                    <?php if ($evalNoteMax !== null && count($questionsCurrent) > 0): ?>
-                    <button type="button" class="btn btn-sm btn-outline-secondary"
-                            id="btnRedistrib"
-                            data-module-id="<?= $moduleId ?>"
-                            data-note-max="<?= (int)$evalNoteMax ?>"
-                            onclick="redistribuerPoints(this)">
-                        <i class="bi bi-distribute-vertical me-1"></i>Rééquilibrer sur <?= (int)$evalNoteMax ?>
-                    </button>
-                    <?php endif; ?>
+                    <span class="badge bg-secondary">∑ <?= rtrim(rtrim(number_format($totalPointsModule, 2, ',', ''), '0'), ',') ?> pts</span>
                 </div>
                 <!-- Barre d'actions en masse -->
                 <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display:none;">
@@ -748,11 +621,15 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
                                class="btn btn-sm btn-outline-primary rounded-3" title="Modifier">
                                 <i class="bi bi-pencil"></i>
                             </a>
-                            <a href="gestion_questions.php?tab=gerer&module_id=<?= $moduleId ?>&action=delete&id=<?= $q['id'] ?>"
-                               class="btn btn-sm btn-outline-danger rounded-3"
-                               onclick="return confirm('Supprimer cette question ?')" title="Supprimer">
-                                <i class="bi bi-trash"></i>
-                            </a>
+                            <form method="POST" action="gestion_questions.php?tab=gerer&module_id=<?= $moduleId ?>" class="d-inline"
+                                  onsubmit="return confirm('Supprimer cette question ?')">
+                                <?= csrfField() ?>
+                                <input type="hidden" name="module_id" value="<?= $moduleId ?>">
+                                <button type="submit" name="delete_question" value="<?= (int)$q['id'] ?>"
+                                        class="btn btn-sm btn-outline-danger rounded-3" title="Supprimer">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -788,7 +665,7 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
                                 <option value="">— Tous les modules —</option>
                                 <?php foreach ($allModules as $m): ?>
                                 <option value="<?= $m['id'] ?>" <?= $m['id'] == $filterModule ? 'selected' : '' ?>>
-                                    <?= htmlspecialchars($m['nom']) ?> (<?= $m['nb_questions'] ?> Q)
+                                    <?= htmlspecialchars($m['libelle']) ?> (<?= $m['nb_questions'] ?> Q)
                                 </option>
                                 <?php endforeach; ?>
                             </select>
@@ -820,7 +697,7 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
                             <select name="target_module_id" class="form-select form-select-sm" id="targetModule" onchange="updateMoveButtonCount()">
                                 <option value="">— Choisir un module —</option>
                                 <?php foreach ($allModules as $m): ?>
-                                <option value="<?= $m['id'] ?>"><?= htmlspecialchars($m['nom']) ?></option>
+                                <option value="<?= $m['id'] ?>"><?= htmlspecialchars($m['libelle']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -903,61 +780,6 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
     </div>
 
     <!-- ══════════════════════════════════════════════════════════
-         ONGLET : IMPORT SYNC
-    ══════════════════════════════════════════════════════════ -->
-    <?php elseif ($tab === 'import_sync'): ?>
-
-    <div class="row justify-content-center">
-        <div class="col-lg-7">
-            <?php if ($errorsSync): ?>
-            <div class="alert alert-danger">
-                <?php foreach ($errorsSync as $e): ?><div><?= htmlspecialchars($e) ?></div><?php endforeach; ?>
-            </div>
-            <?php endif; ?>
-
-            <?php if ($msgSync): ?>
-            <div class="alert alert-success">
-                <i class="bi bi-check-circle me-2"></i><?= htmlspecialchars($msgSync) ?>
-                <?php if ($statsSync): ?>
-                <ul class="mb-0 mt-2 small">
-                    <li>Exporté depuis : <strong><?= htmlspecialchars($statsSync['machine']) ?></strong> le <?= htmlspecialchars($statsSync['exported']) ?></li>
-                    <li>Total dans le fichier : <?= $statsSync['total'] ?></li>
-                    <li>Importées : <strong class="text-success"><?= $statsSync['importe'] ?></strong></li>
-                    <li>Déjà présentes (ignorées) : <?= $statsSync['skip'] ?></li>
-                </ul>
-                <?php endif; ?>
-            </div>
-            <?php endif; ?>
-
-            <div class="card border-0 shadow-sm rounded-4 p-4 mb-3">
-                <h5 class="fw-semibold mb-3">Workflow de synchronisation</h5>
-                <ol class="small text-muted mb-4">
-                    <li class="mb-1">Sur le <strong>PC distant</strong> : ouvrir <code>admin/export_questions.php</code> → télécharge un fichier JSON</li>
-                    <li class="mb-1">Copier le fichier JSON sur ce PC (réseau, clé USB…)</li>
-                    <li>Uploader le fichier ci-dessous → nouvelles questions ajoutées, doublons ignorés</li>
-                </ol>
-                <form method="POST" action="gestion_questions.php" enctype="multipart/form-data">
-                    <?= csrfField() ?>
-                    <input type="hidden" name="import_type" value="sync">
-                    <div class="mb-3">
-                        <label class="form-label fw-semibold">Fichier JSON (<code>questions_export_*.json</code>)</label>
-                        <input type="file" name="json_file" accept=".json" class="form-control" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-upload me-2"></i>Importer les questions
-                    </button>
-                </form>
-            </div>
-
-            <div class="text-center">
-                <a href="export_questions.php" class="btn btn-outline-secondary btn-sm">
-                    <i class="bi bi-download me-1"></i>Exporter les questions de CE PC
-                </a>
-            </div>
-        </div>
-    </div>
-
-    <!-- ══════════════════════════════════════════════════════════
          ONGLET : IMPORT ÉVALUATION
     ══════════════════════════════════════════════════════════ -->
     <?php elseif ($tab === 'import_eval'): ?>
@@ -975,8 +797,9 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
                 <i class="bi bi-check-circle me-2"></i><?= htmlspecialchars($msgEval) ?>
                 <?php if ($statsEval): ?>
                 <ul class="mb-0 mt-2 small">
-                    <li>Module créé/trouvé : <strong><?= htmlspecialchars($statsEval['module']) ?></strong></li>
-                    <li>Partie créée/trouvée : <strong><?= htmlspecialchars($statsEval['partie']) ?></strong></li>
+                    <li>Module : <strong><?= htmlspecialchars($statsEval['module']) ?></strong></li>
+                    <li>Évaluation créée (inactive) :
+                        <a href="evaluations.php?action=edit&id=<?= (int)$statsEval['eval_id'] ?>"><strong><?= htmlspecialchars($statsEval['evaluation']) ?></strong></a></li>
                     <li>Total dans le fichier : <?= $statsEval['total'] ?></li>
                     <li>Importées : <strong class="text-success"><?= $statsEval['importe'] ?></strong></li>
                     <li>Déjà présentes (ignorées) : <?= $statsEval['skip'] ?></li>
@@ -1015,19 +838,50 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
                         <select name="module_dest_id" id="evalModuleDestSelect" class="form-select"
                                 onchange="toggleNouveauModuleEval(this.value)">
                             <option value="0">— Nouveau module —</option>
-                            <?php foreach ($tousModules as $m): ?>
+                            <?php $posted = ($_POST['import_type'] ?? '') === 'eval'; ?>
+                            <?php foreach ($allModules as $m): ?>
                             <option value="<?= $m['id'] ?>"
-                                <?= (isset($_POST['module_dest_id']) && ($_POST['import_type'] ?? '') === 'eval' && (int)$_POST['module_dest_id'] === (int)$m['id']) ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($m['nom']) ?>
+                                <?= ($posted ? (int)($_POST['module_dest_id'] ?? 0) : $moduleId) === (int)$m['id'] ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($m['libelle']) ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
-                        <div id="evalNouveauModuleBox" class="mt-2" style="display:none;">
-                            <input type="text" name="module_dest_nom" class="form-control"
-                                   placeholder="Nom du nouveau module (laisser vide = utiliser le nom dans le JSON)"
-                                   value="<?= htmlspecialchars(($_POST['import_type'] ?? '') === 'eval' ? ($_POST['module_dest_nom'] ?? '') : '') ?>">
-                            <div class="form-text">Laisser vide pour utiliser le champ <code>module</code> du JSON.</div>
+                        <div id="evalNouveauModuleBox" class="mt-2 row g-2" style="display:none;">
+                            <div class="col-4">
+                                <input type="text" name="module_dest_filiere" class="form-control text-uppercase" placeholder="Filière (IDOCC)"
+                                       value="<?= htmlspecialchars($posted ? ($_POST['module_dest_filiere'] ?? '') : '') ?>">
+                            </div>
+                            <div class="col-8">
+                                <input type="text" name="module_dest_code" class="form-control text-uppercase" placeholder="Code module * (M207)"
+                                       value="<?= htmlspecialchars($posted ? ($_POST['module_dest_code'] ?? '') : '') ?>">
+                            </div>
+                            <div class="col-12">
+                                <input type="text" name="module_dest_nom" class="form-control"
+                                       placeholder="Intitulé (vide = champ « module » du JSON)"
+                                       value="<?= htmlspecialchars($posted ? ($_POST['module_dest_nom'] ?? '') : '') ?>">
+                            </div>
                         </div>
+                    </div>
+                    <div class="row g-2 mb-4">
+                        <div class="col-4">
+                            <label class="form-label fw-semibold">Type</label>
+                            <select name="eval_type" class="form-select" id="importEvalType"
+                                    onchange="document.getElementById('importNumBox').style.display = this.value === 'efm' ? 'none' : ''">
+                                <option value="cc">CC</option>
+                                <option value="efm" <?= $posted && ($_POST['eval_type'] ?? '') === 'efm' ? 'selected' : '' ?>>EFM</option>
+                            </select>
+                        </div>
+                        <div class="col-3" id="importNumBox">
+                            <label class="form-label fw-semibold">N° CC</label>
+                            <input type="number" name="eval_numero" class="form-control" min="1" max="9"
+                                   value="<?= (int)($posted ? ($_POST['eval_numero'] ?? 1) : 1) ?>">
+                        </div>
+                        <div class="col">
+                            <label class="form-label fw-semibold">Contenu</label>
+                            <input type="text" name="eval_contenu" class="form-control" placeholder="vide = « titre » du JSON"
+                                   value="<?= htmlspecialchars($posted ? ($_POST['eval_contenu'] ?? '') : '') ?>">
+                        </div>
+                        <div class="form-text">Une nouvelle évaluation est créée (inactive) avec les questions importées ; elle est à activer dans « Évaluations CC/EFM ».</div>
                     </div>
                     <hr class="my-3">
 
@@ -1174,32 +1028,6 @@ function addChoix() {
 }
 
 if (document.getElementById('typeSelect')) toggleChoix();
-
-async function redistribuerPoints(btn) {
-    var moduleId = btn.getAttribute('data-module-id');
-    var noteMax  = btn.getAttribute('data-note-max');
-    if (!confirm('Rééquilibrer les points de toutes les questions sur ' + noteMax + ' pts ?')) return;
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>En cours…';
-    var fd = new FormData();
-    fd.append('module_id', moduleId);
-    try {
-        var resp = await fetch('api_redistribute_points.php', { method: 'POST', body: fd });
-        if (!resp.ok) { throw new Error('HTTP ' + resp.status); }
-        var data = await resp.json();
-        if (data.error) {
-            alert('Erreur : ' + data.error);
-        } else {
-            if (typeof _toast === 'function') _toast('Points redistribués : ' + data.desc + ' = ' + noteMax + ' pts', 'success');
-            setTimeout(function() { location.reload(); }, 900);
-            return;
-        }
-    } catch (e) {
-        alert('Erreur : ' + e.message);
-    }
-    btn.disabled = false;
-    btn.innerHTML = '<i class="bi bi-distribute-vertical me-1"></i>Rééquilibrer sur ' + noteMax;
-}
 
 // ══════════════════════════════════════════════════════════
 // JS : Onglet DÉPLACER

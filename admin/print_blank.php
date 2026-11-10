@@ -4,14 +4,14 @@ require_once __DIR__ . '/../includes/functions.php';
 
 $pdo = getDB();
 
-$moduleId = (int)($_GET['module_id'] ?? 0);
-$module   = $moduleId ? getModule($moduleId) : null;
+$evaluationId = (int)($_GET['evaluation_id'] ?? 0);
+$module       = $evaluationId ? getEvaluation($evaluationId) : null;
 if (!$module) {
-    echo '<p class="text-danger p-4">Module introuvable. <a href="modules.php">Retour</a></p>'; exit;
+    echo '<p class="text-danger p-4">Évaluation introuvable. <a href="evaluations.php">Retour</a></p>'; exit;
 }
 
-$isEfm  = ($module['type'] ?? 'qcm') === 'efm';
-$ccNum  = (int)($_GET['cc_num'] ?? 0);   // 1 = CC1, 2 = CC2, 3 = CC3, 0 = non spécifié
+$isEfm  = $module['type'] === 'efm';
+$ccNum  = (int)($_GET['cc_num'] ?? ($isEfm ? 0 : (int)$module['numero']));
 
 $codeModule  = htmlspecialchars($module['efm_code_module']   ?? '', ENT_QUOTES, 'UTF-8');
 $filiere     = htmlspecialchars($module['efm_filiere']       ?? '', ENT_QUOTES, 'UTF-8');
@@ -19,23 +19,10 @@ $etabl       = htmlspecialchars($module['efm_etablissement'] ?: 'Direction Régi
 $annee       = htmlspecialchars($module['efm_annee'] ?: getAnneeFormation(), ENT_QUOTES, 'UTF-8');
 $noteMax     = (int)($module['note_max'] ?? 20);
 $duree       = (int)($module['duree_minutes'] ?? 0);
-$intitule    = htmlspecialchars($module['nom'], ENT_QUOTES, 'UTF-8');
+$intitule    = htmlspecialchars($module['module_nom'], ENT_QUOTES, 'UTF-8');
 
-// Charger toutes les questions du module
-$questions   = [];
-$totalPoints = 0;
-
-$qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
-$qStmt->execute([$moduleId]);
-$questions = $qStmt->fetchAll();
-
-foreach ($questions as &$q) {
-    $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
-    $cStmt->execute([$q['id']]);
-    $q['choix'] = $cStmt->fetchAll();
-    $totalPoints += (float)$q['points'];
-}
-unset($q);
+$questions   = getQuestionsEvaluation($evaluationId);
+$totalPoints = array_sum(array_map(fn($q) => (float)$q['points'], $questions));
 
 $logoPath = __DIR__ . '/../assets/img/logo_efm.png';
 $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(file_get_contents($logoPath)) : '';
@@ -154,20 +141,6 @@ $lettres = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'];
             border-top: 2px solid #000;
             margin: 2mm 0;
         }
-
-        /* ── Partie ── */
-        .partie-header {
-            background: #000;
-            color: #fff;
-            font-weight: bold;
-            font-size: 10.5pt;
-            padding: 1.5mm 3mm;
-            margin: 3mm 0 2mm;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .partie-bareme { font-size: 9.5pt; font-weight: normal; }
 
         /* ── Question ── */
         .question-block {

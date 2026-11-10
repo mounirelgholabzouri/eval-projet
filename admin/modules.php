@@ -2,48 +2,21 @@
 require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
-$pdo = getDB();
-$msg = '';
+$pdo    = getDB();
+$msg    = '';
 $erreur = '';
 $action = $_POST['action'] ?? $_GET['action'] ?? 'list';
 $id     = (int)($_POST['id'] ?? $_GET['id'] ?? 0);
 
-// ── Traitement formulaires ───────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['confirm_delete_module']) && !isset($_POST['bulk_action'])) {
-    $nom      = trim($_POST['nom'] ?? '');
-    $desc     = trim($_POST['description'] ?? '');
-    $duree    = (int)($_POST['duree_minutes'] ?? 30);
-    $noteMax  = in_array((int)($_POST['note_max'] ?? 20), [20, 40]) ? (int)$_POST['note_max'] : 20;
-    $actif    = isset($_POST['actif']) ? 1 : 0;
-    $nbQCtrl  = trim($_POST['nb_questions_controle'] ?? '') !== '' ? max(1, (int)$_POST['nb_questions_controle']) : null;
-
-    if (strlen($nom) < 2) {
-        $erreur = "Le nom du module est requis.";
-    } else {
-        if ($action === 'edit' && $id > 0) {
-            $pdo->prepare("UPDATE modules SET nom=?, description=?, actif=?, nb_questions_controle=? WHERE id=?")
-                ->execute([$nom, $desc, $actif, $nbQCtrl, $id]);
-            // Met aussi à jour l'évaluation associée
-            $pdo->prepare("UPDATE evaluations SET nom=?, duree_minutes=?, note_max=? WHERE module_id=?")
-                ->execute([$nom, $duree, $noteMax, $id]);
-            $msg = "Module mis à jour avec succès.";
-        } else {
-            $pdo->prepare("INSERT INTO modules (nom, description, actif, nb_questions_controle) VALUES (?,?,?,?)")
-                ->execute([$nom, $desc, $actif, $nbQCtrl]);
-            $newId = (int)$pdo->lastInsertId();
-            // Crée l'évaluation associée automatiquement
-            $pdo->prepare("INSERT INTO evaluations (module_id, nom, type, duree_minutes, note_max) VALUES (?,?,'qcm',?,?)")
-                ->execute([$newId, $nom, $duree, $noteMax]);
-            // Crée la partie par défaut
-            $pdo->prepare("INSERT INTO parties (module_id, nom, ordre) VALUES (?, 'Général', 1)")
-                ->execute([$newId]);
-            $msg = "Module créé avec succès.";
-        }
-        $action = 'list';
-    }
+// ── Toggle publication (AJAX POST) ───────────────────────────
+if ($action === 'toggle' && $id > 0 && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    $pdo->prepare("UPDATE modules SET actif = NOT actif WHERE id = ?")->execute([$id]);
+    header('Content-Type: application/json');
+    echo json_encode(['success' => true]);
+    exit;
 }
 
-// ── Suppression (POST obligatoire) ──────────────────────────
+// ── Suppression unitaire ─────────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_module'])) {
     $delId = (int)($_POST['delete_id'] ?? 0);
     if ($delId > 0) {
@@ -52,48 +25,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_module
     }
     $action = 'list';
 }
-
-// ── Suppression en masse ─────────────────────────────────────
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
-    $bulkAction = $_POST['bulk_action'] ?? '';
+// ── Actions en masse ─────────────────────────────────────────
+elseif ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
     $selectedIds = array_map('intval', $_POST['selected_ids'] ?? []);
+    if ($selectedIds && $_POST['bulk_action'] === 'delete') {
+        foreach ($selectedIds as $sid) supprimerModule($sid);
+        $msg = count($selectedIds) . " module(s) supprimé(s).";
+    } elseif ($selectedIds && $_POST['bulk_action'] === 'toggle_status') {
+        $upd = $pdo->prepare("UPDATE modules SET actif = NOT actif WHERE id = ?");
+        foreach ($selectedIds as $sid) $upd->execute([$sid]);
+        $msg = count($selectedIds) . " module(s) publié(s)/dépublié(s).";
+    }
+    $action = 'list';
+}
+// ── Création / modification ──────────────────────────────────
+elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $code     = strtoupper(trim($_POST['code'] ?? ''));
+    $filiere  = strtoupper(trim($_POST['filiere'] ?? ''));
+    $intitule = trim($_POST['nom'] ?? '');
+    $desc     = trim($_POST['description'] ?? '');
+    $actif    = isset($_POST['actif']) ? 1 : 0;
 
-    if (!empty($selectedIds)) {
-        if ($bulkAction === 'delete') {
-            foreach ($selectedIds as $id) {
-                supprimerModule($id);
-            }
-            $msg = count($selectedIds) . " module(s) supprimé(s).";
-        } elseif ($bulkAction === 'toggle_status') {
-            foreach ($selectedIds as $id) {
-                $pdo->prepare("UPDATE modules SET actif = NOT actif WHERE id = ?")->execute([$id]);
-            }
-            $msg = count($selectedIds) . " module(s) activé(s)/désactivé(s).";
+    if (!preg_match('/^[A-Z0-9]{2,20}$/', $code)) {
+        $erreur = "Code module invalide (ex. M207, EGTS206).";
+    } elseif ($filiere !== '' && !preg_match('/^[A-Z0-9]{1,20}$/', $filiere)) {
+        $erreur = "Code filière invalide (ex. IDOCC).";
+    } elseif (mb_strlen($intitule) < 2) {
+        $erreur = "L'intitulé du module est requis.";
+    } else {
+        $doublon = $pdo->prepare("SELECT COUNT(*) FROM modules WHERE code = ? AND id <> ?");
+        $doublon->execute([$code, $action === 'edit' ? $id : 0]);
+        if ($doublon->fetchColumn() > 0) {
+            $erreur = "Le code $code existe déjà.";
+        } elseif ($action === 'edit' && $id > 0) {
+            $pdo->prepare("UPDATE modules SET code = ?, filiere = ?, nom = ?, description = ?, actif = ? WHERE id = ?")
+                ->execute([$code, $filiere ?: null, $intitule, $desc, $actif, $id]);
+            renommerEvaluationsModule($id);
+            $msg = "Module mis à jour (noms des évaluations recalculés).";
+            $action = 'list';
+        } else {
+            $newId = creerModule($code, $filiere, $intitule, $desc, (bool)$actif);
+            header("Location: evaluations.php?module_id=$newId&created_module=1");
+            exit;
         }
     }
-    $action = 'list';
 }
 
-// ── Toggle actif ─────────────────────────────────────────────
-if ($action === 'toggle' && $id > 0) {
-    $pdo->prepare("UPDATE modules SET actif = NOT actif WHERE id = ?")->execute([$id]);
-    if (isset($_POST['ajax']) || isset($_GET['ajax'])) {
-        header('Content-Type: application/json');
-        echo json_encode(['success' => true]);
-        exit;
-    }
-    $action = 'list';
-}
+$modules    = getAllModules();
+$editModule = ($action === 'edit' && $id > 0) ? getModule($id) : null;
+if ($action === 'edit' && !$editModule) { header("Location: modules.php"); exit; }
+$form = $erreur ? $_POST : ($editModule ?? []);
 
-$modules = getAllModules();
-$editModule = null;
-if ($action === 'edit' && $id > 0) {
-    $editModule = getModule($id);
-    if (!$editModule) {
-        header("Location: modules.php");
-        exit;
-    }
-}
+$filieresConnues = array_unique(array_merge(['ID', 'IDOCC', 'IDOCS', 'IDOSR'],
+    $pdo->query("SELECT DISTINCT filiere FROM modules WHERE filiere IS NOT NULL")->fetchAll(PDO::FETCH_COLUMN)));
 ?>
 <!DOCTYPE html>
 <html lang="fr">
@@ -111,17 +95,17 @@ if ($action === 'edit' && $id > 0) {
 
     <?php if ($msg): ?>
         <div class="alert alert-success alert-dismissible fade show rounded-3">
-            <i class="bi bi-check-circle me-2"></i><?= htmlspecialchars($msg) ?>
+            <i class="bi bi-check-circle me-2"></i><?= sanitize($msg) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
     <?php endif; ?>
     <?php if ($erreur): ?>
-        <div class="alert alert-danger rounded-3"><i class="bi bi-exclamation-triangle me-2"></i><?= htmlspecialchars($erreur) ?></div>
+        <div class="alert alert-danger rounded-3"><i class="bi bi-exclamation-triangle me-2"></i><?= sanitize($erreur) ?></div>
     <?php endif; ?>
 
     <div class="row g-4">
         <!-- Formulaire -->
-        <div class="col-md-4">
+        <div class="col-lg-4">
             <div class="card border-0 shadow-sm rounded-4">
                 <div class="card-header bg-white border-0 py-3 px-4">
                     <h5 class="mb-0 fw-bold">
@@ -130,48 +114,39 @@ if ($action === 'edit' && $id > 0) {
                     </h5>
                 </div>
                 <div class="card-body p-4">
-                    <form method="POST" action="modules.php?action=<?= $editModule ? 'edit&id='.$id : 'add' ?>">
+                    <form method="POST" action="modules.php?action=<?= $editModule ? 'edit&id=' . $id : 'add' ?>">
                         <?= csrfField() ?>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Nom du module <span class="text-danger">*</span></label>
-                            <input type="text" name="nom" class="form-control" required
-                                   value="<?= htmlspecialchars($editModule['nom'] ?? '') ?>">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Description</label>
-                            <textarea name="description" class="form-control" rows="3"><?= htmlspecialchars($editModule['description'] ?? '') ?></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Durée (minutes)</label>
-                            <input type="number" name="duree_minutes" class="form-control" min="5" max="300"
-                                   value="<?= (int)($editModule['duree_minutes'] ?? 30) ?>">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label fw-semibold">Notation</label>
-                            <div class="d-flex gap-3">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="note_max" value="20"
-                                           id="nm20" <?= (!$editModule || $editModule['note_max'] == 20) ? 'checked' : '' ?>>
-                                    <label class="form-check-label" for="nm20">Sur 20</label>
-                                </div>
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="note_max" value="40"
-                                           id="nm40" <?= ($editModule && $editModule['note_max'] == 40) ? 'checked' : '' ?>>
-                                    <label class="form-check-label" for="nm40">Sur 40</label>
-                                </div>
+                        <div class="row g-2 mb-3">
+                            <div class="col-5">
+                                <label class="form-label fw-semibold">Filière</label>
+                                <input type="text" name="filiere" class="form-control text-uppercase" list="filieres"
+                                       placeholder="IDOCC" maxlength="20" value="<?= sanitize($form['filiere'] ?? '') ?>">
+                                <datalist id="filieres">
+                                    <?php foreach ($filieresConnues as $f): ?><option value="<?= sanitize($f) ?>"><?php endforeach; ?>
+                                </datalist>
+                            </div>
+                            <div class="col-7">
+                                <label class="form-label fw-semibold">Code module <span class="text-danger">*</span></label>
+                                <input type="text" name="code" class="form-control text-uppercase" required
+                                       placeholder="M207" maxlength="20" value="<?= sanitize($form['code'] ?? '') ?>">
                             </div>
                         </div>
                         <div class="mb-3">
-                            <label class="form-label fw-semibold">Questions par contrôle</label>
-                            <input type="number" name="nb_questions_controle" class="form-control" min="1" max="500"
-                                   placeholder="Laisser vide = toutes"
-                                   value="<?= isset($editModule['nb_questions_controle']) ? (int)$editModule['nb_questions_controle'] : '' ?>">
-                            <div class="form-text">Nombre de questions tirées aléatoirement à chaque lancement. Vide = toutes les questions.</div>
+                            <label class="form-label fw-semibold">Intitulé <span class="text-danger">*</span></label>
+                            <input type="text" name="nom" class="form-control" required
+                                   value="<?= sanitize($form['nom'] ?? '') ?>">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label fw-semibold">Description</label>
+                            <textarea name="description" class="form-control" rows="2"><?= sanitize($form['description'] ?? '') ?></textarea>
                         </div>
                         <div class="mb-3 form-check">
                             <input type="checkbox" name="actif" class="form-check-input" id="actif"
-                                   <?= (!$editModule || $editModule['actif']) ? 'checked' : '' ?>>
-                            <label class="form-check-label" for="actif">Module actif (visible aux stagiaires)</label>
+                                   <?= (!$form || !empty($form['actif'])) ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="actif">Publié (ses évaluations actives sont visibles des stagiaires)</label>
+                        </div>
+                        <div class="form-text mb-3">
+                            Nomenclature des évaluations : <code>FILIÈRE-MODULE-CCn (contenu)</code> ou <code>FILIÈRE-MODULE-EFM</code>.
                         </div>
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">
@@ -187,88 +162,68 @@ if ($action === 'edit' && $id > 0) {
         </div>
 
         <!-- Liste des modules -->
-        <div class="col-md-8">
+        <div class="col-lg-8">
             <div class="card border-0 shadow-sm rounded-4">
-                <!-- Barre d'actions en masse -->
-                <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display: none;">
+                <div id="bulkActionBar" class="card-header bg-light border-bottom py-3 px-4" style="display:none">
                     <div class="d-flex gap-2 align-items-center">
-                        <span class="text-muted">
-                            <span id="bulkCount">0</span> sélectionné(s)
-                        </span>
-                        <div class="btn-group btn-group-sm" role="group">
-                            <button type="button" class="btn btn-outline-danger" onclick="bulkDelete()">
+                        <span class="text-muted"><span id="bulkCount">0</span> sélectionné(s)</span>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-danger" onclick="bulkSubmit('delete')">
                                 <i class="bi bi-trash me-1"></i>Supprimer
                             </button>
-                            <button type="button" class="btn btn-outline-success" onclick="bulkToggleStatus()">
-                                <i class="bi bi-arrow-repeat me-1"></i>Basculer statut
+                            <button type="button" class="btn btn-outline-success" onclick="bulkSubmit('toggle_status')">
+                                <i class="bi bi-arrow-repeat me-1"></i>Publier / dépublier
                             </button>
                         </div>
-                        <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="clearSelection()">
-                            Annuler
-                        </button>
+                        <button type="button" class="btn btn-outline-secondary btn-sm ms-auto" onclick="clearSelection()">Annuler</button>
                     </div>
                 </div>
                 <div class="card-body p-0">
                     <table class="table table-hover mb-0 align-middle">
                         <thead class="table-light">
                             <tr>
-                                <th class="ps-4" style="width: 40px;">
+                                <th class="ps-4" style="width:40px">
                                     <input type="checkbox" class="form-check-input" id="selectAll" onchange="toggleSelectAll()">
                                 </th>
-                                <th class="ps-4">Module</th>
-                                <th class="text-center">Durée</th>
+                                <th>Module</th>
                                 <th class="text-center">Questions</th>
-                                <th class="text-center">Parties actives</th>
+                                <th class="text-center">Évaluations</th>
                                 <th class="text-center">Statut</th>
                                 <th class="text-center">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                         <?php if (empty($modules)): ?>
-                            <tr><td colspan="7" class="text-center text-muted py-4">Aucun module créé</td></tr>
+                            <tr><td colspan="6" class="text-center text-muted py-4">Aucun module créé</td></tr>
                         <?php endif; ?>
                         <?php foreach ($modules as $m): ?>
                             <tr>
                                 <td class="ps-4">
                                     <input type="checkbox" class="form-check-input module-checkbox" value="<?= $m['id'] ?>" onchange="updateBulkActionBar()">
                                 </td>
-                                <td class="ps-4">
-                                    <div class="fw-semibold d-flex align-items-center gap-2 flex-wrap">
-                                        <span class="badge bg-light text-secondary border fw-normal" style="font-size:.7rem">#<?= $m['id'] ?></span>
-                                        <?= htmlspecialchars($m['nom']) ?>
-                                        <?php if (($m['type'] ?? 'qcm') === 'efm'): ?>
-                                            <span class="badge bg-danger">EFM</span>
-                                        <?php elseif (($m['type'] ?? 'qcm') === 'pratique'): ?>
-                                            <span class="badge bg-warning text-dark">Pratique</span>
-                                        <?php endif; ?>
+                                <td>
+                                    <div class="fw-semibold">
+                                        <span class="badge bg-dark-subtle text-dark border me-1"><?= sanitize(implode('-', array_filter([$m['filiere'], $m['code']])) ?: '—') ?></span>
+                                        <?= sanitize($m['nom']) ?>
                                     </div>
                                     <?php if ($m['description']): ?>
-                                    <div class="text-muted small"><?= htmlspecialchars(mb_substr($m['description'], 0, 60)) ?>...</div>
+                                    <div class="text-muted small"><?= sanitize(mb_strimwidth($m['description'], 0, 80, '…')) ?></div>
                                     <?php endif; ?>
                                 </td>
-                                <td class="text-center text-muted small"><?= $m['duree_minutes'] ?> min</td>
                                 <td class="text-center">
                                     <a href="gestion_questions.php?tab=gerer&module_id=<?= $m['id'] ?>" class="badge bg-primary-subtle text-primary text-decoration-none">
-                                        <?= $m['nb_questions'] ?> Q
+                                        <?= (int)$m['nb_questions'] ?> Q
                                     </a>
                                 </td>
-                                <?php
-                                $stmtP = $pdo->prepare("SELECT COUNT(*) FROM parties WHERE module_id = ? AND actif = 1");
-                                $stmtP->execute([$m['id']]);
-                                $nbParties = (int)$stmtP->fetchColumn();
-                                ?>
                                 <td class="text-center">
-                                    <span class="badge bg-secondary-subtle text-secondary border">
-                                        <?= $nbParties ?>
-                                    </span>
+                                    <a href="evaluations.php?module_id=<?= $m['id'] ?>" class="badge bg-success-subtle text-success text-decoration-none">
+                                        <?= (int)$m['nb_evaluations'] ?> éval.
+                                    </a>
                                 </td>
                                 <td class="text-center">
                                     <div class="form-check form-switch d-flex justify-content-center align-items-center gap-2 mb-0">
-                                        <input class="form-check-input toggle-actif fs-5" type="checkbox"
-                                               role="switch"
-                                               data-id="<?= $m['id'] ?>"
-                                               <?= $m['actif'] ? 'checked' : '' ?>
-                                               title="<?= $m['actif'] ? 'Publié — cliquer pour dépublier' : 'Non publié — cliquer pour publier' ?>">
+                                        <input class="form-check-input toggle-actif fs-5" type="checkbox" role="switch"
+                                               data-id="<?= $m['id'] ?>" <?= $m['actif'] ? 'checked' : '' ?>>
                                         <span class="badge toggle-label <?= $m['actif'] ? 'bg-success' : 'bg-secondary' ?>" id="label-<?= $m['id'] ?>">
                                             <?= $m['actif'] ? 'Publié' : 'Non publié' ?>
                                         </span>
@@ -276,62 +231,20 @@ if ($action === 'edit' && $id > 0) {
                                 </td>
                                 <td class="text-center">
                                     <div class="d-flex gap-1 justify-content-center flex-wrap">
-                                        <a href="modules.php?action=edit&id=<?= $m['id'] ?>"
-                                           class="btn btn-sm btn-outline-primary rounded-3" title="Modifier">
+                                        <a href="modules.php?action=edit&id=<?= $m['id'] ?>" class="btn btn-sm btn-outline-primary rounded-3" title="Modifier">
                                             <i class="bi bi-pencil"></i>
                                         </a>
-                                        <a href="gestion_questions.php?tab=gerer&module_id=<?= $m['id'] ?>"
-                                           class="btn btn-sm btn-outline-success rounded-3" title="Questions">
+                                        <a href="evaluations.php?module_id=<?= $m['id'] ?>" class="btn btn-sm btn-outline-success rounded-3" title="Évaluations CC / EFM">
+                                            <i class="bi bi-clipboard-check"></i>
+                                        </a>
+                                        <a href="gestion_questions.php?tab=gerer&module_id=<?= $m['id'] ?>" class="btn btn-sm btn-outline-secondary rounded-3" title="Banque de questions">
                                             <i class="bi bi-list-check"></i>
                                         </a>
-                                        <?php if (($m['type'] ?? 'qcm') === 'efm'): ?>
-                                        <?php
-                                        $efmPrintUrl = 'print_efm.php?' . http_build_query([
-                                            'module_id'     => $m['id'],
-                                            'etablissement' => $m['efm_etablissement'] ?? '',
-                                            'filiere'       => $m['efm_filiere'] ?? '',
-                                            'duree'         => ($m['duree_minutes'] ?? 120) . ' min',
-                                            'annee'         => $m['efm_annee'] ?? '',
-                                            'note_max'      => $m['note_max'] ?? 40,
-                                            'code_module'   => $m['efm_code_module'] ?? '',
-                                            'intitule'      => $m['nom'],
-                                            'shuffle'       => 0, 'shuffle_choix' => 0, 'corrige' => 0,
-                                        ]);
-                                        ?>
-                                        <a href="<?= $efmPrintUrl ?>" target="_blank"
-                                           class="btn btn-sm btn-danger rounded-3" title="Imprimer EFM">
-                                            <i class="bi bi-file-earmark-ruled"></i>
-                                        </a>
-                                        <?php else: ?>
-                                        <div class="btn-group btn-group-sm">
-                                            <a href="print_blank.php?module_id=<?= $m['id'] ?>&cc_num=1" target="_blank"
-                                               class="btn btn-outline-secondary rounded-start-3" title="Imprimer CC1">
-                                                <i class="bi bi-printer"></i>
-                                            </a>
-                                            <button type="button" class="btn btn-outline-secondary dropdown-toggle dropdown-toggle-split rounded-end-3"
-                                                    data-bs-toggle="dropdown" title="Choisir le numéro de CC"></button>
-                                            <ul class="dropdown-menu dropdown-menu-end">
-                                                <li><a class="dropdown-item" href="print_blank.php?module_id=<?= $m['id'] ?>&cc_num=1" target="_blank">
-                                                    <span class="badge bg-primary me-2">CC1</span> Imprimer CC1</a></li>
-                                                <li><a class="dropdown-item" href="print_blank.php?module_id=<?= $m['id'] ?>&cc_num=2" target="_blank">
-                                                    <span class="badge bg-success me-2">CC2</span> Imprimer CC2</a></li>
-                                                <li><a class="dropdown-item" href="print_blank.php?module_id=<?= $m['id'] ?>&cc_num=3" target="_blank">
-                                                    <span class="badge" style="background:#e67e00" class="me-2">CC3</span> Imprimer CC3</a></li>
-                                                <li><hr class="dropdown-divider"></li>
-                                                <li><a class="dropdown-item text-muted" href="print_blank.php?module_id=<?= $m['id'] ?>" target="_blank">
-                                                    <i class="bi bi-printer me-1"></i> Sans étiquette</a></li>
-                                            </ul>
-                                        </div>
-                                        <?php endif; ?>
-                                        <a href="results.php?module_id=<?= $m['id'] ?>"
-                                           class="btn btn-sm btn-outline-info rounded-3"
-                                           title="Voir les résultats">
+                                        <a href="results.php?module_id=<?= $m['id'] ?>" class="btn btn-sm btn-outline-info rounded-3" title="Résultats">
                                             <i class="bi bi-bar-chart-line"></i>
                                         </a>
-                                        <button type="button"
-                                                class="btn btn-sm btn-outline-danger rounded-3"
-                                                title="Supprimer"
-                                                onclick="confirmDeleteModule(<?= $m['id'] ?>, <?= json_encode($m['nom']) ?>, <?= (int)$m['nb_questions'] ?>, <?= $nbParties ?>)">
+                                        <button type="button" class="btn btn-sm btn-outline-danger rounded-3" title="Supprimer"
+                                                onclick="confirmDeleteModule(<?= $m['id'] ?>, <?= sanitize(json_encode($m['libelle'], JSON_UNESCAPED_UNICODE)) ?>, <?= (int)$m['nb_questions'] ?>, <?= (int)$m['nb_evaluations'] ?>)">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </div>
@@ -345,133 +258,6 @@ if ($action === 'edit' && $id > 0) {
         </div>
     </div>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-document.querySelectorAll('.toggle-actif').forEach(function(toggle) {
-    toggle.addEventListener('change', function() {
-        const id    = this.dataset.id;
-        const actif = this.checked ? 1 : 0;
-        const label = document.getElementById('label-' + id);
-
-        // Désactiver pendant la requête
-        toggle.disabled = true;
-
-        const fd = new FormData();
-        fd.append('action', 'toggle');
-        fd.append('id', id);
-        fd.append('ajax', '1');
-        fd.append('csrf_token', '<?= csrfToken() ?>');
-        fetch('modules.php', { method: 'POST', body: fd })
-            .then(r => r.json())
-            .then(data => {
-                toggle.disabled = false;
-                if (data.success) {
-                    // Mettre à jour le label
-                    if (actif) {
-                        label.textContent = 'Publié';
-                        label.className   = 'badge toggle-label bg-success';
-                        toggle.title      = 'Publié — cliquer pour dépublier';
-                    } else {
-                        label.textContent = 'Non publié';
-                        label.className   = 'badge toggle-label bg-secondary';
-                        toggle.title      = 'Non publié — cliquer pour publier';
-                    }
-                } else {
-                    // Annuler le changement visuel si erreur
-                    toggle.checked = !toggle.checked;
-                    alert('Erreur lors de la mise à jour.');
-                }
-            })
-            .catch(() => {
-                toggle.disabled = false;
-                toggle.checked  = !toggle.checked;
-                alert('Erreur de connexion.');
-            });
-    });
-});
-
-// ── Fonctions sélection multiple ─────────────────────────────
-function updateBulkActionBar() {
-    const checkboxes = document.querySelectorAll('.module-checkbox:checked');
-    const bar = document.getElementById('bulkActionBar');
-    const count = document.getElementById('bulkCount');
-    const selectAll = document.getElementById('selectAll');
-
-    count.textContent = checkboxes.length;
-    bar.style.display = checkboxes.length > 0 ? 'block' : 'none';
-
-    // Mettre à jour le checkbox "Sélectionner tout"
-    const allCheckboxes = document.querySelectorAll('.module-checkbox');
-    selectAll.checked = allCheckboxes.length > 0 && checkboxes.length === allCheckboxes.length;
-    selectAll.indeterminate = checkboxes.length > 0 && checkboxes.length < allCheckboxes.length;
-}
-
-function toggleSelectAll() {
-    const selectAll = document.getElementById('selectAll');
-    document.querySelectorAll('.module-checkbox').forEach(cb => {
-        cb.checked = selectAll.checked;
-    });
-    updateBulkActionBar();
-}
-
-function clearSelection() {
-    document.querySelectorAll('.module-checkbox').forEach(cb => cb.checked = false);
-    document.getElementById('selectAll').checked = false;
-    updateBulkActionBar();
-}
-
-function bulkDelete() {
-    const checkboxes = document.querySelectorAll('.module-checkbox:checked');
-    if (checkboxes.length === 0) { _toast('Sélectionnez au moins un module.', 'warning'); return; }
-    confirmAction('Supprimer ' + checkboxes.length + ' module(s) ? Cette action est irréversible.', function () {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        const csrfInput = document.createElement('input');
-        csrfInput.type = 'hidden'; csrfInput.name = 'csrf_token'; csrfInput.value = '<?= csrfToken() ?>';
-        form.appendChild(csrfInput);
-        const input1 = document.createElement('input');
-        input1.type = 'hidden'; input1.name = 'bulk_action'; input1.value = 'delete';
-        form.appendChild(input1);
-        checkboxes.forEach(function (cb) {
-            const inp = document.createElement('input');
-            inp.type = 'hidden'; inp.name = 'selected_ids[]'; inp.value = cb.value;
-            form.appendChild(inp);
-        });
-        document.body.appendChild(form);
-        form.submit();
-    });
-}
-
-function bulkToggleStatus() {
-    const checkboxes = document.querySelectorAll('.module-checkbox:checked');
-    if (checkboxes.length === 0) {
-        alert('Sélectionnez au moins un module.');
-        return;
-    }
-
-    const form = document.createElement('form');
-    form.method = 'POST';
-    const csrfInput = document.createElement('input');
-    csrfInput.type = 'hidden'; csrfInput.name = 'csrf_token'; csrfInput.value = '<?= csrfToken() ?>';
-    form.appendChild(csrfInput);
-    const input1 = document.createElement('input');
-    input1.type = 'hidden';
-    input1.name = 'bulk_action';
-    input1.value = 'toggle_status';
-    form.appendChild(input1);
-
-    checkboxes.forEach(cb => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'selected_ids[]';
-        input.value = cb.value;
-        form.appendChild(input);
-    });
-
-    document.body.appendChild(form);
-    form.submit();
-}
-</script>
 
 <!-- Modal suppression module -->
 <div class="modal fade" id="deleteModuleModal" tabindex="-1">
@@ -496,21 +282,73 @@ function bulkToggleStatus() {
                     <input type="hidden" name="confirm_delete_module" value="1">
                     <input type="hidden" name="delete_id" id="delModId">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Annuler</button>
-                    <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash me-1"></i>Supprimer définitivement
-                    </button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash me-1"></i>Supprimer définitivement</button>
                 </form>
             </div>
         </div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-function confirmDeleteModule(id, nom, nbQ, nbP) {
-    document.getElementById('delModId').value  = id;
+const CSRF = <?= json_encode(csrfToken()) ?>;
+
+document.querySelectorAll('.toggle-actif').forEach(function (toggle) {
+    toggle.addEventListener('change', function () {
+        const id = this.dataset.id, actif = this.checked;
+        const label = document.getElementById('label-' + id);
+        const fd = new FormData();
+        fd.append('action', 'toggle'); fd.append('id', id); fd.append('csrf_token', CSRF);
+        toggle.disabled = true;
+        fetch('modules.php', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(() => {
+                label.textContent = actif ? 'Publié' : 'Non publié';
+                label.className   = 'badge toggle-label ' + (actif ? 'bg-success' : 'bg-secondary');
+            })
+            .catch(() => { toggle.checked = !actif; _toast('Erreur lors de la mise à jour.', 'danger'); })
+            .finally(() => toggle.disabled = false);
+    });
+});
+
+function updateBulkActionBar() {
+    const checked = document.querySelectorAll('.module-checkbox:checked').length;
+    const all     = document.querySelectorAll('.module-checkbox').length;
+    document.getElementById('bulkCount').textContent = checked;
+    document.getElementById('bulkActionBar').style.display = checked ? 'block' : 'none';
+    const selectAll = document.getElementById('selectAll');
+    selectAll.checked = all > 0 && checked === all;
+    selectAll.indeterminate = checked > 0 && checked < all;
+}
+function toggleSelectAll() {
+    const v = document.getElementById('selectAll').checked;
+    document.querySelectorAll('.module-checkbox').forEach(cb => cb.checked = v);
+    updateBulkActionBar();
+}
+function clearSelection() {
+    document.querySelectorAll('.module-checkbox').forEach(cb => cb.checked = false);
+    updateBulkActionBar();
+}
+function bulkSubmit(action) {
+    const ids = [...document.querySelectorAll('.module-checkbox:checked')].map(cb => cb.value);
+    if (!ids.length) return;
+    const go = () => {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; form.appendChild(i); };
+        add('csrf_token', CSRF); add('bulk_action', action);
+        ids.forEach(id => add('selected_ids[]', id));
+        document.body.appendChild(form);
+        form.submit();
+    };
+    action === 'delete'
+        ? confirmAction('Supprimer ' + ids.length + ' module(s) et tous leurs résultats ? Action irréversible.', go)
+        : go();
+}
+function confirmDeleteModule(id, nom, nbQ, nbE) {
+    document.getElementById('delModId').value = id;
     document.getElementById('delModNom').textContent = nom;
-    document.getElementById('delModStats').textContent =
-        nbQ + ' question(s), ' + nbP + ' partie(s)';
+    document.getElementById('delModStats').textContent = nbQ + ' question(s), ' + nbE + ' évaluation(s)';
     new bootstrap.Modal(document.getElementById('deleteModuleModal')).show();
 }
 </script>

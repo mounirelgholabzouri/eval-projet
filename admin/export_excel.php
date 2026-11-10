@@ -5,28 +5,13 @@
  * Feuille 2 : Moyenne par stagiaire
  * Accessible admin + depuis result.php via token de session
  */
+require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
-
-// ── Auth : admin OU stagiaire connecté ──────────────────────────────────────
-$isAdmin = false;
-session_name(ADMIN_SESSION_NAME);
-session_start();
-if (!empty($_SESSION['admin_id'])) {
-    $isAdmin = true;
-} else {
-    // Tenter session stagiaire
-    session_write_close();
-    session_name(SESSION_EVAL_NAME);
-    session_start();
-    if (empty($_SESSION['stagiaire_id'])) {
-        http_response_code(403);
-        exit('Accès refusé.');
-    }
-}
 
 $pdo = getDB();
 $moduleId = (int)($_GET['module_id'] ?? 0);
 $groupeId = (int)($_GET['groupe_id'] ?? 0);
+$evaluationId = (int)($_GET['evaluation_id'] ?? 0);
 $dateFrom = trim($_GET['date_from'] ?? '');
 $dateTo   = trim($_GET['date_to'] ?? '');
 $hourFrom = trim($_GET['hour_from'] ?? '');
@@ -44,6 +29,7 @@ $adminId   = (int)($_SESSION['admin_id'] ?? 0);
 $where  = ["se.statut = 'termine'"];
 $params = [];
 if ($moduleId > 0) { $where[] = 'e.module_id = ?'; $params[] = $moduleId; }
+if ($evaluationId > 0) { $where[] = 'se.evaluation_id = ?'; $params[] = $evaluationId; }
 if ($groupeId > 0) { $where[] = 'se.groupe_id = ?'; $params[] = $groupeId; }
 if ($dateFrom)     { $where[] = 'DATE(se.date_debut) >= ?'; $params[] = $dateFrom; }
 if ($dateTo)       { $where[] = 'DATE(se.date_debut) <= ?'; $params[] = $dateTo; }
@@ -57,7 +43,7 @@ $stmt = $pdo->prepare("
         COALESCE(st.nom,  se.nom)    AS nom,
         COALESCE(st.prenom, se.prenom) AS prenom,
         COALESCE(g.nom, se.groupe_libre, '—') AS groupe,
-        m.nom  AS module,
+        e.nom  AS module,
         e.note_max,
         se.date_debut,
         se.date_fin,
@@ -79,6 +65,7 @@ $evaluations = $stmt->fetchAll();
 $whereStag  = ["se.statut = 'termine'"];
 $paramsStag = [];
 if ($moduleId > 0) { $whereStag[] = 'e.module_id = ?'; $paramsStag[] = $moduleId; }
+if ($evaluationId > 0) { $whereStag[] = 'se.evaluation_id = ?'; $paramsStag[] = $evaluationId; }
 if ($groupeId > 0) { $whereStag[] = 'se.groupe_id = ?'; $paramsStag[] = $groupeId; }
 if ($dateFrom)     { $whereStag[] = 'DATE(se.date_debut) >= ?'; $paramsStag[] = $dateFrom; }
 if ($dateTo)       { $whereStag[] = 'DATE(se.date_debut) <= ?'; $paramsStag[] = $dateTo; }

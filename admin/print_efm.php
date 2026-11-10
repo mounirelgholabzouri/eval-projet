@@ -5,36 +5,32 @@ require_once __DIR__ . '/../includes/functions.php';
 $pdo = getDB();
 
 // ── Paramètres ────────────────────────────────────────────────
-$moduleId     = (int)($_GET['module_id'] ?? 0);
+$evaluationId = (int)($_GET['evaluation_id'] ?? 0);
+$eval = $evaluationId ? getEvaluation($evaluationId) : null;
+if (!$eval) {
+    echo '<p style="color:red;padding:20px">Évaluation invalide. <a href="evaluations.php">Retour</a></p>'; exit;
+}
+$moduleId = (int)$eval['module_id'];
+
+$param = fn(string $k, $defaut) => htmlspecialchars(trim((string)($_GET[$k] ?? $defaut)), ENT_QUOTES, 'UTF-8');
 $shuffle      = (bool)(int)($_GET['shuffle'] ?? 1);
 $shuffleChoix = (bool)(int)($_GET['shuffle_choix'] ?? 1);
 $corrige      = (bool)(int)($_GET['corrige'] ?? 0);
-$noteMax      = (int)($_GET['note_max'] ?? 20);
-$codeModule   = htmlspecialchars(trim($_GET['code_module'] ?? ''), ENT_QUOTES, 'UTF-8');
-$intitule     = htmlspecialchars(trim($_GET['intitule'] ?? ''), ENT_QUOTES, 'UTF-8');
-$etablissement= htmlspecialchars(trim($_GET['etablissement'] ?? ''), ENT_QUOTES, 'UTF-8');
-$filiere      = htmlspecialchars(trim($_GET['filiere'] ?? ''), ENT_QUOTES, 'UTF-8');
-$duree        = htmlspecialchars(trim($_GET['duree'] ?? ''), ENT_QUOTES, 'UTF-8');
-$annee        = htmlspecialchars(trim($_GET['annee'] ?? ''), ENT_QUOTES, 'UTF-8');
-
-$module = $moduleId ? getModule($moduleId) : null;
-if (!$module) {
-    echo '<p style="color:red;padding:20px">Module invalide. <a href="efm.php">Retour</a></p>'; exit;
-}
+$noteMax      = (int)($_GET['note_max'] ?? $eval['note_max']);
+$codeModule   = $param('code_module',   $eval['efm_code_module']);
+$intitule     = $param('intitule',      $eval['module_nom']);
+$etablissement= $param('etablissement', $eval['efm_etablissement']);
+$filiere      = $param('filiere',       $eval['efm_filiere']);
+$duree        = $param('duree',         formatDuration((int)$eval['duree_minutes']));
+$annee        = $param('annee',         $eval['efm_annee'] ?: getAnneeFormation());
 
 // ── Questions + choix ─────────────────────────────────────────
-$qStmt = $pdo->prepare("SELECT * FROM questions WHERE module_id = ? ORDER BY ordre, id");
-$qStmt->execute([$moduleId]);
-$questions = $qStmt->fetchAll();
+$questions = getQuestionsEvaluation($evaluationId);
 if ($shuffle) shuffle($questions);
 
 $totalPoints = 0;
 foreach ($questions as &$q) {
-    $cStmt = $pdo->prepare("SELECT * FROM choix_reponses WHERE question_id = ? ORDER BY ordre, id");
-    $cStmt->execute([$q['id']]);
-    $choix = $cStmt->fetchAll();
-    if ($shuffleChoix && !empty($choix)) shuffle($choix);
-    $q['choix'] = $choix;
+    if ($shuffleChoix && !empty($q['choix'])) shuffle($q['choix']);
     $totalPoints += (float)$q['points'];
 }
 unset($q);
@@ -184,7 +180,7 @@ $tamponB64  = file_exists($tamponPath) ? 'data:image/png;base64,' . base64_encod
 
 <!-- ── Boutons (écran seulement) ── -->
 <div class="print-controls">
-    <a href="efm.php?module_id=<?= $moduleId ?>" class="btn-back">&#8592; Retour</a>
+    <a href="evaluations.php?id=<?= $evaluationId ?>" class="btn-back">&#8592; Retour</a>
     <?php
     $corrigeParams = $_GET;
     $corrigeParams['corrige'] = $corrige ? 0 : 1;

@@ -19,26 +19,27 @@ $stagAnnee    = $_SESSION['stagiaire_annee'];
 $erreurs = [];
 $evaluations = getEvaluationsActives();
 
-// Types de questions par module (pour info stagiaire)
+// Types de questions par évaluation (pour info stagiaire)
 $pdo = getDB();
-$typesParModule = [];
-$stmt = $pdo->query("SELECT module_id, type, COUNT(*) as nb FROM questions GROUP BY module_id, type");
+$typesParEval = [];
+$stmt = $pdo->query("SELECT eq.evaluation_id, q.type, COUNT(*) AS nb
+                     FROM evaluation_questions eq JOIN questions q ON q.id = eq.question_id
+                     GROUP BY eq.evaluation_id, q.type");
 foreach ($stmt->fetchAll() as $row) {
-    $typesParModule[(int)$row['module_id']][$row['type']] = (int)$row['nb'];
+    $typesParEval[(int)$row['evaluation_id']][$row['type']] = (int)$row['nb'];
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCsrfToken();
     $evaluationId = (int)($_POST['evaluation_id'] ?? 0);
     if ($evaluationId <= 0) $erreurs[] = "Veuillez sélectionner une évaluation.";
 
     if (empty($erreurs)) {
         $eval = getEvaluation($evaluationId);
-        if (!$eval) {
+        if (!$eval || !$eval['actif'] || !$eval['module_actif'] || $eval['mode'] === 'pratique') {
             $erreurs[] = "Évaluation invalide.";
         } else {
-            $questions = getQuestionsModule((int)$eval['module_id']);
-
-            if (empty($questions)) {
+            if ((int)$eval['nb_questions_total'] === 0) {
                 $erreurs[] = "Cette évaluation ne contient pas encore de questions. Contactez votre formateur.";
             } else {
                 $session = creerSession(
@@ -131,6 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     <?php else: ?>
 
                     <form method="POST" action="" novalidate id="eval-form">
+                        <?= csrfField() ?>
                         <div class="row g-3">
 
                             <div class="col-12">
@@ -138,12 +140,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <i class="bi bi-journal-text me-1 text-primary"></i>Évaluation
                                 </label>
                                 <?php
-                                $typesLabels = ['qcm'=>'QCM','vrai_faux'=>'Vrai/Faux','texte_libre'=>'Réponse libre','multiple'=>'Choix multiples'];
+                                $typesLabels = ['qcm'=>'QCM','vrai_faux'=>'Vrai/Faux','texte_libre'=>'Réponse libre','multiple'=>'Choix multiples','glisser_deposer'=>'Glisser-déposer'];
                                 $typesData = [];
                                 foreach ($evaluations as $ev) {
-                                    $mid = (int)$ev['module_id'];
                                     $parts = [];
-                                    foreach ($typesParModule[$mid] ?? [] as $t => $nb) {
+                                    foreach ($typesParEval[(int)$ev['id']] ?? [] as $t => $nb) {
                                         $parts[] = ($typesLabels[$t] ?? $t) . ' (' . $nb . ')';
                                     }
                                     $typesData[(int)$ev['id']] = implode(', ', $parts);
@@ -154,7 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                     <?php foreach ($evaluations as $ev): ?>
                                         <option value="<?= $ev['id'] ?>"
                                             data-types="<?= sanitize($typesData[(int)$ev['id']] ?? '') ?>"
-                                            data-nb="<?= (int)($ev['nb_questions'] ?? 0) ?>"
+                                            data-nb="<?= (int)$ev['nb_questions_posees'] ?>"
                                             <?= (isset($_POST['evaluation_id']) && $_POST['evaluation_id'] == $ev['id']) ? 'selected' : '' ?>>
                                             <?= sanitize($ev['nom']) ?> (<?= $ev['duree_minutes'] ?> min)
                                         </option>

@@ -13,7 +13,7 @@ $allModules = getAllModules();
 
 // ── Onglet actif ─────────────────────────────────────────────
 $activeTab = $_GET['tab'] ?? 'generate';
-if (!in_array($activeTab, ['generate', 'config'])) $activeTab = 'generate';
+if (!in_array($activeTab, ['generate', 'config']) || ($activeTab === 'config' && !isAdmin())) $activeTab = 'generate';
 
 // ── Lecture config IA ─────────────────────────────────────────
 $providers       = getProvidersConfig();
@@ -42,6 +42,7 @@ if (isset($_GET['saved'])) $msg = "Configuration sauvegardée avec succès";
 
 // ── POST : Sauvegarder la configuration ──────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_config'])) {
+    requireAdminRole();
     $newProvider = trim($_POST['ai_provider'] ?? 'anthropic');
     $newModel    = trim($_POST['ai_model']    ?? '');
 
@@ -87,13 +88,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_questions'])) {
     $activeTab     = 'generate';
     $questionsJson = $_POST['questions_json'] ?? '';
     $moduleIdCible = (int)($_POST['module_id_save'] ?? 0);
-    if ($questionsJson && $moduleIdCible > 0) {
-        $questions = json_decode($questionsJson, true);
-        if ($questions) {
-            $nb    = sauvegarderQuestionsGenerees($questions, $moduleIdCible);
-            $msg   = "$nb question(s) ajoutée(s) au module !";
-        } else {
-            $erreur = "Données JSON invalides.";
+    $questions = $questionsJson ? json_decode($questionsJson, true) : null;
+    if (!$questions || $moduleIdCible <= 0 || !getModule($moduleIdCible)) {
+        $erreur = "Données invalides (questions ou module manquants).";
+    } else {
+        $pdo->beginTransaction();
+        try {
+            $ids = sauvegarderQuestionsGenerees($questions, $moduleIdCible);
+            $msg = count($ids) . " question(s) ajoutée(s) à la banque du module.";
+            $creer = $_POST['creer_eval'] ?? '';
+            if (in_array($creer, ['cc', 'efm'], true) && $ids) {
+                $numero = (int)($_POST['eval_numero'] ?? 0);
+                if ($creer === 'cc' && $numero < 1) {
+                    $numero = 1;
+                    foreach (getEvaluationsModule($moduleIdCible) as $e) {
+                        if ($e['type'] === 'cc' && $e['mode'] === 'theorique') $numero = max($numero, (int)$e['numero'] + 1);
+                    }
+                }
+                $evalId = creerEvaluation([
+                    'module_id' => $moduleIdCible, 'type' => $creer, 'mode' => 'theorique',
+                    'numero' => $numero, 'contenu' => $_POST['eval_contenu'] ?? '',
+                    'note_max' => (int)($_POST['note_max_save'] ?? 20), 'actif' => false, 'question_ids' => $ids,
+                ]);
+                $msg .= " Évaluation « " . getEvaluation($evalId)['nom'] . " » créée (inactive).";
+            }
+            $pdo->commit();
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            $erreur = "Erreur d'enregistrement : " . $e->getMessage();
         }
     }
 }
@@ -107,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     $moduleIdCible = (int)($_POST['module_id'] ?? 0);
     $nbQuestions   = max(1, min(30, (int)($_POST['nb_questions'] ?? 10)));
     $typesRaw      = $_POST['types'] ?? ['qcm'];
-    $types         = array_intersect((array)$typesRaw, ['qcm', 'vrai_faux', 'texte_libre']);
+    $types         = array_intersect((array)$typesRaw, ['qcm', 'multiple', 'vrai_faux', 'texte_libre']);
     if (empty($types)) $types = ['qcm'];
     $niveau  = in_array($_POST['niveau'] ?? 'Mix', ['Débutant', 'Confirmé', 'Mix']) ? $_POST['niveau'] : 'Mix';
     $noteMax = in_array((int)($_POST['note_max'] ?? 20), [20, 40]) ? (int)$_POST['note_max'] : 20;
@@ -259,6 +281,7 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
                 <i class="bi bi-stars me-2"></i>Génération de quiz
             </a>
         </li>
+        <?php if (isAdmin()): ?>
         <li class="nav-item">
             <a class="nav-link <?= $activeTab === 'config' ? 'active' : '' ?>"
                href="?tab=config">
@@ -268,6 +291,7 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
                 <?php endif; ?>
             </a>
         </li>
+        <?php endif; ?>
     </ul>
 
     <!-- ── Alertes globales ──────────────────────────────────── -->
@@ -411,6 +435,7 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
                             $selectedTypes = (array)($_POST['types'] ?? ['qcm']);
                             $typeOpts = [
                                 'qcm'         => ['label' => 'QCM (4 choix)',    'icon' => 'ui-radios'],
+                                'multiple'    => ['label' => 'Choix multiples',  'icon' => 'ui-checks'],
                                 'vrai_faux'   => ['label' => 'Vrai / Faux',      'icon' => 'toggle-on'],
                                 'texte_libre' => ['label' => 'Réponse libre',    'icon' => 'pencil-square'],
                             ];
@@ -472,32 +497,54 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
                 <input type="hidden" name="questions_json"
                        value="<?= htmlspecialchars(json_encode($questionsGenerees)) ?>">
                 <input type="hidden" name="module_id_save" value="<?= $moduleIdCible ?>">
+                <input type="hidden" name="note_max_save" value="<?= (int)($noteMax ?? 20) ?>">
 
                 <div class="card border-0 shadow-sm rounded-4 mb-3">
-                    <div class="card-body p-4 d-flex justify-content-between align-items-center flex-wrap gap-3">
-                        <div>
-                            <h5 class="fw-bold mb-1">
-                                <i class="bi bi-check-circle text-success me-2"></i>
-                                <?= count($questionsGenerees) ?> questions générées
-                            </h5>
-                            <div class="text-muted small">
-                                Module : <strong><?= htmlspecialchars(getModule($moduleIdCible)['nom'] ?? 'N/A') ?></strong>
-                                — Total : <strong><?= array_sum(array_column($questionsGenerees, 'points')) ?> pts</strong>
+                    <div class="card-body p-4">
+                        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+                            <div>
+                                <h5 class="fw-bold mb-1">
+                                    <i class="bi bi-check-circle text-success me-2"></i>
+                                    <?= count($questionsGenerees) ?> questions générées
+                                </h5>
+                                <div class="text-muted small">
+                                    Module : <strong><?= htmlspecialchars(getModule($moduleIdCible)['libelle'] ?? 'N/A') ?></strong>
+                                    — Total : <strong><?= array_sum(array_column($questionsGenerees, 'points')) ?> pts</strong>
+                                </div>
                             </div>
-                        </div>
-                        <div class="d-flex gap-2 flex-wrap">
                             <a href="?tab=generate" class="btn btn-outline-secondary">
                                 <i class="bi bi-arrow-clockwise me-1"></i>Regénérer
                             </a>
-                            <button type="submit" name="save_questions" class="btn btn-success fw-semibold">
-                                <i class="bi bi-cloud-check me-2"></i>Sauvegarder dans le module
-                            </button>
+                        </div>
+                        <div class="row g-2 align-items-end">
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold mb-1">Après l'ajout à la banque</label>
+                                <select name="creer_eval" class="form-select form-select-sm">
+                                    <option value="">Ne rien créer de plus</option>
+                                    <option value="cc">Créer aussi un CC</option>
+                                    <option value="efm">Créer aussi un EFM</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <label class="form-label small fw-semibold mb-1">N° CC</label>
+                                <input type="number" name="eval_numero" class="form-control form-control-sm" min="1" max="9" placeholder="auto">
+                            </div>
+                            <div class="col-md-4">
+                                <label class="form-label small fw-semibold mb-1">Contenu</label>
+                                <input type="text" name="eval_contenu" class="form-control form-control-sm" maxlength="255"
+                                       value="<?= htmlspecialchars($prompt ?? '') ?>" placeholder="thème du CC">
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" name="save_questions" class="btn btn-success btn-sm w-100 fw-semibold">
+                                    <i class="bi bi-cloud-check me-1"></i>Enregistrer
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <?php foreach ($questionsGenerees as $idx => $q): ?>
-                <div class="card border-0 shadow-sm rounded-4 mb-3 question-preview-card <?= $q['type'] ?>">
+                <div class="card border-0 shadow-sm rounded-4 mb-3 question-preview-card <?= sanitize((string)$q['type']) ?>">
                     <div class="card-body p-4">
                         <div class="d-flex align-items-start gap-3 mb-2">
                             <div class="question-number"><?= $idx + 1 ?></div>
@@ -505,16 +552,16 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
                                 <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
                                     <p class="fw-semibold mb-1"><?= htmlspecialchars($q['texte']) ?></p>
                                     <div class="d-flex gap-1 flex-shrink-0">
-                                        <?php $typeLabels = ['qcm'=>'QCM','vrai_faux'=>'V/F','texte_libre'=>'Libre']; ?>
+                                        <?php $typeLabels = ['qcm'=>'QCM','multiple'=>'Multiple','vrai_faux'=>'V/F','texte_libre'=>'Libre']; ?>
                                         <span class="badge bg-light text-muted border small">
                                             <?= $typeLabels[$q['type']] ?? $q['type'] ?>
                                         </span>
                                         <span class="badge bg-primary-subtle text-primary small">
-                                            <?= $q['points'] ?> pt<?= $q['points'] > 1 ? 's' : '' ?>
+                                            <?= (float)$q['points'] ?> pt<?= (float)$q['points'] > 1 ? 's' : '' ?>
                                         </span>
                                         <?php if (!empty($q['difficulte'])): ?>
-                                        <span class="badge diff-badge-<?= $q['difficulte'] ?> small">
-                                            <?= ucfirst($q['difficulte']) ?>
+                                        <span class="badge diff-badge-<?= sanitize((string)$q['difficulte']) ?> small">
+                                            <?= sanitize(ucfirst((string)$q['difficulte'])) ?>
                                         </span>
                                         <?php endif; ?>
                                     </div>
@@ -593,6 +640,7 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
     </div>
     </div><!-- /tabGenerate -->
 
+    <?php if (isAdmin()): ?>
     <!-- ════════════════════════════════════════════════════════
          ONGLET : CONFIGURATION
     ════════════════════════════════════════════════════════ -->
@@ -678,9 +726,8 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
                                 <i class="bi bi-key me-2 text-warning"></i><?= htmlspecialchars($prov['key_label']) ?>
                             </label>
                             <input type="password" name="<?= $provId ?>_api_key_input"
-                                   class="form-control form-control-lg"
-                                   placeholder="<?= htmlspecialchars($prov['key_placeholder']) ?>"
-                                   value="<?= htmlspecialchars($apiKeys[$provId] ?? '') ?>">
+                                   class="form-control form-control-lg" autocomplete="off"
+                                   placeholder="<?= $apiKeys[$provId] ? '•••••••• enregistrée — laisser vide pour la conserver' : htmlspecialchars($prov['key_placeholder']) ?>">
                             <small class="text-muted d-block mt-2"><?= $prov['key_help'] ?></small>
                         </div>
                         <?php endif; ?>
@@ -747,6 +794,7 @@ $modelLabel    = $allProviderModels[$currentModel]     ?? $currentModel;
         </div>
 
     </div><!-- /tabConfig -->
+    <?php endif; ?>
 
 </div><!-- /container -->
 

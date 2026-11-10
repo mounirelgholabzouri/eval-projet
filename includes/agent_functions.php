@@ -17,46 +17,22 @@ function agentBuildContext(array $moduleIds): array {
     foreach ($moduleIds as $moduleId) {
         $moduleId = (int)$moduleId;
 
-        $mod = $pdo->prepare("SELECT m.*, COALESCE(e.meta_json,'{}') AS eval_meta_json FROM modules m LEFT JOIN evaluations e ON e.module_id=m.id AND e.id=(SELECT MIN(e2.id) FROM evaluations e2 WHERE e2.module_id=m.id) WHERE m.id=?");
-        $mod->execute([$moduleId]);
-        $module = $mod->fetch();
+        $module = getModule($moduleId);
         if (!$module) continue;
 
-        $parties = $pdo->prepare("SELECT id, nom FROM parties WHERE module_id=? AND actif=1 ORDER BY ordre");
-        $parties->execute([$moduleId]);
-        $partiesList = $parties->fetchAll();
-
-        $partiesMap = [];
-        foreach ($partiesList as $p) {
-            $partiesMap[$p['id']] = ['id' => $p['id'], 'nom' => $p['nom'], 'questions' => []];
-        }
-
-        $questions = $pdo->prepare("
-            SELECT q.id, q.partie_id, q.texte, q.type, q.points
-            FROM questions q
-            WHERE q.module_id = ?
-            ORDER BY q.partie_id, q.ordre, q.id
-        ");
+        $questions = $pdo->prepare("SELECT id, texte, type, points FROM questions WHERE module_id = ? ORDER BY ordre, id");
         $questions->execute([$moduleId]);
 
-        foreach ($questions->fetchAll() as $q) {
-            $entry = [
+        $context[] = [
+            'module_id'   => $moduleId,
+            'nom'         => $module['libelle'],
+            'code_module' => $module['code'] ?? '',
+            'questions'   => array_map(fn($q) => [
                 'id'     => (int)$q['id'],
                 'texte'  => mb_substr($q['texte'], 0, 150),
                 'type'   => $q['type'],
                 'points' => (float)$q['points'],
-            ];
-            if (isset($partiesMap[$q['partie_id']])) {
-                $partiesMap[$q['partie_id']]['questions'][] = $entry;
-            }
-        }
-
-        $meta = json_decode($module['eval_meta_json'] ?? '{}', true) ?: [];
-        $context[] = [
-            'module_id'   => $moduleId,
-            'nom'         => $module['nom'],
-            'code_module' => $meta['code_module'] ?? '',
-            'parties'     => array_values($partiesMap),
+            ], $questions->fetchAll()),
         ];
     }
 
@@ -152,12 +128,12 @@ Crée une évaluation continue pour :
 - Nombre de questions demandé : {$nbQuestions}
 - Note maximale : {$noteMax}
 
-Voici toutes les questions disponibles par partie :
+Voici la banque de questions du module :
 {$contextJson}
 
 Contraintes :
 1. Sélectionne exactement {$nbQuestions} questions (ou moins si stock insuffisant).
-2. Couvre toutes les parties du module.
+2. Couvre l'ensemble des notions du module, sans doublons.
 3. Adapte la difficulté au niveau du groupe : {$groupe}.
 
 Retourne ce JSON (et rien d'autre) :
@@ -168,7 +144,7 @@ Retourne ce JSON (et rien d'autre) :
   "duree_min": ...,
   "note_max": ...,
   "questions": [
-    {"id": 123, "ordre": 1, "partie_nom": "...", "texte_court": "...", "type": "...", "points": 1.0},
+    {"id": 123, "ordre": 1, "texte_court": "...", "type": "...", "points": 1.0},
     ...
   ]
 }
@@ -223,16 +199,9 @@ Retourne ce JSON (et rien d'autre) :
   "filiere": "{$filiere}",
   "etablissement": "{$etablissement}",
   "annee": "{$annee}",
-  "parties": [
-    {
-      "module_id": 15,
-      "titre": "Partie 1 — ...",
-      "points": 10,
-      "questions": [
-        {"id": 123, "ordre": 1, "texte_court": "...", "type": "...", "points": 1.0},
-        ...
-      ]
-    }
+  "questions": [
+    {"id": 123, "module_id": 15, "ordre": 1, "texte_court": "...", "type": "...", "points": 1.0},
+    ...
   ]
 }
 PROMPT;
@@ -262,7 +231,7 @@ function agentGetAllQuestionsMap(array $questionIds): array {
     if (empty($questionIds)) return [];
     $pdo = getDB();
     $placeholders = implode(',', array_fill(0, count($questionIds), '?'));
-    $stmt = $pdo->prepare("SELECT q.*, p.nom AS partie_nom, m.nom AS module_nom FROM questions q JOIN parties p ON p.id=q.partie_id JOIN modules m ON m.id=q.module_id WHERE q.id IN ($placeholders)");
+    $stmt = $pdo->prepare("SELECT q.*, m.nom AS module_nom FROM questions q JOIN modules m ON m.id=q.module_id WHERE q.id IN ($placeholders)");
     $stmt->execute($questionIds);
     $map = [];
     foreach ($stmt->fetchAll() as $q) $map[$q['id']] = $q;

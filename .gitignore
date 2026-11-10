@@ -38,3 +38,5 @@ db/migrations/_gen_*.py
 
 # Marqueurs d'exécution des migrations (locaux par PC — chaque machine exécute une fois)
 db/migrations/.done_*
+
+db/backups/

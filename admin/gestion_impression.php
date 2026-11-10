@@ -39,13 +39,23 @@ function distribuer(float $total): array {
 }
 function snapNote(float $n): float { return max(0.0, min(20.0, round($n * 2) / 2)); }
 function fmtN($v): string { if ($v===null||$v==='') return ''; $s=rtrim(rtrim(number_format((float)$v,2,'.',''  ),'0'),'.'); return $s===''?'0':$s; }
+const CATEG_SQL = [
+    'cc_pratique'  => "e.type = 'cc' AND e.mode = 'pratique'",
+    'cc_theorique' => "e.type = 'cc' AND e.mode = 'theorique'",
+    'efm'          => "e.type = 'efm'",
+];
+function findEvalCC(PDO $pdo, int $mid, int $gid, int $num): ?int {
+    $s = $pdo->prepare("SELECT e.id FROM evaluations e WHERE e.module_id=? AND " . CATEG_SQL['cc_pratique'] . " AND e.numero=? AND JSON_UNQUOTE(JSON_EXTRACT(e.meta_json,'$.groupe_id'))=? LIMIT 1");
+    $s->execute([$mid, $num, (string)$gid]);
+    $id = $s->fetchColumn();
+    return $id ? (int)$id : null;
+}
 function getOrCreateEvalCC(PDO $pdo, int $mid, int $gid, int $num): int {
-    $s = $pdo->prepare("SELECT id FROM evaluations WHERE module_id=? AND categorie='cc_pratique' AND JSON_UNQUOTE(JSON_EXTRACT(meta_json,'$.groupe_id'))=? AND JSON_UNQUOTE(JSON_EXTRACT(meta_json,'$.numero'))=? LIMIT 1");
-    $s->execute([$mid,(string)$gid,(string)$num]);
-    $r=$s->fetch(); if($r) return (int)$r['id'];
-    $meta=json_encode(['numero'=>$num,'groupe_id'=>$gid],JSON_UNESCAPED_UNICODE);
-    $pdo->prepare("INSERT INTO evaluations (module_id,nom,type,categorie,duree_minutes,note_max,meta_json,actif) VALUES (?,'Contrôle pratique N°$num','pratique','cc_pratique',60,20,?,1)")->execute([$mid,$meta]);
-    return (int)$pdo->lastInsertId();
+    return findEvalCC($pdo, $mid, $gid, $num) ?? creerEvaluation([
+        'module_id' => $mid, 'type' => 'cc', 'mode' => 'pratique', 'numero' => $num,
+        'duree_minutes' => 60, 'note_max' => 20, 'actif' => true,
+        'meta' => ['numero' => $num, 'groupe_id' => $gid],
+    ]);
 }
 
 // ── Helpers import "récap" multi-modules (1 feuille Excel = 1 module) ──
@@ -147,11 +157,23 @@ $groupes   = getGroupes();
 $groupeNom = ''; foreach ($groupes as $g) if ((int)$g['id']===$groupeId) { $groupeNom=$g['nom']; break; }
 
 // ── Modules disponibles pour ce type ─────────────────────────
-$catList = $isPrat ? "'cc_pratique','cc_theorique'" : "'$categ'";
-$modsQ   = $pdo->query("SELECT DISTINCT e.module_id AS id, m.nom FROM evaluations e JOIN modules m ON m.id=e.module_id WHERE e.categorie IN ($catList) ORDER BY m.nom");
-$modulesAvail = []; foreach ($modsQ->fetchAll() as $m) $modulesAvail[(int)$m['id']] = $m['nom'];
+$catCond = $isPrat ? "e.type = 'cc'" : CATEG_SQL[$categ];
+$modsQ   = $pdo->query("SELECT DISTINCT m.* FROM evaluations e JOIN modules m ON m.id=e.module_id WHERE $catCond ORDER BY m.code, m.nom");
+$modulesAvail = []; foreach ($modsQ->fetchAll() as $m) $modulesAvail[(int)$m['id']] = moduleLibelle($m);
 $moduleNom   = $modulesAvail[$moduleId] ?? '';
-$moduleLabel = $moduleId > 0 ? "#$moduleId — $moduleNom" : '';
+$moduleLabel = $moduleNom;
+
+// ── Évaluations candidates (CC théorique / EFM) ──────────────
+$evalsDispo = [];
+if (!$isPrat && $moduleId > 0) {
+    $s = $pdo->prepare("SELECT e.id, e.nom, e.note_max FROM evaluations e WHERE e.module_id=? AND " . CATEG_SQL[$categ] . " ORDER BY e.numero DESC, e.id DESC");
+    $s->execute([$moduleId]);
+    $evalsDispo = $s->fetchAll();
+}
+$evalChoisie = (int)($_GET['evaluation_id'] ?? $_POST['evaluation_id'] ?? 0);
+if ($evalsDispo && !in_array($evalChoisie, array_map('intval', array_column($evalsDispo, 'id')), true)) {
+    $evalChoisie = (int)$evalsDispo[0]['id'];
+}
 
 // ── Roster ────────────────────────────────────────────────────
 $roster = [];
@@ -166,23 +188,19 @@ $data       = [];
 $evalId     = null;
 $noteMaxMod = $cfg['note_max'];
 
-function loadData(PDO $pdo, bool $isPrat, string $categ, int $moduleId, int $groupeId, int $numero, ?int &$evalId, int &$noteMaxMod): array {
+function loadData(PDO $pdo, bool $isPrat, array $evalsDispo, int $evalChoisie, int $moduleId, int $groupeId, int $numero, ?int &$evalId, int &$noteMaxMod): array {
     $data = [];
     if ($isPrat) {
-        $s = $pdo->prepare("SELECT id FROM evaluations WHERE module_id=? AND categorie='cc_pratique' AND JSON_UNQUOTE(JSON_EXTRACT(meta_json,'$.groupe_id'))=? AND JSON_UNQUOTE(JSON_EXTRACT(meta_json,'$.numero'))=? LIMIT 1");
-        $s->execute([$moduleId,(string)$groupeId,(string)$numero]);
-        $ev = $s->fetch();
-        if ($ev) {
-            $evalId = (int)$ev['id'];
+        $evalId = findEvalCC($pdo, $moduleId, $groupeId, $numero);
+        if ($evalId) {
             $nt = $pdo->prepare("SELECT * FROM cc_pratique_notes WHERE evaluation_id=?");
             $nt->execute([$evalId]);
             foreach ($nt->fetchAll() as $row) $data[(int)$row['stagiaire_id']] = $row;
         }
     } else {
-        $s = $pdo->prepare("SELECT id, note_max FROM evaluations WHERE module_id=? AND categorie=? LIMIT 1");
-        $s->execute([$moduleId, $categ]);
-        $ev = $s->fetch();
-        if ($ev) { $evalId = (int)$ev['id']; $noteMaxMod = (int)$ev['note_max']; }
+        foreach ($evalsDispo as $ev) {
+            if ((int)$ev['id'] === $evalChoisie) { $evalId = $evalChoisie; $noteMaxMod = (int)$ev['note_max']; }
+        }
         if ($evalId) {
             $q = $pdo->prepare("SELECT id, stagiaire_id, score, pourcentage FROM sessions_eval WHERE evaluation_id=? AND groupe_id=? AND statut='termine' ORDER BY date_fin DESC");
             $q->execute([$evalId, $groupeId]);
@@ -193,7 +211,7 @@ function loadData(PDO $pdo, bool $isPrat, string $categ, int $moduleId, int $gro
 }
 
 if ($groupeId > 0 && $moduleId > 0)
-    $data = loadData($pdo, $isPrat, $categ, $moduleId, $groupeId, $cfg['numero'] ?? 0, $evalId, $noteMaxMod);
+    $data = loadData($pdo, $isPrat, $evalsDispo, $evalChoisie, $moduleId, $groupeId, $cfg['numero'] ?? 0, $evalId, $noteMaxMod);
 
 // ── Téléchargement modèle Excel des totaux (CC1/CC2 pratique) ─
 if (isset($_GET['model']) && $isPrat && $groupeId > 0 && $moduleId > 0) {
@@ -320,7 +338,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_recap'])) {
                 $erreur = "Aucune feuille avec colonnes \"CC1\"/\"CC2\" reconnue dans ce fichier.";
             } else {
                 $_SESSION['recap_preview'] = ['groupe_id' => $groupeId, 'type' => $type, 'sheets' => $preview];
-                header("Location: gestion_impression.php?type=$type&groupe_id=$groupeId&module_id=$moduleId");
+                header("Location: gestion_impression.php?type=$type&groupe_id=$groupeId&module_id=$moduleId&evaluation_id=$evalChoisie");
                 exit;
             }
         }
@@ -331,7 +349,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['import_recap'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['recap_cancel'])) {
     verifyCsrfToken();
     unset($_SESSION['recap_preview']);
-    header("Location: gestion_impression.php?type=$type&groupe_id=$groupeId&module_id=$moduleId");
+    header("Location: gestion_impression.php?type=$type&groupe_id=$groupeId&module_id=$moduleId&evaluation_id=$evalChoisie");
     exit;
 }
 
@@ -390,7 +408,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     if (!$isPrat) { $erreur = "Génération uniquement pour CC1/CC2."; }
     elseif (!$groupeId || !$moduleId) { $erreur = "Sélectionnez groupe et module."; }
     else {
-        $q = $pdo->prepare("SELECT s.stagiaire_id, s.score FROM sessions_eval s JOIN evaluations e ON e.id=s.evaluation_id WHERE s.groupe_id=? AND e.module_id=? AND e.categorie='cc_theorique' AND s.statut='termine' ORDER BY s.date_fin");
+        $q = $pdo->prepare("SELECT s.stagiaire_id, s.score FROM sessions_eval s JOIN evaluations e ON e.id=s.evaluation_id WHERE s.groupe_id=? AND e.module_id=? AND " . CATEG_SQL['cc_theorique'] . " AND s.statut='termine' ORDER BY s.date_fin");
         $q->execute([$groupeId, $moduleId]);
         $cc3 = []; foreach ($q->fetchAll() as $r) $cc3[(int)$r['stagiaire_id']] = (float)$r['score'];
         if (empty($cc3)) { $erreur = "Aucune note CC3 disponible pour ce groupe/module."; }
@@ -432,9 +450,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
 
     if ($ok && !$isPrat) {
         if (!$evalId) {
-            $ev=$pdo->prepare("SELECT id FROM evaluations WHERE module_id=? AND categorie=? LIMIT 1");
-            $ev->execute([$moduleId,$categ]); $evR=$ev->fetch();
-            if ($evR) $evalId=(int)$evR['id']; else { $erreur="Évaluation introuvable."; $ok=false; }
+            if ($evalChoisie) $evalId = $evalChoisie; else { $erreur="Évaluation introuvable."; $ok=false; }
         }
         if ($ok) {
             foreach ($absIn as $sid => $_) {
@@ -453,7 +469,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
     }
 
     if ($ok) {
-        $dest = "gestion_impression.php?type=$type&groupe_id=$groupeId&module_id=$moduleId" . ($doPrint ? '&print=1' : '&saved=1');
+        $dest = "gestion_impression.php?type=$type&groupe_id=$groupeId&module_id=$moduleId&evaluation_id=$evalChoisie" . ($doPrint ? '&print=1' : '&saved=1');
         header("Location: $dest"); exit;
     }
 }
@@ -484,7 +500,7 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
 <html lang="fr">
 <head>
     <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-    <title><?= $printMode ? htmlspecialchars($cfg['label'].' — '.$groupeNom.' — '.$moduleNom) : 'Gestion et Impression' ?></title>
+    <title><?= $printMode ? htmlspecialchars($cfg['label'].' — '.$groupeNom.' — '.$moduleNom) : 'Notes par groupe' ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <?php if (!$printMode): ?><link href="../assets/css/style.css" rel="stylesheet"><?php endif; ?>
@@ -564,7 +580,7 @@ $nbAbs  = count(array_filter($roster, fn($s, $sid) => !isset($data[$sid]) || (is
         <?= csrfField() ?>
         <input type="hidden" name="type"       value="<?= $type ?>">
         <input type="hidden" name="groupe_id"  value="<?= $groupeId ?>">
-        <input type="hidden" name="module_id"  value="<?= $moduleId ?>">
+        <input type="hidden" name="module_id"  value="<?= $moduleId ?>"><input type="hidden" name="evaluation_id" value="<?= $evalChoisie ?>">
 
     <div class="page-block">
     <?php if ($isPrat): ?>
@@ -713,7 +729,8 @@ window.addEventListener('load', function() {
 <?php include __DIR__ . '/partials/navbar.php'; ?>
 <div class="container-fluid py-4 px-4">
     <h2 class="h4 fw-bold mb-3">
-        <i class="bi bi-clipboard2-data me-2 text-primary"></i>Gestion et Impression — CC &amp; EFM
+        <i class="bi bi-table me-2 text-primary"></i>Notes par groupe
+        <small class="text-muted fw-normal fs-6 ms-2">CC pratiques, CC théorique, EFM — saisie, correction et relevé imprimable</small>
     </h2>
 
     <?php if ($msg): ?>
@@ -758,7 +775,17 @@ window.addEventListener('load', function() {
                     <select name="module_id" class="form-select form-select-sm" onchange="this.form.submit()">
                         <option value="0">— Tous / Choisir —</option>
                         <?php foreach ($modulesAvail as $mid => $mnom): ?>
-                        <option value="<?= $mid ?>" <?= $moduleId===$mid?'selected':'' ?>><?= htmlspecialchars("#$mid — $mnom") ?></option>
+                        <option value="<?= $mid ?>" <?= $moduleId===$mid?'selected':'' ?>><?= htmlspecialchars($mnom) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <?php endif; ?>
+                <?php if (count($evalsDispo) > 1): ?>
+                <div class="col-md-5 col-lg-4">
+                    <label class="form-label fw-semibold small mb-1">Évaluation</label>
+                    <select name="evaluation_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                        <?php foreach ($evalsDispo as $ev): ?>
+                        <option value="<?= (int)$ev['id'] ?>" <?= $evalChoisie === (int)$ev['id'] ? 'selected' : '' ?>><?= htmlspecialchars($ev['nom']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -788,7 +815,7 @@ window.addEventListener('load', function() {
                 <?= csrfField() ?>
                 <input type="hidden" name="type"      value="<?= $type ?>">
                 <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
-                <input type="hidden" name="module_id" value="<?= $moduleId ?>">
+                <input type="hidden" name="module_id" value="<?= $moduleId ?>"><input type="hidden" name="evaluation_id" value="<?= $evalChoisie ?>">
             </form>
         </div>
     </div>
@@ -802,7 +829,7 @@ window.addEventListener('load', function() {
             <?= csrfField() ?>
             <input type="hidden" name="type"      value="<?= $type ?>">
             <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
-            <input type="hidden" name="module_id" value="<?= $moduleId ?>">
+            <input type="hidden" name="module_id" value="<?= $moduleId ?>"><input type="hidden" name="evaluation_id" value="<?= $evalChoisie ?>">
             <div class="modal-header">
                 <h5 class="modal-title">Importer les totaux <?= htmlspecialchars($cfg['label']) ?></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -843,7 +870,7 @@ window.addEventListener('load', function() {
             <?= csrfField() ?>
             <input type="hidden" name="type"      value="<?= $type ?>">
             <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
-            <input type="hidden" name="module_id" value="<?= $moduleId ?>">
+            <input type="hidden" name="module_id" value="<?= $moduleId ?>"><input type="hidden" name="evaluation_id" value="<?= $evalChoisie ?>">
             <div class="modal-header">
                 <h5 class="modal-title">Importer un récapitulatif multi-modules</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
@@ -881,7 +908,7 @@ window.addEventListener('load', function() {
                 <?= csrfField() ?>
                 <input type="hidden" name="type"      value="<?= $type ?>">
                 <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
-                <input type="hidden" name="module_id" value="<?= $moduleId ?>">
+                <input type="hidden" name="module_id" value="<?= $moduleId ?>"><input type="hidden" name="evaluation_id" value="<?= $evalChoisie ?>">
                 <div class="table-responsive">
                 <table class="table table-sm table-bordered align-middle">
                     <thead class="table-light">
@@ -966,7 +993,7 @@ window.addEventListener('load', function() {
             <?= csrfField() ?>
             <input type="hidden" name="type"      value="<?= $type ?>">
             <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
-            <input type="hidden" name="module_id" value="<?= $moduleId ?>">
+            <input type="hidden" name="module_id" value="<?= $moduleId ?>"><input type="hidden" name="evaluation_id" value="<?= $evalChoisie ?>">
 
             <div class="table-responsive">
             <?php if ($isPrat): ?>

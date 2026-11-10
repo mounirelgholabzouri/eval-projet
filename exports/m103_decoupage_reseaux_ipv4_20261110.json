@@ -1,0 +1,131 @@
+{
+  "evaluation": {
+    "module": "M103 Concevoir un réseau informatique",
+    "sujet": "Découpage de réseaux IPv4",
+    "description": "Contrôle continu — découpage en sous-réseaux (égaux, selon les hôtes, VLSM), réponses par glisser-déposer",
+    "duree_minutes": 45,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie A — Sous-réseaux égaux. Le réseau 192.168.20.0/24 doit être découpé en 12 sous-réseaux de même taille. Complétez le calcul du nombre de bits à emprunter.",
+        "gabarit": "2³ = {{1}}  → insuffisant pour 12\n2⁴ = {{2}}  → suffisant\nNombre de bits empruntés : {{3}}",
+        "bonnes": ["8", "16", "4"],
+        "leurres": ["3", "12", "32", "5"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie A — Le réseau 192.168.20.0/24 est découpé en 12 sous-réseaux égaux (4 bits empruntés). Complétez le nouveau masque.",
+        "gabarit": "Nouveau préfixe : /24 + 4 = {{1}}\nDernier octet du masque en binaire : {{2}}\nMasque en décimal pointé : {{3}}",
+        "bonnes": ["/28", "11110000", "255.255.255.240"],
+        "leurres": ["/27", "/20", "11100000", "00001111", "255.255.255.224", "255.255.240.0"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie A — Pour le découpage de 192.168.20.0/24 en /28, complétez le pas et la capacité de chaque sous-réseau.",
+        "gabarit": "Pas = 256 − 240 = {{1}}\nBits d'hôte restants : 8 − 4 = {{2}}\nHôtes utilisables par sous-réseau : 2⁴ − 2 = {{3}}",
+        "bonnes": ["16", "4", "14"],
+        "leurres": ["8", "32", "30", "15", "6"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie A — Les sous-réseaux /28 de 192.168.20.0/24 commencent en .0, .16, .32… Complétez les adresses du 3e sous-réseau.",
+        "gabarit": "Sous-réseau n° 3\nAdresse réseau        : {{1}}\n1re adresse utilisable : {{2}}\nDernière utilisable    : {{3}}\nBroadcast              : {{4}}",
+        "bonnes": ["192.168.20.32/28", "192.168.20.33", "192.168.20.46", "192.168.20.47"],
+        "leurres": ["192.168.20.48/28", "192.168.20.16/28", "192.168.20.31", "192.168.20.48", "192.168.20.45"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie A — Un poste a l'adresse 192.168.20.75/28. Retrouvez son sous-réseau avec le ET logique sur le dernier octet.",
+        "gabarit": "Dernier octet de l'hôte : 75  = {{1}}\nDernier octet du masque : 240 = 11110000\nRésultat du ET logique  :      {{2}} = {{3}}\nRéseau de l'hôte : {{4}}   broadcast : {{5}}",
+        "bonnes": ["01001011", "01000000", "64", "192.168.20.64/28", "192.168.20.79"],
+        "leurres": ["01001100", "01001000", "72", "80", "192.168.20.80/28", "192.168.20.95"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie B — Découpage selon les hôtes. Le réseau 172.20.0.0/16 doit être découpé en sous-réseaux de 1000 hôtes au minimum chacun, avec le moins de gaspillage possible. Complétez le calcul.",
+        "gabarit": "2⁹ − 2  = {{1}}  → insuffisant\n2¹⁰ − 2 = {{2}}  → suffisant\nBits d'hôte conservés : h = {{3}}\nNouveau préfixe : 32 − 10 = {{4}}",
+        "bonnes": ["510", "1022", "10", "/22"],
+        "leurres": ["512", "1024", "1000", "9", "/23", "/21"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie B — Le réseau 172.20.0.0/16 est découpé en /22. Complétez le masque, le pas et le nombre de sous-réseaux.",
+        "gabarit": "Masque /22 : 11111111.11111111.{{1}}.00000000 = {{2}}\nLe masque change dans le {{3}} octet : pas = 256 − 252 = {{4}}\nBits empruntés : 22 − 16 = 6 → 2⁶ = {{5}} sous-réseaux",
+        "bonnes": ["11111100", "255.255.252.0", "3e", "4", "64"],
+        "leurres": ["11111110", "255.255.254.0", "255.255.255.252", "4e", "2", "32", "128"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie B — Les sous-réseaux /22 de 172.20.0.0/16 avancent de 4 en 4 dans le 3e octet (172.20.0.0, 172.20.4.0…). Complétez.",
+        "gabarit": "Sous-réseau n° 2   : réseau {{1}}   broadcast {{2}}\nDernier sous-réseau : réseau {{3}}   broadcast {{4}}",
+        "bonnes": ["172.20.4.0/22", "172.20.7.255", "172.20.252.0/22", "172.20.255.255"],
+        "leurres": ["172.20.2.0/22", "172.20.4.255", "172.20.8.255", "172.20.254.0/22", "172.20.252.255"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie B — Un poste a l'adresse 172.20.45.10/22. Le masque ne coupe que le 3e octet : retrouvez le réseau du poste.",
+        "gabarit": "3e octet de l'hôte  : 45  = {{1}}\n3e octet du masque  : 252 = 11111100\nET logique          :       {{2}} = 44\nRéseau du poste : {{3}}   broadcast : {{4}}",
+        "bonnes": ["00101101", "00101100", "172.20.44.0/22", "172.20.47.255"],
+        "leurres": ["00101110", "00101000", "172.20.45.0/22", "172.20.40.0/22", "172.20.45.255", "172.20.48.255"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie C — VLSM. La société NovaLab dispose de 192.168.200.0/24. Besoins : Ventes 100 hôtes, Support 40 hôtes, RH 20 hôtes, Labo 10 hôtes, et deux liaisons WAN (R1–R2 et R2–R3) de 2 hôtes chacune. Choisissez le préfixe le plus adapté à chaque besoin.",
+        "gabarit": "Ventes  (100 hôtes) → {{1}}\nSupport (40 hôtes)  → {{2}}\nRH      (20 hôtes)  → {{3}}\nLabo    (10 hôtes)  → {{4}}\nLiaison WAN (2)     → {{5}}",
+        "bonnes": ["/25", "/26", "/27", "/28", "/30"],
+        "leurres": ["/24", "/29", "/23"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie C — NovaLab (192.168.200.0/24) : Ventes 100 hôtes, Support 40, RH 20, Labo 10, plus deux liaisons WAN. En VLSM, dans quel ordre place-t-on les blocs des réseaux locaux ?",
+        "gabarit": "1er bloc : {{1}}\n2e bloc  : {{2}}\n3e bloc  : {{3}}\n4e bloc  : {{4}}\npuis les deux liaisons WAN",
+        "bonnes": ["Ventes", "Support", "RH", "Labo"],
+        "leurres": ["Liaison WAN", "Ordre alphabétique"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie C — NovaLab : les blocs sont placés du plus grand au plus petit à partir de 192.168.200.0 (Ventes /25, Support /26, RH /27, Labo /28, puis deux /30). Complétez l'adresse réseau de chaque sous-réseau.",
+        "gabarit": "Ventes    : {{1}}\nSupport   : {{2}}\nRH        : {{3}}\nLabo      : {{4}}\nWAN R1–R2 : {{5}}\nWAN R2–R3 : {{6}}",
+        "bonnes": ["192.168.200.0/25", "192.168.200.128/26", "192.168.200.192/27", "192.168.200.224/28", "192.168.200.240/30", "192.168.200.244/30"],
+        "leurres": ["192.168.200.64/26", "192.168.200.160/27", "192.168.200.232/28", "192.168.200.248/30"],
+        "points": 3
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie C — NovaLab : le sous-réseau RH est 192.168.200.192/27 et le Labo est 192.168.200.224/28. Complétez leurs bornes.",
+        "gabarit": "RH   : plage {{1}} → {{2}}   broadcast {{3}}\nLabo : masque {{4}}   broadcast {{5}}",
+        "bonnes": ["192.168.200.193", "192.168.200.222", "192.168.200.223", "255.255.255.240", "192.168.200.239"],
+        "leurres": ["192.168.200.192", "192.168.200.224", "192.168.200.238", "192.168.200.255", "255.255.255.248"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie C — NovaLab : chaque passerelle prend la première adresse utilisable de son LAN, et sur la liaison WAN R1–R2 (192.168.200.240/30) R1 prend la première adresse et R2 la seconde. Complétez.",
+        "gabarit": "Passerelle LAN Ventes  (192.168.200.0/25)   : {{1}}\nPasserelle LAN Support (192.168.200.128/26) : {{2}}\nLiaison R1–R2 : R1 = {{3}}   R2 = {{4}}",
+        "bonnes": ["192.168.200.1", "192.168.200.129", "192.168.200.241", "192.168.200.242"],
+        "leurres": ["192.168.200.0", "192.168.200.128", "192.168.200.240", "192.168.200.243"],
+        "points": 2
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie C — NovaLab : la dernière liaison WAN est 192.168.200.244/30. Quelle plage reste libre dans 192.168.200.0/24, et quel bloc forme-t-elle ?",
+        "gabarit": "Adresses libres : de {{1}} à {{2}}, soit un bloc {{3}}",
+        "bonnes": ["192.168.200.248", "192.168.200.255", "/29"],
+        "leurres": ["192.168.200.244", "192.168.200.247", "/28", "/30"],
+        "points": 1
+      }
+    ]
+  }
+}

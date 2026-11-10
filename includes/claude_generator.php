@@ -94,7 +94,7 @@ function genererQuestionsAvecClaude(
     int    $noteMax,
     string $apiKey,
     string $prompt = '',
-    string $model = 'claude-sonnet-4-20250514',
+    string $model = 'claude-sonnet-5-5',
     string $provider = 'anthropic'
 ): array {
     $typesStr = implode(', ', $types);
@@ -116,7 +116,8 @@ RÈGLES ABSOLUES :
 4. L'évaluation est notée sur {$noteMax} points. La somme des points de toutes les questions DOIT être exactement {$noteMax}.
 5. Pour les QCM : exactement 4 choix (A, B, C, D), une seule bonne réponse.
 6. Pour les Vrai/Faux : 2 choix ("Vrai" et "Faux"), exactement un correct.
-7. Pour texte_libre : pas de choix, réponse attendue dans "corrige".
+7. Pour texte_libre : pas de choix, réponse attendue (éléments clés) dans "corrige".
+7b. Pour multiple (choix multiples) : 4 ou 5 choix, au moins 2 bonnes réponses.
 8. Réponds UNIQUEMENT avec un objet JSON valide, sans markdown, sans commentaires.
 
 FORMAT JSON REQUIS :
@@ -124,7 +125,7 @@ FORMAT JSON REQUIS :
   "questions": [
     {
       "texte": "Texte de la question",
-      "type": "qcm|vrai_faux|texte_libre",
+      "type": "qcm|multiple|vrai_faux|texte_libre",
       "points": 2.0,
       "ordre": 1,
       "difficulte": "debutant|intermediaire|avance",
@@ -226,48 +227,24 @@ function extractJsonFromText(string $text): string {
 // ── Insertion en base de données ─────────────────────────────
 
 /**
- * Insère les questions générées dans la BD pour un module donné.
- * Remet l'ordre à la suite des questions existantes.
+ * Insère les questions générées dans la banque du module et renvoie leurs ids.
+ * Pour une réponse libre, le corrigé est stocké comme réponse attendue (choix is_correct=1),
+ * référence utilisée par la correction IA.
  */
-function sauvegarderQuestionsGenerees(array $questions, int $moduleId): int {
-    $pdo = getDB();
-
-    // Garantir qu'une partie « Général » existe pour ce module (invariant métier)
-    $stmt = $pdo->prepare("SELECT id FROM parties WHERE module_id = ? ORDER BY ordre ASC, id ASC LIMIT 1");
-    $stmt->execute([$moduleId]);
-    $partieId = (int)$stmt->fetchColumn();
-    if ($partieId === 0) {
-        $pdo->prepare("INSERT INTO parties (module_id, nom, ordre, actif) VALUES (?, 'Général', 1, 1)")
-            ->execute([$moduleId]);
-        $partieId = (int)$pdo->lastInsertId();
-    }
-
-    // Ordre de départ
-    $stmt = $pdo->prepare("SELECT COALESCE(MAX(ordre), 0) FROM questions WHERE module_id = ?");
-    $stmt->execute([$moduleId]);
-    $ordre = (int)$stmt->fetchColumn();
-
-    $inserted = 0;
+function sauvegarderQuestionsGenerees(array $questions, int $moduleId): array {
+    $ids = [];
     foreach ($questions as $q) {
-        $ordre++;
-        $type   = in_array($q['type'], ['qcm','vrai_faux','texte_libre','multiple']) ? $q['type'] : 'qcm';
+        $texte = trim((string)($q['texte'] ?? ''));
+        if ($texte === '') continue;
+        $type   = in_array($q['type'] ?? '', ['qcm','vrai_faux','texte_libre','multiple'], true) ? $q['type'] : 'qcm';
         $points = max(0.5, (float)($q['points'] ?? 1));
-
-        $stmt = $pdo->prepare(
-            "INSERT INTO questions (module_id, partie_id, texte, type, points, ordre) VALUES (?,?,?,?,?,?)"
-        );
-        $stmt->execute([$moduleId, $partieId, trim($q['texte']), $type, $points, $ordre]);
-        $questionId = (int)$pdo->lastInsertId();
-
-        // Choix de réponses
-        if (!empty($q['choix']) && $type !== 'texte_libre') {
-            foreach ($q['choix'] as $i => $c) {
-                $pdo->prepare(
-                    "INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?,?,?,?)"
-                )->execute([$questionId, trim($c['texte']), $c['is_correct'] ? 1 : 0, $i + 1]);
-            }
+        if ($type === 'texte_libre') {
+            $corrige = trim((string)($q['corrige'] ?? ''));
+            $choix = $corrige !== '' ? [['texte' => $corrige, 'is_correct' => true]] : [];
+        } else {
+            $choix = array_map(fn($c) => ['texte' => trim((string)$c['texte']), 'is_correct' => !empty($c['is_correct'])], $q['choix'] ?? []);
         }
-        $inserted++;
+        $ids[] = creerQuestion($moduleId, $type, $texte, $points, $choix);
     }
-    return $inserted;
+    return $ids;
 }

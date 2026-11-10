@@ -16,7 +16,7 @@ $pdo     = getDB();
 $session = getSession($sessionId);
 if (!$session) { header('Location: results.php'); exit; }
 
-$module = getModule((int)$session['module_id']);
+$module = getEvaluation((int)$session['evaluation_id']);
 if (!$module) { header('Location: results.php'); exit; }
 
 $codeModule    = $module['efm_code_module']   ?? '';
@@ -25,7 +25,7 @@ $etablissement = $module['efm_etablissement'] ?? '';
 $annee         = $module['efm_annee'] ?: getAnneeFormation();
 $noteMax       = (int)($module['note_max'] ?? 20);
 $duree         = $module['duree_minutes'] ? formatDuration((int)$module['duree_minutes']) : '';
-$intitule      = $module['nom'];
+$intitule      = $module['module_nom'];
 
 $nom    = $session['nom']    ?? '';
 $prenom = $session['prenom'] ?? '';
@@ -38,22 +38,8 @@ $score      = (float)$session['score'];
 $totalPts   = (float)$session['total_points'];
 $noteFinale = arrondiNote($score, $totalPts, $noteMax);
 
-// ── Toutes les questions du module + réponse du stagiaire ──────────────────
-$stmt = $pdo->prepare("
-    SELECT q.id, q.texte AS question_texte, q.type,
-           q.points AS points_max, q.ordre,
-           COALESCE(rs.points_obtenus, 0) AS points_obtenus,
-           COALESCE(rs.reponse_texte, '') AS reponse_texte,
-           rs.choix_id,
-           cr.texte AS choix_texte
-    FROM questions q
-    LEFT JOIN reponses_stagiaires rs ON rs.question_id = q.id AND rs.session_id = ?
-    LEFT JOIN choix_reponses cr ON cr.id = rs.choix_id
-    WHERE q.module_id = ?
-    ORDER BY q.ordre, q.id
-");
-$stmt->execute([$sessionId, (int)$session['module_id']]);
-$questions = $stmt->fetchAll();
+// ── Questions posées lors de la session + réponse du stagiaire ─────────────
+$questions = getQuestionsReponsesSession($session);
 
 // ── Tous les choix par question ───────────────────────────────────────────
 $questionIds = array_column($questions, 'id');

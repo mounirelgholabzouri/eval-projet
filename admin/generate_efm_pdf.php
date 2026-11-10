@@ -28,34 +28,14 @@ if ($sessionId > 0) {
     $moduleNom    = $sess['module_nom'];
 } elseif ($moduleId > 0) {
     $stmt = $pdo->prepare("
-        SELECT s.*,
-               COALESCE(st.nom,    s.nom)    AS nom,
-               COALESCE(st.prenom, s.prenom) AS prenom,
-               st.numero_classe,
-               m.nom AS module_nom, e.type AS module_type,
-               e.note_max, e.duree_minutes,
-               e.meta_json AS eval_meta_json,
-               COALESCE(g.nom, s.groupe_libre) AS groupe_nom
+        SELECT s.id
         FROM sessions_eval s
-        JOIN evaluations e  ON e.id  = s.evaluation_id
-        JOIN modules     m  ON m.id  = e.module_id
-        LEFT JOIN stagiaires st ON st.id = s.stagiaire_id
-        LEFT JOIN groupes    g  ON g.id  = s.groupe_id
+        JOIN evaluations e ON e.id = s.evaluation_id
         WHERE e.module_id = ? AND s.statut = 'termine' AND e.type = 'efm'
         ORDER BY s.nom, s.prenom
     ");
     $stmt->execute([$moduleId]);
-    $rawSessions = $stmt->fetchAll();
-    // Decode EFM meta for each session
-    $sessions = array_map(function($s) {
-        $meta = json_decode($s['eval_meta_json'] ?? '{}', true) ?: [];
-        $s['efm_code_module']   = $meta['code_module']   ?? '';
-        $s['efm_filiere']       = $meta['filiere']       ?? '';
-        $s['efm_etablissement'] = $meta['etablissement'] ?? '';
-        $s['efm_annee']         = $meta['annee']         ?? '';
-        unset($s['eval_meta_json']);
-        return $s;
-    }, $rawSessions);
+    $sessions = array_map(fn($id) => getSession((int)$id), $stmt->fetchAll(PDO::FETCH_COLUMN));
     $redirectBack = "results.php?module_id=$moduleId";
     if (empty($sessions)) { header("Location: $redirectBack"); exit; }
     $moduleNom = $sessions[0]['module_nom'];
@@ -266,24 +246,7 @@ foreach ($sessions as $session) {
         }
 
         // Questions + réponses
-        $stmtQ = $pdo->prepare("
-            SELECT q.id, q.texte AS question_texte, q.type,
-                   q.points AS points_max, q.ordre,
-                   COALESCE(rs.points_obtenus, 0) AS points_obtenus,
-                   COALESCE(rs.reponse_texte, '')  AS reponse_texte,
-                   rs.choix_id, cr.texte AS choix_texte
-            FROM questions q
-            LEFT JOIN reponses_stagiaires rs ON rs.question_id = q.id AND rs.session_id = ?
-            LEFT JOIN choix_reponses cr ON cr.id = rs.choix_id
-            WHERE q.module_id = ?
-            ORDER BY q.ordre, q.id
-        ");
-        // Récupère module_id via l'évaluation de la session
-        $evalRow = $pdo->prepare("SELECT module_id FROM evaluations WHERE id = ?");
-        $evalRow->execute([$session['evaluation_id']]);
-        $evalModuleId = (int)($evalRow->fetchColumn() ?: 0);
-        $stmtQ->execute([$session['id'], $evalModuleId]);
-        $questions = $stmtQ->fetchAll();
+        $questions = getQuestionsReponsesSession($session);
 
         // Charger tous les choix pour chaque question
         $qIds = array_column($questions, 'id');

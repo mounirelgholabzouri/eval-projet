@@ -16,32 +16,8 @@ if (!$session || $session['statut'] === 'termine') {
 }
 
 $sessionQIds = !empty($session['questions_ids']) ? json_decode($session['questions_ids'], true) : null;
-$questions = getQuestionsModule((int)$session['module_id'], $sessionQIds);
+$questions = getQuestionsEvaluation((int)$session['evaluation_id'], $sessionQIds);
 $nbQ = count($questions);
-
-// Group questions by partie
-$pdo = getDB();
-$grouped = [];
-$partieIds = [];
-foreach ($questions as $q) {
-    $partieIds[] = (int)$q['partie_id'];
-}
-
-if (!empty($partieIds)) {
-    $partieIds = array_unique($partieIds);
-    $placeholders = implode(',', array_fill(0, count($partieIds), '?'));
-    $stmt = $pdo->prepare("SELECT id, nom, ordre FROM parties WHERE id IN ($placeholders) ORDER BY ordre, id");
-    $stmt->execute($partieIds);
-    $parties = $stmt->fetchAll();
-
-    foreach ($parties as $partie) {
-        $partieId = (int)$partie['id'];
-        $grouped[] = [
-            'partie' => ['id' => $partieId, 'nom' => $partie['nom']],
-            'questions' => array_filter($questions, fn($q) => (int)$q['partie_id'] === $partieId)
-        ];
-    }
-}
 
 // ── Traitement de la soumission finale ──────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_final'])) {
@@ -64,6 +40,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_final'])) {
             $repTxt  = $res['json'];
             $correct = $res['correct'];
             $gained  = $res['points'];
+        } elseif ($type === 'multiple') {
+            // Tout ou rien : exactement l'ensemble des bonnes réponses
+            $coches  = array_values(array_unique(array_map('intval', (array)($_POST["rep_$qId"] ?? []))));
+            $bonnes  = array_map(fn($c) => (int)$c['id'], array_filter($q['choix'], fn($c) => $c['is_correct']));
+            $textes  = array_column(array_filter($q['choix'], fn($c) => in_array((int)$c['id'], $coches, true)), 'texte');
+            $repTxt  = $textes ? implode(' | ', $textes) : null;
+            sort($coches); sort($bonnes);
+            $correct = $coches && $coches === $bonnes;
+            $gained  = $correct ? $points : 0.0;
         } else {
             $choixId = (int)($_POST["rep_$qId"] ?? 0);
             if ($choixId > 0) {
@@ -99,7 +84,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Évaluation — <?= sanitize($session['module_nom']) ?></title>
+    <title>Évaluation — <?= sanitize($session['evaluation_nom']) ?></title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
     <link href="assets/css/style.css" rel="stylesheet">
@@ -176,10 +161,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
 <nav class="navbar navbar-dark bg-primary fixed-top shadow-sm">
     <div class="container-fluid">
         <span class="navbar-brand fw-bold">
-            <i class="bi bi-journal-check me-2"></i><?= sanitize($session['module_nom']) ?>
-            <?php if (!empty($grouped[0]['partie'])): ?>
-            <span class="badge bg-white text-primary ms-2 fw-normal fs-6"><?= sanitize($grouped[0]['partie']['nom']) ?></span>
-            <?php endif; ?>
+            <i class="bi bi-journal-check me-2"></i><?= sanitize($session['evaluation_nom']) ?>
         </span>
         <div class="d-flex align-items-center gap-3">
             <span class="text-white-75 small d-none d-sm-inline">
@@ -225,24 +207,9 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
             'glisser_deposer' => 'Glisser-déposer'
         ];
         $qNum = 0;
-        foreach ($grouped as $group):
-            if (empty($group['questions'])) continue;
         ?>
 
-        <?php if ($group['partie']): ?>
-        <!-- Séparateur de partie -->
-        <div class="d-flex align-items-center gap-3 mb-3 mt-2">
-            <div class="flex-shrink-0">
-                <span class="badge bg-primary fs-6 px-3 py-2 rounded-pill">
-                    <i class="bi bi-bookmark-fill me-1"></i><?= sanitize($group['partie']['nom']) ?>
-                </span>
-            </div>
-            <div class="border-top flex-grow-1"></div>
-            <div class="flex-shrink-0 text-muted small"><?= count($group['questions']) ?> question<?= count($group['questions']) > 1 ? 's' : '' ?></div>
-        </div>
-        <?php endif; ?>
-
-        <?php foreach ($group['questions'] as $q): ?>
+        <?php foreach ($questions as $q): ?>
         <?php
             $qNum++; $qId = (int)$q['id'];
             $enonce = $q['texte'];
@@ -285,6 +252,23 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
                         <?php endforeach; ?>
                     </div>
 
+                <?php elseif ($q['type'] === 'multiple'): ?>
+                    <div class="choices-list ps-5">
+                        <div class="text-muted small mb-2"><i class="bi bi-ui-checks me-1"></i>Plusieurs réponses possibles — cochez toutes les bonnes réponses</div>
+                        <?php foreach ($q['choix'] as $c): ?>
+                        <label class="choice-label d-flex align-items-center gap-3 p-3 rounded-3 mb-2 cursor-pointer"
+                               for="rep_<?= $qId ?>_<?= (int)$c['id'] ?>">
+                            <input class="form-check-input m-0 flex-shrink-0 answer-input"
+                                   type="checkbox"
+                                   name="rep_<?= $qId ?>[]"
+                                   id="rep_<?= $qId ?>_<?= (int)$c['id'] ?>"
+                                   value="<?= (int)$c['id'] ?>"
+                                   data-qid="<?= $qId ?>">
+                            <span><?= sanitize($c['texte']) ?></span>
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
+
                 <?php elseif ($q['type'] === 'texte_libre'): ?>
                     <div class="ps-5">
                         <textarea class="form-control answer-input"
@@ -320,7 +304,6 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
             </div>
         </div>
 
-        <?php endforeach; ?>
         <?php endforeach; ?>
 
         <!-- Bouton de soumission -->
@@ -532,6 +515,10 @@ document.querySelectorAll('.answer-input').forEach(input => {
             answered.add(qid);
             // Highlight la carte
             document.getElementById('card-' + qid).classList.add('answered');
+        } else if (this.type === 'checkbox') {
+            const any = document.querySelectorAll(`.answer-input[type=checkbox][data-qid="${qid}"]:checked`).length > 0;
+            any ? answered.add(qid) : answered.delete(qid);
+            document.getElementById('card-' + qid).classList.toggle('answered', any);
         } else if (this.value.trim().length > 0) {
             answered.add(qid);
             document.getElementById('card-' + qid).classList.add('answered');

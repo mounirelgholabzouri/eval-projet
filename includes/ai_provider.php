@@ -56,11 +56,11 @@ function getProvidersConfig(): array {
             'key_help'        => 'Obtenir sur <a href="https://console.anthropic.com/keys" target="_blank" rel="noopener">console.anthropic.com</a>',
             'local'           => false,
             'models'          => [
-                'claude-opus-4-7'           => 'Claude Opus 4.7 (Plus puissant)',
-                'claude-sonnet-4-20250514'  => 'Claude Sonnet 4 (Recommandé)',
-                'claude-haiku-4-5-20251001' => 'Claude Haiku (Plus rapide)',
+                'claude-sonnet-5-5' => 'Claude Sonnet 5.5 (Recommandé)',
+                'claude-opus-5-5'   => 'Claude Opus 5.5 (Plus puissant)',
+                'claude-haiku-5-5'  => 'Claude Haiku 5.5 (Plus rapide, économique)',
             ],
-            'default_model'   => 'claude-sonnet-4-20250514',
+            'default_model'   => 'claude-sonnet-5-5',
         ],
         'openai' => [
             'label'           => 'OpenAI (GPT)',
@@ -86,11 +86,11 @@ function getProvidersConfig(): array {
             'key_help'        => 'Obtenir sur <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>',
             'local'           => false,
             'models'          => [
-                'gemini-2.0-flash' => 'Gemini 2.0 Flash (Rapide)',
-                'gemini-1.5-pro'   => 'Gemini 1.5 Pro (Puissant)',
-                'gemini-1.5-flash' => 'Gemini 1.5 Flash (Économique)',
+                'gemini-2.5-flash' => 'Gemini 2.5 Flash (Recommandé)',
+                'gemini-2.5-pro'   => 'Gemini 2.5 Pro (Puissant)',
+                'gemini-2.0-flash' => 'Gemini 2.0 Flash (Économique)',
             ],
-            'default_model'   => 'gemini-2.0-flash',
+            'default_model'   => 'gemini-2.5-flash',
         ],
         'ollama' => [
             'label'           => 'Ollama (Local)',

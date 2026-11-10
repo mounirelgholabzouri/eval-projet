@@ -195,7 +195,7 @@ if ($action === 'edit' && $id > 0) {
                             </a>
                             <button type="button" class="btn btn-sm btn-outline-danger"
                                     title="Supprimer"
-                                    onclick="confirmerSuppression(<?= $f['id'] ?>, '<?= sanitize($f['nom'] ?: $f['username']) ?>')">
+                                    onclick="confirmerSuppression(<?= (int)$f['id'] ?>, <?= sanitize(json_encode($f['nom'] ?: $f['username'], JSON_UNESCAPED_UNICODE)) ?>)">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
