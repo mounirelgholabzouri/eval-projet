@@ -226,6 +226,9 @@ $typeLabels = ['qcm' => 'QCM', 'vrai_faux' => 'V/F', 'texte_libre' => 'Libre', '
                                     <?php $gid = (int)(json_decode($e['meta_json'] ?? '{}', true)['groupe_id'] ?? 0); ?>
                                     <a href="gestion_impression.php?type=cc<?= min(2, max(1, (int)$e['numero'])) ?>_pratique&module_id=<?= $moduleId ?><?= $gid ? '&groupe_id=' . $gid : '' ?>" class="btn btn-sm btn-outline-warning" title="Saisir les notes"><i class="bi bi-grid-3x3-gap"></i></a>
                                 <?php endif; ?>
+                                <?php if (!$pratique): ?>
+                                    <a href="preview_eval.php?id=<?= $e['id'] ?>" target="_blank" class="btn btn-sm btn-outline-warning" title="Prévisualiser comme stagiaire"><i class="bi bi-eye"></i></a>
+                                <?php endif; ?>
                                 <a href="results.php?evaluation_id=<?= $e['id'] ?>" class="btn btn-sm btn-outline-info" title="Résultats"><i class="bi bi-bar-chart-line"></i></a>
                                 <button type="button" class="btn btn-sm btn-outline-danger" title="Supprimer"
                                         onclick="supprimer(<?= $e['id'] ?>, <?= sanitize(json_encode($e['nom'], JSON_UNESCAPED_UNICODE)) ?>, <?= (int)$e['nb_sessions'] ?>)">
