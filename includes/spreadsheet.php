@@ -271,3 +271,118 @@ function _normalizeRow(array $cells): array {
     for ($i = 0; $i <= $max; $i++) $out[$i] = $cells[$i] ?? '';
     return $out;
 }
+
+/**
+ * Construit un .xlsx multi-feuilles avec mise en forme minimale.
+ * $sheets : [ ['name' => 'Feuille', 'rows' => [[...], ...], 'styles' => [rowIdx => styleId], 'widths' => [colIdx => largeur]], ... ]
+ * Les cellules peuvent être des scalaires ou ['v' => valeur, 's' => styleId] (style par cellule).
+ * Styles : 0 normal · 1 titre · 2 en-tête · 3 nombre 0.00 · 4 nombre 0.00 gras vert · 5 nombre 0.00 gras rouge · 6 italique gris · 7 gras
+ */
+function buildXlsxMulti(array $sheets): string {
+    $styles = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        . '<numFmts count="1"><numFmt numFmtId="164" formatCode="0.00"/></numFmts>'
+        . '<fonts count="6">'
+        .   '<font><sz val="11"/><name val="Calibri"/></font>'
+        .   '<font><b/><sz val="14"/><color rgb="FF1E3A5F"/><name val="Calibri"/></font>'
+        .   '<font><b/><sz val="11"/><color rgb="FFFFFFFF"/><name val="Calibri"/></font>'
+        .   '<font><b/><sz val="11"/><color rgb="FF155724"/><name val="Calibri"/></font>'
+        .   '<font><b/><sz val="11"/><color rgb="FF721C24"/><name val="Calibri"/></font>'
+        .   '<font><i/><sz val="10"/><color rgb="FF666666"/><name val="Calibri"/></font>'
+        . '</fonts>'
+        . '<fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill>'
+        .   '<fill><patternFill patternType="solid"><fgColor rgb="FF1E3A5F"/></patternFill></fill></fills>'
+        . '<borders count="2"><border/><border><left style="thin"><color rgb="FFBFBFBF"/></left><right style="thin"><color rgb="FFBFBFBF"/></right>'
+        .   '<top style="thin"><color rgb="FFBFBFBF"/></top><bottom style="thin"><color rgb="FFBFBFBF"/></bottom></border></borders>'
+        . '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'
+        . '<cellXfs count="8">'
+        .   '<xf numFmtId="0" fontId="0" fillId="0" borderId="1" applyBorder="1"/>'
+        .   '<xf numFmtId="0" fontId="1" fillId="0" borderId="0" applyFont="1"/>'
+        .   '<xf numFmtId="0" fontId="2" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'
+        .   '<xf numFmtId="164" fontId="0" fillId="0" borderId="1" applyNumberFormat="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>'
+        .   '<xf numFmtId="164" fontId="3" fillId="0" borderId="1" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>'
+        .   '<xf numFmtId="164" fontId="4" fillId="0" borderId="1" applyNumberFormat="1" applyFont="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center"/></xf>'
+        .   '<xf numFmtId="0" fontId="5" fillId="0" borderId="0" applyFont="1"/>'
+        .   '<xf numFmtId="0" fontId="3" fillId="0" borderId="1" applyFont="1" applyBorder="1"/>'
+        . '</cellXfs></styleSheet>';
+
+    $ctSheets = ''; $wbSheets = ''; $wbRels = ''; $files = [];
+    $usedNames = [];
+    foreach (array_values($sheets) as $i => $sh) {
+        $n = $i + 1;
+        // Nom de feuille Excel : 31 car. max, sans []:*?/\ et unique
+        $name = mb_substr(preg_replace('/[\[\]:*?\/\\\\]/u', '-', (string)($sh['name'] ?? "Feuille$n")), 0, 31);
+        $base = $name; $k = 2;
+        while (isset($usedNames[mb_strtolower($name)])) { $name = mb_substr($base, 0, 27) . " ($k)"; $k++; }
+        $usedNames[mb_strtolower($name)] = true;
+
+        $cols = '';
+        foreach (($sh['widths'] ?? []) as $c => $w) {
+            $cols .= '<col min="' . ($c + 1) . '" max="' . ($c + 1) . '" width="' . (float)$w . '" customWidth="1"/>';
+        }
+        $sheetData = '';
+        foreach (array_values($sh['rows'] ?? []) as $r => $row) {
+            $rowNum = $r + 1;
+            $rowStyle = (int)($sh['styles'][$r] ?? 0);
+            $cells = '';
+            foreach (array_values($row) as $c => $cell) {
+                $val = is_array($cell) ? ($cell['v'] ?? null) : $cell;
+                $st  = is_array($cell) && isset($cell['s']) ? (int)$cell['s'] : $rowStyle;
+                $ref = _colLetter($c) . $rowNum;
+                $sAttr = $st ? " s=\"$st\"" : '';
+                if ($val === null || $val === '') { if ($st) $cells .= "<c r=\"$ref\"$sAttr/>"; continue; }
+                if (is_int($val) || is_float($val)) {
+                    $cells .= "<c r=\"$ref\"$sAttr><v>" . _xmlEsc((string)$val) . "</v></c>";
+                } else {
+                    $cells .= "<c r=\"$ref\"$sAttr t=\"inlineStr\"><is><t xml:space=\"preserve\">" . _xmlEsc((string)$val) . "</t></is></c>";
+                }
+            }
+            $sheetData .= "<row r=\"$rowNum\">$cells</row>";
+        }
+        $merges = '';
+        if (!empty($sh['merges'])) {
+            $merges = '<mergeCells count="' . count($sh['merges']) . '">';
+            foreach ($sh['merges'] as $m) $merges .= '<mergeCell ref="' . _xmlEsc($m) . '"/>';
+            $merges .= '</mergeCells>';
+        }
+        $freeze = isset($sh['freeze_row'])
+            ? '<sheetViews><sheetView workbookViewId="0"><pane ySplit="' . (int)$sh['freeze_row'] . '" topLeftCell="A' . ((int)$sh['freeze_row'] + 1) . '" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+            : '';
+        $files["xl/worksheets/sheet$n.xml"] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+            . $freeze . ($cols ? "<cols>$cols</cols>" : '') . "<sheetData>$sheetData</sheetData>$merges</worksheet>";
+        $ctSheets .= '<Override PartName="/xl/worksheets/sheet' . $n . '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>';
+        $wbSheets .= '<sheet name="' . _xmlEsc($name) . '" sheetId="' . $n . '" r:id="rId' . $n . '"/>';
+        $wbRels   .= '<Relationship Id="rId' . $n . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' . $n . '.xml"/>';
+    }
+    $nStyles = count($sheets) + 1;
+    $wbRels .= '<Relationship Id="rId' . $nStyles . '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>';
+
+    $files['[Content_Types].xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        . '<Default Extension="xml" ContentType="application/xml"/>'
+        . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        . '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'
+        . $ctSheets . '</Types>';
+    $files['_rels/.rels'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        . '</Relationships>';
+    $files['xl/workbook.xml'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        . 'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        . "<sheets>$wbSheets</sheets></workbook>";
+    $files['xl/_rels/workbook.xml.rels'] = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' . $wbRels . '</Relationships>';
+    $files['xl/styles.xml'] = $styles;
+
+    $tmp = tempnam(sys_get_temp_dir(), 'xlsx');
+    $zip = new ZipArchive();
+    $zip->open($tmp, ZipArchive::OVERWRITE);
+    foreach ($files as $p => $content) $zip->addFromString($p, $content);
+    $zip->close();
+    $bin = file_get_contents($tmp);
+    @unlink($tmp);
+    return $bin;
+}

@@ -125,7 +125,10 @@ $typeLabels = ['qcm' => 'QCM', 'vrai_faux' => 'V/F', 'texte_libre' => 'Libre', '
 
     <div class="d-flex flex-wrap align-items-center gap-3 mb-4">
         <h2 class="h4 fw-bold mb-0"><i class="bi bi-clipboard-check me-2 text-primary"></i>Évaluations CC / EFM</h2>
-        <form method="GET" class="ms-auto d-flex gap-2">
+        <a href="export_moyennes_cc.php" class="btn btn-outline-success btn-sm ms-auto" title="Une feuille par module">
+            <i class="bi bi-file-earmark-excel me-1"></i>Moyennes CC — tous les modules
+        </a>
+        <form method="GET" class="d-flex gap-2">
             <select name="module_id" class="form-select" onchange="this.form.submit()" style="min-width:320px">
                 <option value="">— Choisir un module —</option>
                 <?php foreach ($modules as $m): ?>
@@ -160,6 +163,9 @@ $typeLabels = ['qcm' => 'QCM', 'vrai_faux' => 'V/F', 'texte_libre' => 'Libre', '
             </a>
             <a href="evaluations.php?module_id=<?= $moduleId ?>&action=new&type=efm" class="btn btn-danger btn-sm">
                 <i class="bi bi-plus-circle me-1"></i>Nouvel EFM
+            </a>
+            <a href="export_moyennes_cc.php?module_id=<?= $moduleId ?>" class="btn btn-success btn-sm" title="Moyenne des contrôles continus de tous les stagiaires du module">
+                <i class="bi bi-file-earmark-excel me-1"></i>Moyennes CC (Excel)
             </a>
             <a href="gestion_questions.php?tab=gerer&module_id=<?= $moduleId ?>" class="btn btn-outline-secondary btn-sm">
                 <i class="bi bi-list-check me-1"></i>Banque (<?= (int)$module['nb_questions'] ?> Q)
