@@ -5,7 +5,7 @@
 - **PHP** : `C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe`
 - **MySQL** : `C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe`
 - **Serveur** : Apache Laragon port 80 — **ne jamais utiliser `php -S`** (mono-thread, bloque AJAX)
-- **Racine projet** : `C:\Users\Administrateur\Desktop\Eval-Projet\`
+- **Racine projet** : `C:\PROJETS\Eval-Projet\`
 - **Lien Apache** : `C:\laragon\www\eval-projet\` → symlink vers la racine
 - **URL** : `http://eval-projet.test/`
 - **Worktree** : modifications dans `.claude\worktrees\<nom>\` → **copier manuellement** vers la racine pour activer sur Apache
@@ -27,33 +27,25 @@
 - **GROUP BY** : mode `only_full_group_by` actif → colonnes non-agrégées dans GROUP BY ou MAX()/MIN()
 - **Import dump** : utiliser **Bash** avec `mysql ... < fichier.sql` — PowerShell (`Get-Content | mysql`) corrompt les accents en `??` (CP850), **même avec utf8mb4**
 
-## Synchronisation 2 PCs
+## Poste principal et PC portable
 
-- **PC local** : `C:\Users\Administrateur\Eval-Projet\`
-- **PC distant** : `Administrateur@192.168.1.178` → `C:/Users/Administrateur/Desktop/Eval-Projet`
-- **Script** : `sync_remote.sh` — `git pull` + migrations sur les 2 PCs (plus d'échange de questions)
-- **Automatique** : désactivée — tâche `EvalProjet-SyncSession` supprimée le 2026-11-09 (ne pas relancer `setup_autosync.ps1`, qui la recréerait). Lancer `sync_remote.sh` à la main si besoin.
-- **Journal** : `sync_remote.log` à la racine du projet
+- **Poste principal** (celui-ci) : `C:\PROJETS\Eval-Projet\` — base de référence.
+- **PC portable** : copie autonome de l'application (sa propre base `eval_online`, sa propre config). **Il n'y a pas de second PC fixe** : le « PC distant » `192.168.1.178` des anciennes versions n'existe plus.
+- **Mise à jour du portable** (à la main, sur le portable) : `git pull origin master`, puis exécuter avec PHP chaque nouveau script de `db/migrations/` (une seule fois ; les migrations récentes sont idempotentes).
+- `sync_remote.sh` / `setup_autosync.ps1` : scripts **obsolètes** (SSH vers l'ancien PC distant) — ne pas les lancer. La tâche `EvalProjet-SyncSession` a été supprimée le 2026-11-09.
 
-### Ce qui est synchronisé
-| Quoi | Comment |
-|------|---------|
-| Code | `git pull origin master` sur les 2 PCs |
-| Migrations PHP | Détectées par marqueur `.done_*`, exécutées une seule fois |
+> ⚠ **Refonte CC/EFM (2026-11-09)** : si la base du portable date d'avant la refonte (table `parties` encore présente), lancer `php db/refonte_cc_efm.php --dry` puis sans `--dry` **avant** les autres migrations. L'import de questions entre PCs (`export/import_questions*.php`) a été retiré.
 
-> ⚠ **Refonte CC/EFM (2026-11-09) appliquée sur le PC local uniquement** : le PC distant garde l'ancien schéma (parties). L'import de questions depuis l'autre PC (Import Sync, `export/import_questions*.php`) a été retiré. ⚠ Un `git pull` sur le distant y installerait le nouveau code sans migrer sa base : ne pas pousser tant que le distant n'est pas migré.
-
-### Ce qui n'est JAMAIS synchronisé (données par PC)
-- `sessions_eval`, `reponses_stagiaires`, `stagiaires` — données d'examen locales
-- `config` — clé API Anthropic, paramètres locaux
+### Données propres à chaque installation (jamais copiées)
+- `sessions_eval`, `reponses_stagiaires`, `stagiaires`, `cc_pratique_notes` — données d'examen
+- `config` — clés API, provider IA
 
 ### Ajouter une migration
-Créer `db/migrations/nom_migration.php` (script PDO autonome).  
-Elle sera exécutée au prochain lancement manuel de `sync_remote.sh`.
+Créer `db/migrations/nom_migration.php` (script PDO autonome, **idempotent** : vérifier l'état avant chaque ALTER, sauter une étape si les données ne la permettent pas).
 
 ### ⚠ Ne jamais faire
-- Dump DB complet local → distant (`mysqldump | ssh mysql`) : **écrase les sessions d'examen distantes**
-- Modifier `config` via sync : chaque PC a sa propre clé API
+- Importer un dump complet d'une installation dans l'autre : **écrase les sessions d'examen** de la cible
+- Copier la table `config` d'une installation à l'autre (clés API propres à chaque poste)
 
 ## Commandes rapides
 
@@ -62,7 +54,7 @@ Elle sera exécutée au prochain lancement manuel de `sync_remote.sh`.
 "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" -l fichier.php
 
 # Exécuter un script
-"C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" "C:\Users\Administrateur\Desktop\Eval-Projet\script.php"
+"C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe" "C:\PROJETS\Eval-Projet\script.php"
 ```
 
 ## Conventions critiques
