@@ -95,6 +95,35 @@ if ($idsConcernes) {
     $allModuleQuestions = array_column($stmtAllQ->fetchAll(), null, 'id');
 }
 
+// Choix par question (corrigé QCM/V-F/multiple + étiquettes glisser-déposer)
+$choixByQ = [];
+if ($idsConcernes) {
+    $ids = array_keys($idsConcernes);
+    $stmtCh = $pdo->prepare("SELECT id, question_id, texte, is_correct, ordre FROM choix_reponses WHERE question_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ") ORDER BY ordre, id");
+    $stmtCh->execute($ids);
+    foreach ($stmtCh->fetchAll() as $c) $choixByQ[(int)$c['question_id']][] = $c;
+}
+
+/** Gabarit glisser-déposer rempli : étiquette juste en gras, fausse barrée + attendue entre crochets. */
+function renderGlisserPrint(string $gabarit, array $choix, ?string $reponseJson): string {
+    $byId = []; $attendu = [];
+    foreach ($choix as $c) {
+        $byId[(int)$c['id']] = $c['texte'];
+        if ($c['is_correct']) $attendu[(int)$c['ordre']] = (int)$c['id'];
+    }
+    $donne = $reponseJson ? (json_decode($reponseJson, true) ?: []) : [];
+    $e = fn($t) => htmlspecialchars((string)$t, ENT_QUOTES, 'UTF-8');
+    return preg_replace_callback('/\{\{(\d+)\}\}|[^{]+|\{/', function ($m) use ($byId, $attendu, $donne, $e) {
+        if (!isset($m[1]) || $m[1] === '') return $e($m[0]);
+        $n = (int)$m[1];
+        $d = (int)($donne[$n] ?? 0);
+        $bon = $attendu[$n] ?? 0;
+        if ($d && $d === $bon) return '<span class="dd-ok">' . $e($byId[$d]) . ' ✓</span>';
+        $txt = $d ? '<s>' . $e($byId[$d] ?? '?') . '</s>' : '____';
+        return '<span class="dd-ko">' . $txt . '</span> <span class="dd-exp">[' . $e($byId[$bon] ?? '?') . ']</span>';
+    }, $gabarit);
+}
+
 // questions_ids figés par session
 $qIdsBySession = [];
 foreach ($sessions as $s) {
@@ -113,7 +142,9 @@ $isEfm    = $evalInfo['type'] === 'efm';
 $noteMax  = (int)$evalInfo['note_max'];
 $filiere  = $evalInfo['efm_filiere'];
 $codeModule = $evalInfo['efm_code_module'];
-$etabl    = $evalInfo['efm_etablissement'] ?: 'Direction Régionale RABAT-SALÉ-KENITRA';
+$etabl    = $evalInfo['efm_etablissement'] ?: 'ISTA HAY RIAD RABAT';
+$ccNum    = $isEfm ? 0 : (int)($_GET['cc_num'] ?? $evalInfo['numero']);
+$retourUrl = $filterSession ? 'detail.php?id=' . $filterSession : 'results.php?module_id=' . $filterModule;
 $dureeMin = (int)$evalInfo['duree_minutes'];
 $dureeStr = $dureeMin ? $dureeMin . ' min' : '';
 
@@ -180,6 +211,15 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
         .q-answer { margin-top: 4px; font-size: 9.5pt; padding-left: 16px; }
         .lbl { color: #333; }
         .ans { font-weight: bold; }
+        .q-mark { font-weight: bold; font-size: 10pt; flex-shrink: 0; width: 5mm; text-align: center; }
+        .q-mark.ok { color: #198754; }
+        .q-mark.ko { color: #c0392b; }
+        .q-mark.man { color: #b8860b; }
+        .q-expected { margin-top: 2px; font-size: 9pt; padding-left: 16px; color: #198754; }
+        .q-gabarit { margin-top: 4px; font-family: Consolas, 'Courier New', monospace; font-size: 9pt; white-space: pre-wrap; line-height: 1.7; padding: 3px 6px; background: #f5f5f5; border: 1px solid #ddd; }
+        .dd-ok  { font-weight: bold; color: #198754; }
+        .dd-ko  { font-weight: bold; color: #c0392b; }
+        .dd-exp { color: #198754; }
 
         /* ── Score final ── */
         .score-box { margin-top: 10px; padding: 6px 10px; border: 2px solid #000; display: flex; justify-content: space-between; align-items: center; }
@@ -215,7 +255,7 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
 <!-- Barre d'outils (masquée à l'impression) -->
 <div class="toolbar no-print">
     <h1>📄 Impression des tests — <?= s($module['nom']) ?> (<?= count($sessions) ?> stagiaires)</h1>
-    <a href="results.php?module_id=<?= $filterModule ?>">← Retour</a>
+    <a href="<?= s($retourUrl) ?>">← Retour</a>
     <button onclick="window.print()">🖨 Imprimer / PDF</button>
 </div>
 
@@ -266,16 +306,16 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
                         <?php endif; ?>
                         <div class="h-org">
                             <div>Direction Régionale Rabat – Salé – Kénitra</div>
-                            <div>ISTA HAY RIAD RABAT</div>
+                            <div><?= s($etabl) ?></div>
                         </div>
                     </div>
                 </td>
                 <td rowspan="2" class="h-identity">
-                    <div>Nom : <?= s(strtoupper($session['nom'])) ?></div>
+                    <div>Nom : <?= s(mb_strtoupper($session['nom'], 'UTF-8')) ?></div>
                     <div>Prénom : <?= s($session['prenom']) ?></div>
                     <div>Groupe : <?= $groupe ?></div>
                     <?php if ($isEfm): ?>
-                    <div>Etablissement : ISTA HAY RIAD RABAT</div>
+                    <div>Etablissement : <?= s($etabl) ?></div>
                     <?php endif; ?>
                 </td>
             </tr>
@@ -284,7 +324,7 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
                 <td class="h-efm">EXAMEN DE FIN DE MODULE</td>
                 <?php else: ?>
                 <td class="h-efm" style="font-style:normal;font-weight:bold">
-                    Contrôle Continue N°&nbsp;<span style="display:inline-block;min-width:12mm;border-bottom:1px solid #000">&nbsp;</span>
+                    Contrôle Continu N°&nbsp;<span style="display:inline-block;min-width:12mm;border-bottom:1px solid #000"><?= $ccNum ?: '&nbsp;' ?></span>
                 </td>
                 <?php endif; ?>
             </tr>
@@ -324,15 +364,25 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
             $qNum++;
             $rep      = $repByQ[$q['id']] ?? null;
             $isTexte  = ($q['type'] === 'texte_libre');
+            $isDD     = ($q['type'] === 'glisser_deposer');
+            $choixQ   = $choixByQ[(int)$q['id']] ?? [];
             $qNote    = number_format((float)($rep['points_obtenus'] ?? 0), 2);
             $qMax     = number_format((float)$q['points_max'], 2);
+            $enonce   = $isDD ? splitGlisserDeposer($q['question_texte'])[0] : $q['question_texte'];
+            $ok       = $rep && (int)$rep['is_correct'] === 1;
+            $mark     = $isTexte ? ['man', '✎'] : ($ok ? ['ok', '✓'] : ['ko', '✗']);
+            $bonnes   = $isDD ? [] : array_column(array_filter($choixQ, fn($c) => (int)$c['is_correct'] === 1), 'texte');
         ?>
         <div class="question">
             <div class="q-header">
+                <span class="q-mark <?= $mark[0] ?>"><?= $mark[1] ?></span>
                 <span class="q-num">Q<?= $qNum ?>.</span>
-                <span class="q-text"><?= s($q['question_texte']) ?></span>
+                <span class="q-text"><?= s($enonce) ?></span>
                 <span class="q-pts"><strong><?= $qNote ?></strong> / <?= $qMax ?></span>
             </div>
+            <?php if ($isDD): ?>
+            <div class="q-gabarit"><?= renderGlisserPrint(splitGlisserDeposer($q['question_texte'])[1], $choixQ, $rep['reponse_texte'] ?? null) ?></div>
+            <?php else: ?>
             <div class="q-answer">
                 <span class="lbl">Réponse&nbsp;:</span>
                 <span class="ans">
@@ -343,8 +393,19 @@ $logoB64  = file_exists($logoPath) ? 'data:image/png;base64,' . base64_encode(fi
                     <?php endif; ?>
                 </span>
             </div>
+            <?php if (!$isTexte && !$ok && $bonnes): ?>
+            <div class="q-expected">Bonne réponse&nbsp;: <?= s(implode(' ; ', $bonnes)) ?></div>
+            <?php endif; ?>
+            <?php endif; ?>
         </div>
         <?php endforeach; ?>
+
+        <div class="score-box">
+            <span>Total : <strong><?= number_format((float)$session['score'], 2) ?></strong> / <?= number_format($totalPts, 2) ?> pts
+                (<?= number_format((float)$session['pourcentage'], 0) ?>&nbsp;%)</span>
+            <span class="total">Note : <?= number_format($noteSur, 2) ?> / <?= $noteMax ?></span>
+            <span class="mention"><?= s($mention['label']) ?></span>
+        </div>
     <?php endif; ?>
 
     <?php if ($session['numero_classe']): ?>

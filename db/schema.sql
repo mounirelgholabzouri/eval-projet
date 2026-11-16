@@ -164,6 +164,7 @@ CREATE TABLE `groupes` (
   `etablissement_id` int DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_groupe_nom` (`nom`),
   KEY `fk_groupe_etablissement` (`etablissement_id`),
   CONSTRAINT `fk_groupe_etablissement` FOREIGN KEY (`etablissement_id`) REFERENCES `etablissements` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -298,7 +299,9 @@ CREATE TABLE `sessions_eval` (
   UNIQUE KEY `token` (`token`),
   KEY `groupe_id` (`groupe_id`),
   KEY `fk_session_evaluation` (`evaluation_id`),
+  KEY `fk_session_stagiaire` (`stagiaire_id`),
   CONSTRAINT `fk_session_evaluation` FOREIGN KEY (`evaluation_id`) REFERENCES `evaluations` (`id`),
+  CONSTRAINT `fk_session_stagiaire` FOREIGN KEY (`stagiaire_id`) REFERENCES `stagiaires` (`id`) ON DELETE RESTRICT,
   CONSTRAINT `sessions_eval_ibfk_1` FOREIGN KEY (`groupe_id`) REFERENCES `groupes` (`id`) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
@@ -311,7 +314,7 @@ CREATE TABLE `stagiaires` (
   `prenom` varchar(100) COLLATE utf8mb4_unicode_ci NOT NULL,
   `groupe_id` int NOT NULL,
   `numero_classe` int DEFAULT NULL COMMENT 'Numéro de liste de classe, par groupe, à partir de 1',
-  `annee_scolaire` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT '2025-2026',
+  `annee_scolaire` varchar(20) COLLATE utf8mb4_unicode_ci NOT NULL,
   `login` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `must_change_password` tinyint(1) NOT NULL DEFAULT '0',
@@ -319,7 +322,7 @@ CREATE TABLE `stagiaires` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `login` (`login`),
   UNIQUE KEY `uq_groupe_numero_classe` (`groupe_id`,`numero_classe`),
-  CONSTRAINT `stagiaires_ibfk_1` FOREIGN KEY (`groupe_id`) REFERENCES `groupes` (`id`) ON DELETE CASCADE
+  CONSTRAINT `fk_stagiaire_groupe` FOREIGN KEY (`groupe_id`) REFERENCES `groupes` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;

@@ -1,0 +1,164 @@
+{
+  "evaluation": {
+    "module": "M203 Déployer une infrastructure Cloud Computing",
+    "sujet": "Paires de clés SSH",
+    "description": "Contrôle continu — Paires de clés SSH (TP04) : définitions, ssh-keygen, import et création en CLI et dans Horizon, vérification et erreurs courantes",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associe chaque définition à l'élément correspondant.",
+        "gabarit": "Prouve ton identité et ne se partage jamais : {{1}}\nVérifie la preuve et peut être diffusée sans risque : {{2}}\nRésumé court qui permet de comparer deux clés : {{3}}\nListe des clés publiques autorisées à se connecter à l'instance : {{4}}",
+        "bonnes": ["Clé privée", "Clé publique", "Empreinte (fingerprint)", "authorized_keys"],
+        "leurres": ["known_hosts", "Jeton Keystone"],
+        "points": 3,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Tu as lancé ssh-keygen -t rsa -b 4096 -f $HOME/.ssh/id_m203, puis tu t'es connecté une première fois à une instance. Associe chaque rôle au bon fichier de ton dossier ~/.ssh.",
+        "gabarit": "Clé privée : {{1}}\nClé publique, à donner à OpenStack : {{2}}\nEmpreintes des serveurs déjà rencontrés : {{3}}",
+        "bonnes": ["id_m203", "id_m203.pub", "known_hosts"],
+        "leurres": ["authorized_keys", "id_m203.pem"],
+        "points": 2,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complète la commande qui génère une paire RSA de 4096 bits, avec un commentaire, dans le fichier id_m203.",
+        "gabarit": "ssh-keygen {{1}} rsa {{2}} 4096 {{3}} \"m203-<id>\" {{4}} $HOME/.ssh/id_m203",
+        "bonnes": ["-t", "-b", "-C", "-f"],
+        "leurres": ["-E", "-y", "-l"],
+        "points": 2,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Méthode A : importe ta clé publique sous le nom kp-<id>, puis utilise-la pour lancer une instance et t'y connecter.",
+        "gabarit": "openstack keypair {{1}} {{2}} $HOME/.ssh/id_m203.pub kp-<id>\nopenstack server create ... {{3}} kp-<id> vm-<id>\nssh {{4}} ~/.ssh/id_m203 ubuntu@<IP>",
+        "bonnes": ["create", "--public-key", "--key-name", "-i"],
+        "leurres": ["import", "--private-key", "--keypair", "-k"],
+        "points": 3,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Méthode C : fais créer la paire kp-cli-<id> par OpenStack, protège la clé privée sous Linux, puis supprime la paire en fin de TP.",
+        "gabarit": "openstack keypair create {{1}} $HOME/.ssh/kp-cli-<id>.pem kp-cli-<id>\nchmod {{2}} $HOME/.ssh/kp-cli-<id>.pem\nopenstack keypair {{3}} kp-cli-<id>",
+        "bonnes": ["--private-key", "600", "delete"],
+        "leurres": ["--public-key", "777", "644", "remove"],
+        "points": 2,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Vérifie qu'une paire enregistrée dans OpenStack correspond bien à tes fichiers locaux.",
+        "gabarit": "Empreinte locale au format affiché par Nova : ssh-keygen {{1}} md5 -lf $HOME/.ssh/id_m203.pub\nRecalculer la clé publique à partir d'une clé privée : ssh-keygen {{2}} -f $HOME/.ssh/kp-cli-<id>.pem\nAfficher la clé publique enregistrée par Nova : openstack keypair show {{3}} kp-cli-<id>",
+        "bonnes": ["-E", "-y", "--public-key"],
+        "leurres": ["-t", "-b", "--fingerprint"],
+        "points": 3,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Dans Horizon, complète le chemin et le bouton à utiliser pour chaque méthode.",
+        "gabarit": "Menu : Projet ▸ {{1}} ▸ Paires de clés\nMéthode B, la clé a été générée sur ton poste : bouton {{2}}\nMéthode D, la clé est générée par OpenStack : bouton {{3}}",
+        "bonnes": ["Compute", "Importer une clé publique", "Créer une paire de clés"],
+        "leurres": ["Réseau", "Identité", "Télécharger une paire de clés"],
+        "points": 2,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Parmi ces quatre méthodes, lesquelles font naître la clé privée ailleurs que sur ton poste ?",
+        "options": [
+          "A) Import en CLI : openstack keypair create --public-key",
+          "B) Création dans Horizon : bouton Créer une paire de clés",
+          "C) Import dans Horizon : bouton Importer une clé publique",
+          "D) Création en CLI : openstack keypair create --private-key"
+        ],
+        "reponses_correctes": ["B", "D"],
+        "points": 2,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Après avoir importé id_m203.pub, openstack keypair show kp-<id> affiche l'empreinte 7b:2e:91:0c:…, alors que ssh-keygen -lf id_m203.pub affiche SHA256:Xq3v…. Que conclus-tu ?",
+        "options": [
+          "A) Ce n'est pas la bonne clé : il faut supprimer kp-<id> et refaire l'import",
+          "B) Nova a converti la clé en un autre format au moment de l'import",
+          "C) Les deux empreintes utilisent des algorithmes différents (MD5 et SHA256) : il faut comparer avec ssh-keygen -E md5 -lf",
+          "D) L'import a échoué en silence et la clé est vide"
+        ],
+        "reponse_correcte": "C",
+        "points": 2,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu as créé kp-web-<id> dans Horizon, mais tu as fermé la fenêtre sans télécharger la clé privée. Que fais-tu ?",
+        "options": [
+          "A) Projet ▸ Compute ▸ Paires de clés, puis Télécharger la clé privée",
+          "B) openstack keypair show --private-key kp-web-<id>",
+          "C) Demander à l'administrateur de la récupérer dans la base de Nova",
+          "D) Elle est perdue : supprimer kp-web-<id> et créer une nouvelle paire"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Une paire de clés OpenStack appartient au projet : tous les membres du projet la voient dans Horizon.",
+        "reponse_correcte": "Faux",
+        "points": 1,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Supprimer kp-<id> dans OpenStack empêche toute connexion SSH aux instances déjà créées avec cette paire.",
+        "reponse_correcte": "Faux",
+        "points": 1,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu relances openstack keypair create --private-key $HOME/.ssh/kp-cli-<id>.pem kp-cli-<id> et tu obtiens « Key pair 'kp-cli-<id>' already exists (HTTP 409) ». Quelle est la cause ?",
+        "options": [
+          "A) Le nom kp-cli-<id> est déjà utilisé par une de tes paires",
+          "B) Le quota de paires de clés du projet est atteint",
+          "C) La clé publique envoyée est invalide",
+          "D) Le fichier .pem n'a pas les bons droits"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Sous Windows PowerShell 5.1, un stagiaire lance openstack keypair create kp-x > kp-x.pem. Plus tard, ssh répond « Load key \"kp-x.pem\": invalid format ». Quelle est la cause ?",
+        "options": [
+          "A) La paire a été générée en ED25519, que ssh ne connaît pas",
+          "B) Il manque l'option --type ssh",
+          "C) Le fichier doit avoir l'extension .pub",
+          "D) La redirection > a écrit le fichier en UTF-16 : il faut recréer la paire avec --private-key"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "En se connectant avec ssh -i ~/.ssh/kp-web-<id>.pem ubuntu@<IP>, un stagiaire obtient « WARNING: UNPROTECTED PRIVATE KEY FILE! » et la connexion est refusée. Explique la cause, puis donne la correction sous Linux et sous Windows.",
+        "reponse_attendue_cles": [
+          "Les droits du fichier de clé privée sont trop ouverts : il est lisible par d'autres utilisateurs, donc SSH l'ignore",
+          "Linux : chmod 600 ~/.ssh/kp-web-<id>.pem",
+          "Windows : icacls avec /inheritance:r et /grant:r pour l'utilisateur seul"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-04_Paires-de-cles.docx"
+      }
+    ]
+  }
+}
