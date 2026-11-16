@@ -127,7 +127,9 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 
 ## Invariants métier
 
-- Suppression stagiaire : cascade manuelle `reponses_stagiaires → sessions_eval → stagiaire` (pas de FK CASCADE en DB)
+- Suppression stagiaire : cascade manuelle `reponses_stagiaires → sessions_eval → stagiaire` via `supprimerStagiaire()` — FK `sessions_eval.stagiaire_id` en **RESTRICT** (refuse un stagiaire qui a encore des sessions) ; `cc_pratique_notes` part en CASCADE
+- Groupes : FK `stagiaires.groupe_id` en **RESTRICT** (vider un groupe avant de le supprimer) · `groupes.nom` **UNIQUE**, toujours passé par `normaliserNomGroupe()` (majuscules, sans espaces : « id 101 » → « ID101 ») · migration `db/migrations/integrite_stagiaires_groupes.php`
+- `stagiaires.annee_scolaire` n'a plus de valeur par défaut : toujours la fournir à l'INSERT (format `2026-2027`)
 - Clés API : table `config` — `anthropic_api_key`, `openai_api_key`, `google_api_key`, `ollama_base_url`
 - Provider IA actif : `config.ai_provider` ∈ {`anthropic`, `openai`, `google`, `ollama`}
 - **Résultats visibles admin uniquement** — stagiaire ne voit pas l'historique de ses sessions après `result.php`

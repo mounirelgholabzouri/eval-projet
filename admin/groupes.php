@@ -13,10 +13,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $postAction = $_POST['action'] ?? '';
 
     if ($postAction === 'ajouter' || $postAction === 'modifier') {
-        $nom            = trim($_POST['nom'] ?? '');
+        $nom            = normaliserNomGroupe($_POST['nom'] ?? '');
         $etablissementId = (int)($_POST['etablissement_id'] ?? 0) ?: null;
+        // groupes.nom est UNIQUE : refuser un nom déjà porté par un autre groupe
+        $dup = $pdo->prepare("SELECT 1 FROM groupes WHERE nom = ? AND id <> ?");
+        $dup->execute([$nom, $postAction === 'modifier' ? $id : 0]);
+        $nomPris = (bool)$dup->fetchColumn();
         if (strlen($nom) < 2) {
             $msg = "Le nom du groupe doit faire au moins 2 caractères.";
+            $msgType = 'danger';
+        } elseif ($nomPris) {
+            $msg = "Un groupe nommé <strong>" . sanitize($nom) . "</strong> existe déjà.";
             $msgType = 'danger';
         } elseif ($postAction === 'modifier' && $id > 0) {
             $pdo->prepare("UPDATE groupes SET nom=?, etablissement_id=? WHERE id=?")->execute([$nom, $etablissementId, $id]);

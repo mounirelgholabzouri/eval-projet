@@ -675,14 +675,21 @@ function getStatsGlobales(): array {
 // Fonctions stagiaires
 // ============================================================
 
+/** Nom de groupe canonique : majuscules, sans espaces (« id 101 » → « ID101 »). */
+function normaliserNomGroupe(string $nom): string {
+    return preg_replace('/\s+/u', '', mb_strtoupper(trim($nom), 'UTF-8'));
+}
+
 function trouverOuCreerGroupe(string $nom, ?string $annee = null): int {
     $pdo = getDB();
-    $stmt = $pdo->prepare("SELECT id FROM groupes WHERE nom = ? LIMIT 1");
-    $stmt->execute([trim($nom)]);
+    $nom = normaliserNomGroupe($nom);
+    // Comparaison insensible à la casse et aux espaces pour ne pas recréer un groupe existant
+    $stmt = $pdo->prepare("SELECT id FROM groupes WHERE REPLACE(nom, ' ', '') = ? LIMIT 1");
+    $stmt->execute([$nom]);
     $row = $stmt->fetch();
     if ($row) return (int)$row['id'];
-    $stmt2 = $pdo->prepare("INSERT INTO groupes (nom) VALUES (?)");
-    $stmt2->execute([trim($nom)]);
+    $etab = $pdo->query("SELECT id FROM etablissements WHERE actif = 1 ORDER BY id LIMIT 1")->fetchColumn() ?: null;
+    $pdo->prepare("INSERT INTO groupes (nom, etablissement_id) VALUES (?, ?)")->execute([$nom, $etab]);
     return (int)$pdo->lastInsertId();
 }
 
