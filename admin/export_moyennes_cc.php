@@ -9,12 +9,16 @@
  * et les CC pratiques des différents groupes sont fusionnées dans la même colonne.
  * Note théorique = dernière session terminée du stagiaire, ramenée sur 20.
  * Note pratique = total de la grille (cc_pratique_notes), ramené sur 20 ; absent = 0.
- * Moyenne CC = moyenne des notes disponibles (une colonne vide n'est pas comptée).
- * Les stagiaires sans aucune note de CC dans le module ne sont pas listés.
+ * Absent à un CC = 0 : un CC compte pour une promo (groupe + année scolaire) quand au moins
+ * SEUIL_CC_ORGANISE (30 %) de ses stagiaires ont une note ; ceux sans note y ont 0 (en rouge).
+ * Un CC non organisé pour la promo reste vide et n'entre pas dans la moyenne.
+ * Moyenne CC = moyenne des CC organisés pour la promo du stagiaire.
  */
 require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 require_once __DIR__ . '/../includes/spreadsheet.php';
+
+const SEUIL_CC_ORGANISE = 0.30; // part minimale de la promo ayant passé un CC pour qu'il compte
 
 $pdo      = getDB();
 $moduleId = (int)($_GET['module_id'] ?? 0);
@@ -88,26 +92,48 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
     // Ordre des colonnes : CC1 Théorique, CC1 Pratique, CC2 Théorique…
     uksort($slots, fn($a, $b) => strcmp(substr($a, 1), substr($b, 1)) ?: strcmp($b[0], $a[0]));
 
-    // Stagiaires des groupes concernés ayant au moins une note de CC
+    // Stagiaires des groupes concernés ; promo = groupe + année scolaire
     $lignes = [];
     if ($slots && $groupesIds) {
         $ids = array_keys($groupesIds);
         $in  = implode(',', array_fill(0, count($ids), '?'));
-        $st  = $pdo->prepare("SELECT id, nom, prenom, groupe_id FROM stagiaires WHERE groupe_id IN ($in) ORDER BY groupe_id, nom, prenom");
+        $st  = $pdo->prepare("SELECT id, nom, prenom, groupe_id, annee_scolaire FROM stagiaires
+                              WHERE groupe_id IN ($in) ORDER BY groupe_id, nom, prenom");
         $st->execute($ids);
-        foreach ($st->fetchAll() as $s) {
-            $sid = (int)$s['id'];
-            $vals = [];
-            foreach ($slots as $k => $_) $vals[$k] = $notes[$sid][$k] ?? null;
-            $dispo = array_filter($vals, fn($v) => $v !== null);
-            if (!$dispo) continue; // aucun CC passé dans ce module
+        $stagiaires = $st->fetchAll();
+
+        // CC organisés par promo : au moins SEUIL_CC_ORGANISE des stagiaires de la promo ont une note
+        // (évite de mettre 0 à toute une promo pour un stagiaire isolé)
+        $effectif = []; $passes = []; $organise = [];
+        foreach ($stagiaires as $s) {
+            $promo = $s['groupe_id'] . '|' . $s['annee_scolaire'];
+            $effectif[$promo] = ($effectif[$promo] ?? 0) + 1;
+            foreach ($notes[(int)$s['id']] ?? [] as $k => $_) $passes[$promo][$k] = ($passes[$promo][$k] ?? 0) + 1;
+        }
+        foreach ($passes as $promo => $parCC) {
+            foreach ($parCC as $k => $n) {
+                if ($n / $effectif[$promo] >= SEUIL_CC_ORGANISE) $organise[$promo][$k] = true;
+            }
+        }
+
+        foreach ($stagiaires as $s) {
+            $sid   = (int)$s['id'];
+            $promo = $s['groupe_id'] . '|' . $s['annee_scolaire'];
+            if (empty($organise[$promo]) && empty($notes[$sid])) continue; // rien à afficher
+            $vals = []; $abs = [];
+            foreach ($slots as $k => $_) {
+                if (isset($notes[$sid][$k]))      $vals[$k] = $notes[$sid][$k];
+                elseif (isset($organise[$promo][$k])) { $vals[$k] = 0.0; $abs[$k] = true; }
+                else                              $vals[$k] = null;
+            }
+            $comptes = array_filter($vals, fn($v) => $v !== null);
             $lignes[] = [
                 'groupe_id' => (int)$s['groupe_id'],
                 'nom'       => $s['nom'],
                 'prenom'    => $s['prenom'],
                 'notes'     => $vals,
-                'nb'        => count($dispo),
-                'moyenne'   => $dispo ? round(array_sum($dispo) / count($dispo), 2) : null,
+                'absents'   => $abs,
+                'moyenne'   => $comptes ? round(array_sum($comptes) / count($comptes), 2) : null,
             ];
         }
     }
@@ -127,7 +153,7 @@ foreach ($modules as $m) {
     $rows[] = ['Année de formation ' . getAnneeFormation(false) . ' — généré le ' . date('d/m/Y à H:i')
               . ($groupeId > 0 ? ' — groupe ' . ($groupesNoms[$groupeId] ?? $groupeId) : '')]; $styles[1] = 6;
     $rows[] = [];
-    $rows[] = array_merge(['N°', 'Groupe', 'Nom', 'Prénom'], array_values($slots), ['Nb CC', 'Moyenne CC /20']);
+    $rows[] = array_merge(['N°', 'Groupe', 'Nom', 'Prénom'], array_values($slots), ['Absences', 'Moyenne CC /20']);
     $styles[3] = 2;
 
     if (!$res['lignes']) {
@@ -139,10 +165,10 @@ foreach ($modules as $m) {
     foreach ($res['lignes'] as $i => $l) {
         $row = [$i + 1, $groupesNoms[$l['groupe_id']] ?? '', $l['nom'], $l['prenom']];
         foreach ($l['notes'] as $k => $v) {
-            $row[] = ['v' => $v, 's' => 3];
+            $row[] = ['v' => $v, 's' => isset($l['absents'][$k]) ? 5 : 3];
             if ($v !== null) $sommes[$k][] = $v;
         }
-        $row[] = $l['nb'];
+        $row[] = ['v' => count($l['absents']) ?: '', 's' => 3];
         $row[] = ['v' => $l['moyenne'], 's' => $l['moyenne'] === null ? 3 : ($l['moyenne'] >= 10 ? 4 : 5)];
         if ($l['moyenne'] !== null) $moys[] = $l['moyenne'];
         $rows[] = $row;
@@ -159,7 +185,7 @@ foreach ($modules as $m) {
     $lastCol = _colLetter($nbCols - 1);
     $widths  = [0 => 5, 1 => 14, 2 => 22, 3 => 22];
     for ($c = 4; $c < 4 + count($slots); $c++) $widths[$c] = 14;
-    $widths[4 + count($slots)] = 8;
+    $widths[4 + count($slots)] = 10;
     $widths[5 + count($slots)] = 16;
 
     $sheets[] = [
