@@ -1,0 +1,490 @@
+<?php
+/**
+ * Migration : évaluation glisser-déposer M203 — TP récapitulatif « préparer la création d'une instance »
+ * Source : TP-IDOCC-M203-RECAP_Preparation-Instance.docx (Keystone, flavor, Glance, keypair, Neutron, nettoyage).
+ * 22 questions de montage de commandes, aucune sur openstack server create.
+ *
+ * Crée les questions dans le module M203 (créé s'il n'existe pas) et une évaluation CC inactive
+ * qui les regroupe. À activer ensuite dans l'admin.
+ * Exécution : php db/migrations/import_m203_recap_glisser.php
+ */
+
+require_once __DIR__ . '/../../config/database.php';
+require_once __DIR__ . '/../../includes/functions.php';
+$pdo = getDB();
+
+$marker = __DIR__ . '/../.done_import_m203_recap_glisser';
+if (file_exists($marker)) {
+    echo "Déjà exécuté.\n";
+    exit(0);
+}
+
+// Texte stocké : "énoncé\n---\ngabarit" ; choix is_correct=1 → étiquette du trou n° ordre, 0 → leurres.
+$questions = json_decode(<<<'JSON'
+[
+  {
+    "type": "Glisser_deposer",
+    "question": "Partie 1, étape 1 : chargez l'identité admin, fixez votre suffixe, vérifiez le jeton et la liste des services.",
+    "gabarit": "{{1}} /etc/kolla/admin-openrc.sh\nexport STG=s07\nopenstack {{2}} {{3}} -c expires -c project_id\nopenstack {{4}} list -c Name -c Type",
+    "bonnes": [
+      "source",
+      "token",
+      "issue",
+      "service"
+    ],
+    "leurres": [
+      "export",
+      "cat",
+      "endpoint",
+      "user"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Créez le projet recap-$STG dans le domaine Default, avec la description « TP recap preparation instance ».",
+    "gabarit": "openstack {{1}} {{2}} {{3}} Default \\\n  {{4}} \"TP recap preparation instance\" recap-$STG",
+    "bonnes": [
+      "project",
+      "create",
+      "--domain",
+      "--description"
+    ],
+    "leurres": [
+      "user",
+      "add",
+      "--name",
+      "--project"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Créez l'utilisateur stg-$STG avec un mot de passe, le projet par défaut recap-$STG et une adresse mail.",
+    "gabarit": "openstack user create --domain Default {{1}} 'P@ssw0rd' \\\n  {{2}} recap-$STG {{3}} stg-$STG@lab.local stg-$STG",
+    "bonnes": [
+      "--password",
+      "--project",
+      "--email"
+    ],
+    "leurres": [
+      "--role",
+      "--mail",
+      "--tenant",
+      "--secret"
+    ],
+    "points": 1,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Donnez le rôle member à stg-$STG sur recap-$STG, puis affichez ses rôles effectifs (rôles implicites compris).",
+    "gabarit": "openstack {{1}} {{2}} --project recap-$STG --user stg-$STG {{3}}\n\nopenstack role {{4}} list --user stg-$STG --names {{5}}",
+    "bonnes": [
+      "role",
+      "add",
+      "member",
+      "assignment",
+      "--effective"
+    ],
+    "leurres": [
+      "set",
+      "admin",
+      "--all",
+      "grant"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Affichez les quotas du projet, puis limitez-le à 3 instances, 3 vCPU et 2048 Mo de RAM.",
+    "gabarit": "openstack quota {{1}} recap-$STG | grep -E 'instances|cores|ram'\n\nopenstack quota {{2}} {{3}} 3 {{4}} 3 {{5}} 2048 recap-$STG",
+    "bonnes": [
+      "show",
+      "set",
+      "--instances",
+      "--cores",
+      "--ram"
+    ],
+    "leurres": [
+      "list",
+      "update",
+      "--vcpus",
+      "--memory"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Complétez le fichier openrc du stagiaire (API Keystone v3, endpoint public).",
+    "gabarit": "export OS_AUTH_URL=http://<IP_OPK>:{{1}}/v3\nexport OS_PROJECT_NAME={{2}}\nexport OS_USERNAME={{3}}\nexport OS_PASSWORD='P@ssw0rd'\nexport OS_USER_DOMAIN_NAME=Default\nexport OS_PROJECT_DOMAIN_NAME=Default\nexport OS_IDENTITY_API_VERSION={{4}}\nexport OS_INTERFACE={{5}}",
+    "bonnes": [
+      "5000",
+      "recap-$STG",
+      "stg-$STG",
+      "3",
+      "public"
+    ],
+    "leurres": [
+      "8774",
+      "admin",
+      "2",
+      "internal"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "En admin, créez le flavor privé recap.tiny-$STG (1 vCPU, 512 Mo, 1 Go) ouvert au seul projet recap-$STG.",
+    "gabarit": "openstack flavor create {{1}} 1 {{2}} 512 {{3}} 1 \\\n  {{4}} {{5}} recap-$STG \\\n  recap.tiny-$STG",
+    "bonnes": [
+      "--vcpus",
+      "--ram",
+      "--disk",
+      "--private",
+      "--project"
+    ],
+    "leurres": [
+      "--public",
+      "--memory",
+      "--size",
+      "--swap"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Ajoutez au flavor une limite d'E/S disque de 500 IOPS, puis affichez uniquement ses propriétés.",
+    "gabarit": "openstack flavor {{1}} {{2}} quota:disk_total_iops_sec=500 recap.tiny-$STG\nopenstack flavor show recap.tiny-$STG -c {{3}}",
+    "bonnes": [
+      "set",
+      "--property",
+      "properties"
+    ],
+    "leurres": [
+      "create",
+      "update",
+      "--metadata",
+      "--extra-spec"
+    ],
+    "points": 1,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Le stagiaire obtient « Flavor recap.tiny-… could not be found ». Vérifiez la liste incluant les flavors privés, puis (en admin) ouvrez le flavor au projet.",
+    "gabarit": "openstack flavor list {{1}} | {{2}} recap\n\n# correction, en admin :\nopenstack flavor {{3}} --project recap-$STG recap.tiny-$STG",
+    "bonnes": [
+      "--all",
+      "grep",
+      "set"
+    ],
+    "leurres": [
+      "--long",
+      "--private",
+      "add",
+      "find"
+    ],
+    "points": 1,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Basculez sur l'identité stagiaire puis lancez le test de droits qui DOIT échouer en 403.",
+    "gabarit": "{{1}} ~/stg-$STG-openrc.sh\nopenstack token issue -c project_id -c user_id\n\n# doit échouer (403 Forbidden)\nopenstack {{2}} {{3}} intrus-$STG",
+    "bonnes": [
+      "source",
+      "project",
+      "create"
+    ],
+    "leurres": [
+      "export",
+      "user",
+      "delete",
+      "flavor"
+    ],
+    "points": 1,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Vérifiez le format réel et la taille virtuelle de l'image CirrOS téléchargée.",
+    "gabarit": "wget https://download.cirros-cloud.net/0.6.2/cirros-0.6.2-x86_64-disk.img\n{{1}} {{2}} cirros-0.6.2-x86_64-disk.img",
+    "bonnes": [
+      "qemu-img",
+      "info"
+    ],
+    "leurres": [
+      "openstack",
+      "virsh",
+      "show",
+      "file"
+    ],
+    "points": 1,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Créez l'image privée cirros-recap au format qcow2, sans enveloppe, avec 1 Go de disque et 128 Mo de RAM minimum.",
+    "gabarit": "openstack image create cirros-recap \\\n  {{1}} \\\n  {{2}} qcow2 {{3}} bare \\\n  {{4}} 1 {{5}} 128 \\\n  --property os_distro=cirros --property os_type=linux \\\n  --property hw_disk_bus=virtio \\\n  {{6}} cirros-0.6.2-x86_64-disk.img",
+    "bonnes": [
+      "--private",
+      "--disk-format",
+      "--container-format",
+      "--min-disk",
+      "--min-ram",
+      "--file"
+    ],
+    "leurres": [
+      "--public",
+      "--format",
+      "--size",
+      "--image"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Complétez les métadonnées de l'image, puis affichez son état et sa visibilité.",
+    "gabarit": "--property {{1}}=cirros --property {{2}}=linux \\\n--property {{3}}=virtio\n\nopenstack image show cirros-recap -c {{4}} -c {{5}} -c disk_format -c min_disk",
+    "bonnes": [
+      "os_distro",
+      "os_type",
+      "hw_disk_bus",
+      "status",
+      "visibility"
+    ],
+    "leurres": [
+      "os_version",
+      "disk_bus",
+      "distro",
+      "shared"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Générez sur votre poste une paire de clés RSA 4096 bits, sans phrase de passe, dans ~/.ssh/key-$STG.",
+    "gabarit": "{{1}} {{2}} rsa {{3}} 4096 {{4}} \"\" -C \"stg-$STG\" {{5}} ~/.ssh/key-$STG",
+    "bonnes": [
+      "ssh-keygen",
+      "-t",
+      "-b",
+      "-N",
+      "-f"
+    ],
+    "leurres": [
+      "ssh-copy-id",
+      "-l",
+      "-E",
+      "-p"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Importez la clé publique dans OpenStack, affichez son empreinte et comparez-la avec l'empreinte MD5 locale.",
+    "gabarit": "openstack keypair {{1}} {{2}} ~/.ssh/key-$STG.pub key-$STG\nopenstack keypair show key-$STG -c {{3}} -c type\n\nssh-keygen {{4}} -E md5 -f ~/.ssh/key-$STG.pub",
+    "bonnes": [
+      "create",
+      "--public-key",
+      "fingerprint",
+      "-l"
+    ],
+    "leurres": [
+      "import",
+      "--private-key",
+      "--key-file",
+      "-y"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Observez le réseau externe public1 et vérifiez qu'il est bien marqué externe.",
+    "gabarit": "openstack network list {{1}}\nopenstack network show public1 -c {{2}} -c shared -c subnets",
+    "bonnes": [
+      "--external",
+      "router:external"
+    ],
+    "leurres": [
+      "--public",
+      "--shared",
+      "external_gateway_info"
+    ],
+    "points": 1,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Créez recap-net puis recap-subnet : 10.50.0.0/24, passerelle 10.50.0.1, pool .10 à .200, DNS 8.8.8.8.",
+    "gabarit": "openstack {{1}} create --description \"Reseau prive TP recap\" recap-net\n\nopenstack subnet create {{2}} recap-net \\\n  {{3}} 10.50.0.0/24 {{4}} 10.50.0.1 \\\n  {{5}} start=10.50.0.10,end=10.50.0.200 \\\n  {{6}} 8.8.8.8 --dhcp recap-subnet",
+    "bonnes": [
+      "network",
+      "--network",
+      "--subnet-range",
+      "--gateway",
+      "--allocation-pool",
+      "--dns-nameserver"
+    ],
+    "leurres": [
+      "subnet",
+      "--cidr",
+      "--pool",
+      "--dns"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Créez recap-router, branchez-y recap-subnet et reliez-le au réseau externe public1.",
+    "gabarit": "openstack router {{1}} recap-router\nopenstack router {{2}} {{3}} recap-router recap-subnet\nopenstack router {{4}} {{5}} public1 recap-router",
+    "bonnes": [
+      "create",
+      "add",
+      "subnet",
+      "set",
+      "--external-gateway"
+    ],
+    "leurres": [
+      "attach",
+      "interface",
+      "unset",
+      "--gateway"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Ouvrez SSH puis ICMP en entrée, depuis n'importe quelle adresse IPv4, dans le groupe sg-recap.",
+    "gabarit": "openstack security group {{1}} create {{2}} --ethertype IPv4 \\\n  --protocol {{3}} {{4}} 22 {{5}} 0.0.0.0/0 sg-recap\n\nopenstack security group rule create --ingress --ethertype IPv4 \\\n  --protocol {{6}} --remote-ip 0.0.0.0/0 sg-recap",
+    "bonnes": [
+      "rule",
+      "--ingress",
+      "tcp",
+      "--dst-port",
+      "--remote-ip",
+      "icmp"
+    ],
+    "leurres": [
+      "--egress",
+      "udp",
+      "--port",
+      "--source"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Relevez l'ID seul du flavor (valeur brute, une seule colonne), utile en cas de doublon de nom.",
+    "gabarit": "openstack flavor show recap.tiny-$STG {{1}} value {{2}} id",
+    "bonnes": [
+      "-f",
+      "-c"
+    ],
+    "leurres": [
+      "-o",
+      "--id",
+      "-v",
+      "--value"
+    ],
+    "points": 1,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Nettoyage Neutron : remettez les commandes dans l'ordre accepté par Neutron.",
+    "gabarit": "1. {{1}}\n2. {{2}}\n3. {{3}}\n4. {{4}}\n5. {{5}}",
+    "bonnes": [
+      "openstack router unset --external-gateway recap-router",
+      "openstack router remove subnet recap-router recap-subnet",
+      "openstack router delete recap-router",
+      "openstack subnet delete recap-subnet",
+      "openstack network delete recap-net"
+    ],
+    "leurres": [
+      "openstack network delete public1",
+      "openstack router add subnet recap-router recap-subnet"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  },
+  {
+    "type": "Glisser_deposer",
+    "question": "Nettoyage côté admin : Keystone se nettoie en dernier. Complétez.",
+    "gabarit": "{{1}} /etc/kolla/admin-openrc.sh\nopenstack {{2}} delete recap.tiny-$STG\nopenstack {{3}} delete stg-$STG\nopenstack {{4}} delete recap-$STG",
+    "bonnes": [
+      "source",
+      "flavor",
+      "user",
+      "project"
+    ],
+    "leurres": [
+      "export",
+      "image",
+      "role",
+      "domain"
+    ],
+    "points": 2,
+    "source": "TP-IDOCC-M203-RECAP_Preparation-Instance.docx"
+  }
+]
+JSON, true, 512, JSON_THROW_ON_ERROR);
+
+$pdo->beginTransaction();
+try {
+    $moduleId = trouverOuCreerModule('M203', 'IDOCC',
+        'Implémenter un environnement Cloud avec une solution libre (OpenStack)');
+
+    $check = $pdo->prepare("SELECT id FROM questions WHERE module_id = ? AND type = 'glisser_deposer' AND texte = ?");
+    $insC  = $pdo->prepare("INSERT INTO choix_reponses (question_id, texte, is_correct, ordre) VALUES (?, ?, ?, ?)");
+
+    $ids = [];
+    $nbNew = 0;
+    foreach ($questions as $q) {
+        $texte = $q['question'] . "\n---\n" . $q['gabarit'];
+        $check->execute([$moduleId, $texte]);
+        if ($id = $check->fetchColumn()) {
+            $ids[] = (int)$id;
+            continue;
+        }
+        $qid = creerQuestion($moduleId, 'glisser_deposer', $texte, (float)$q['points']);
+        foreach ($q['bonnes'] as $i => $mot)  $insC->execute([$qid, $mot, 1, $i + 1]);
+        foreach ($q['leurres'] as $j => $mot) $insC->execute([$qid, $mot, 0, 100 + $j]);
+        $ids[] = $qid;
+        $nbNew++;
+    }
+
+    $evalId = creerEvaluation([
+        'module_id'     => $moduleId,
+        'type'          => 'cc',
+        'mode'          => 'theorique',
+        'contenu'       => 'TP récap — commandes glisser-déposer',
+        'duree_minutes' => 40,
+        'note_max'      => 20,
+        'actif'         => false,
+        'question_ids'  => $ids,
+    ]);
+
+    $pdo->commit();
+    file_put_contents($marker, date('Y-m-d H:i:s'));
+    echo "$nbNew question(s) ajoutée(s), " . (count($ids) - $nbNew) . " déjà présente(s).\n";
+    echo "Évaluation créée (id=$evalId, inactive) : " . getEvaluation($evalId)['nom'] . "\n";
+} catch (Throwable $e) {
+    $pdo->rollBack();
+    echo "ERREUR : " . $e->getMessage() . "\n";
+    exit(1);
+}
