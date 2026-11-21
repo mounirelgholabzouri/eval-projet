@@ -1,0 +1,237 @@
+{
+  "evaluation": {
+    "module": "M103 Concevoir un réseau informatique",
+    "titre": "Commutation et configuration de base du switch",
+    "sujet": "Commutation et configuration de base du switch",
+    "description": "Évaluation du TP C1 : fonctionnement du switch, configuration de base, SSH et dépannage.",
+    "duree_minutes": 45,
+    "note_max": 20,
+    "nb_questions": 18,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment un switch remplit-il sa table d'adresses MAC ?",
+        "options": [
+          "A) Il enregistre l'adresse MAC de destination de chaque trame reçue",
+          "B) Il enregistre l'adresse MAC source de chaque trame reçue avec le port d'arrivée",
+          "C) Il interroge les postes avec une requête ARP",
+          "D) L'administrateur doit saisir chaque adresse à la main"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-C1 Q1"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un switch reçoit une trame dont l'adresse MAC de destination est absente de sa table. Que fait-il ?",
+        "options": [
+          "A) Il supprime la trame",
+          "B) Il renvoie la trame à l'émetteur",
+          "C) Il inonde la trame sur tous les ports du VLAN sauf le port d'arrivée",
+          "D) Il transmet la trame à la passerelle par défaut"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-C1 Q1"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle méthode de commutation reçoit toute la trame et vérifie le FCS avant de la transmettre ?",
+        "options": [
+          "A) Cut-through",
+          "B) Fragment-free",
+          "C) Store-and-forward",
+          "D) Half-duplex"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-C1 Q3"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Un switch délimite les domaines de diffusion : une trame envoyée à FF-FF-FF-FF-FF-FF ne traverse pas un switch.",
+        "reponse_correcte": "Faux",
+        "points": 1,
+        "explication": "Le switch délimite les domaines de collision (un par port). Les domaines de diffusion sont délimités par le routeur et par les VLAN.",
+        "source": "TP-C1 Q2"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans le modèle hiérarchique, à quelle couche appartient un switch qui raccorde directement les postes des utilisateurs ?",
+        "options": [
+          "A) Cœur",
+          "B) Distribution",
+          "C) Accès",
+          "D) Transport"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-C1 Q4"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un réseau comprend deux switchs S1 et S2 reliés entre eux, un routeur relié à S1, deux PC sur S1 et deux PC sur S2. Tous les ports sont dans le VLAN 1. Combien y a-t-il de domaines de collision et de domaines de diffusion ?",
+        "options": [
+          "A) 2 domaines de collision, 1 domaine de diffusion",
+          "B) 6 domaines de collision, 1 domaine de diffusion",
+          "C) 6 domaines de collision, 2 domaines de diffusion",
+          "D) 1 domaine de collision, 6 domaines de diffusion"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "explication": "Une liaison = un domaine de collision (S1-PC1, S1-PC2, S1-S2, S1-routeur, S2-PC3, S2-PC4). Un seul VLAN = un seul domaine de diffusion.",
+        "source": "TP-C1 Q12"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi configure-t-on une interface VLAN 1 (SVI) avec une adresse IP sur un switch de couche 2 ?",
+        "options": [
+          "A) Pour que le switch route entre les réseaux",
+          "B) Pour que le switch puisse être administré à distance (ping, SSH)",
+          "C) Pour que les PC obtiennent une adresse par DHCP",
+          "D) Pour activer la table d'adresses MAC"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-C1 Q6"
+      },
+      {
+        "type": "Completion",
+        "question": "Complétez les commandes qui donnent l'adresse 172.16.5.2/24 à la SVI de S1, l'activent, puis définissent la passerelle 172.16.5.1 :\nS1(config)# interface ______ 1\nS1(config-if)# ip address 172.16.5.2 ______\nS1(config-if)# ______\nS1(config)# ______ 172.16.5.1",
+        "reponse_attendue_cles": [
+          "vlan",
+          "255.255.255.0",
+          "no shutdown",
+          "ip default-gateway"
+        ],
+        "points": 1,
+        "source": "TP-C1 configuration de S1"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quelles conditions sont nécessaires pour activer SSH sur un switch Cisco ?",
+        "options": [
+          "A) Un nom d'hôte autre que « Switch »",
+          "B) Un nom de domaine (ip domain-name)",
+          "C) Une clé RSA générée",
+          "D) Un serveur DHCP sur le réseau",
+          "E) Un utilisateur local et login local sur les lignes vty"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B",
+          "C",
+          "E"
+        ],
+        "points": 1.5,
+        "source": "TP-C1 Q7"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle taille minimale de clé RSA faut-il pour utiliser SSH version 2 ?",
+        "options": [
+          "A) 360 bits",
+          "B) 512 bits",
+          "C) 768 bits",
+          "D) 4096 bits"
+        ],
+        "reponse_correcte": "C",
+        "points": 0.5,
+        "explication": "768 bits minimum, 1024 conseillé (crypto key generate rsa general-keys modulus 1024).",
+        "source": "TP-C1 Q7"
+      },
+      {
+        "type": "Completion",
+        "question": "Complétez la configuration des lignes vty pour n'accepter que SSH avec les comptes locaux :\nS1(config)# line vty 0 ______\nS1(config-line)# transport input ______\nS1(config-line)# login ______",
+        "reponse_attendue_cles": [
+          "15",
+          "ssh",
+          "local"
+        ],
+        "points": 1,
+        "source": "TP-C1 configuration de S1"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi préférer SSH à Telnet pour administrer un switch ?",
+        "options": [
+          "A) SSH est plus rapide",
+          "B) Telnet ne fonctionne pas sur les switchs Cisco",
+          "C) Telnet transmet tout en clair, mots de passe compris ; SSH chiffre la session",
+          "D) SSH n'a pas besoin d'adresse IP"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-C1 Q8"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "La commande service password-encryption chiffre les mots de passe en clair de la configuration (console, vty) pour qu'ils ne soient pas lisibles dans show running-config.",
+        "reponse_correcte": "Vrai",
+        "points": 0.5,
+        "explication": "Chiffrement faible (type 7), mais le mot de passe n'apparaît plus en clair.",
+        "source": "TP-C1 Q8"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "La SVI de S1 a l'adresse 172.16.5.2/24. La connexion SSH vers S1 réussit depuis PC1 (172.16.5.11/24) mais échoue depuis PC2 (172.16.6.12/24, passerelle 172.16.6.1). Aucun routeur n'est encore configuré. Expliquez pourquoi.",
+        "reponse_attendue_cles": [
+          "PC1 est dans le même réseau que la SVI (172.16.5.0/24)",
+          "PC2 est dans un autre réseau (172.16.6.0/24) et doit passer par sa passerelle",
+          "La passerelle 172.16.6.1 n'existe pas tant que le routeur n'est pas configuré"
+        ],
+        "points": 1,
+        "source": "TP-C1 Q5 et Q9"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "S1 est relié à S2 par son port G0/2. Après des pings, sur quel port de S1 apparaissent les adresses MAC des PC branchés sur S2 ?",
+        "options": [
+          "A) Sur aucun port, S1 ne voit que ses propres PC",
+          "B) Sur G0/2, le lien vers S2",
+          "C) Sur l'interface VLAN 1",
+          "D) Sur chaque port FastEthernet de S1"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "explication": "Toutes les trames des postes de S2 arrivent par G0/2 : S1 y associe chacune de leurs MAC source.",
+        "source": "TP-C1 Q10"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande affiche la table d'adresses MAC d'un switch Cisco ?",
+        "options": [
+          "A) show ip route",
+          "B) show arp",
+          "C) show mac address-table",
+          "D) show interfaces status"
+        ],
+        "reponse_correcte": "C",
+        "points": 0.5,
+        "source": "TP-C1 Partie 4"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Panne : la connexion SSH vers S2 est refusée. On lit dans sa configuration :\nline vty 0 15\n transport input telnet\n login\nTrouvez les erreurs et donnez les commandes de correction.",
+        "reponse_attendue_cles": [
+          "transport input telnet refuse SSH",
+          "login sans mot de passe de ligne au lieu de login local",
+          "Correction : line vty 0 15, transport input ssh, login local"
+        ],
+        "points": 1.5,
+        "source": "TP-C1 Q13"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Panne : les PC branchés sur S1 communiquent normalement entre eux, mais S1 ne répond plus au ping ni à SSH. show ip interface brief affiche « Vlan1 ... administratively down ». Expliquez et corrigez.",
+        "reponse_attendue_cles": [
+          "L'interface Vlan1 (SVI) est désactivée",
+          "La commutation des trames ne dépend pas de la SVI, seule l'administration est coupée",
+          "Correction : interface vlan 1 puis no shutdown"
+        ],
+        "points": 1,
+        "source": "TP-C1 Q14"
+      }
+    ]
+  }
+}
