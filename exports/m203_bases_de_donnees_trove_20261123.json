@@ -1,0 +1,240 @@
+{
+  "evaluation": {
+    "module": "M203 Déployer une infrastructure Cloud Computing",
+    "sujet": "Bases de données IaaS et Trove",
+    "titre": "Bases de données IaaS et Trove",
+    "description": "Contrôle continu — Bases de données (TP10) : MariaDB sur instance, DBaaS Trove, datastore, groupe de configuration, sécurité",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que signifie DBaaS ?",
+        "options": [
+          "A) Database Backup as a Service",
+          "B) Distributed Block as a Service",
+          "C) Database as a Service : la base est fournie comme un service",
+          "D) Data Bus as a Service"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "Cours_M203_Trove_avant_TP10.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la comparaison IaaS / Trove.",
+        "gabarit": "Installation du moteur — IaaS : {{1}} ; Trove : {{2}}\nAccès au système — IaaS : {{3}} ; Trove : {{4}}",
+        "bonnes": [
+          "à ta charge",
+          "automatique",
+          "complet, par SSH",
+          "API et SQL seulement"
+        ],
+        "leurres": [
+          "impossible",
+          "par Horizon uniquement"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Trove_avant_TP10.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Quelles tâches passent à la charge du service quand on utilise Trove plutôt qu'une instance avec MariaDB ?",
+        "reponse_attendue_cles": [
+          "création de la VM et installation du moteur",
+          "création des bases et des comptes",
+          "configuration (groupes de configuration)",
+          "sauvegardes, restaurations, réplication, montée de version",
+          "l'utilisateur n'administre plus le système d'exploitation"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove-CORRIGE.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Créez le groupe sg-db : SSH, et MySQL limité au réseau privé.",
+        "gabarit": "openstack security group create sg-db\nopenstack security group rule create --ingress --protocol tcp --dst-port {{1}} sg-db\nopenstack security group rule create --ingress --protocol tcp --dst-port {{2}} --remote-ip {{3}} sg-db",
+        "bonnes": [
+          "22",
+          "3306",
+          "10.20.0.0/24"
+        ],
+        "leurres": [
+          "80",
+          "0.0.0.0/0",
+          "5432"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un collègue veut ouvrir le port 3306 à 0.0.0.0/0 « pour simplifier ». Que réponds-tu ?",
+        "reponse_attendue_cles": [
+          "seuls les serveurs applicatifs du réseau privé ont besoin de la base",
+          "ouvrir à tous expose la base aux attaques (force brute, failles du moteur)",
+          "principe du moindre privilège : limiter à 10.20.0.0/24"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pour l'approche IaaS, avec quels image et gabarit lance-t-on vm-db ?",
+        "options": [
+          "A) ubuntu-22.04 et m1.tp.small",
+          "B) cirros et m1.tp.nano",
+          "C) ubuntu-22.04 et m1.tp.nano",
+          "D) cirros et trove.small"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "Cours_M203_Trove_avant_TP10.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu veux associer l'IP flottante à vm-db, mais la création d'une nouvelle IP échoue. Que faire ?",
+        "options": [
+          "A) Demander le rôle admin",
+          "B) Utiliser l'adresse 10.20.0.x depuis le poste",
+          "C) Supprimer sg-db",
+          "D) Détacher l'IP flottante de vm1 (quota de 1) puis l'associer à vm-db"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Avec quel utilisateur se connecte-t-on en SSH à vm-db (ubuntu-22.04) ?",
+        "options": [
+          "A) cirros",
+          "B) ubuntu",
+          "C) root",
+          "D) admin"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un stagiaire propose de créer la base de son application dans le conteneur mariadb du serveur OpenStack, « puisqu'il existe déjà ». Explique pourquoi c'est interdit.",
+        "reponse_attendue_cles": [
+          "c'est la base interne d'OpenStack (Keystone, Nova, Neutron…)",
+          "mélange des responsabilités, risque de saturer ou corrompre le plan de contrôle du cloud",
+          "l'application aurait accès aux données de tous les services"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove-CORRIGE.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque composant de Trove à son rôle.",
+        "gabarit": "Reçoit la demande et vérifie Keystone : {{1}}\nOrchestre Nova, Neutron et Cinder : {{2}}\nTourne dans la VM, installe MariaDB : {{3}}\nMet à jour le statut de l'instance : {{4}}",
+        "bonnes": [
+          "trove-api",
+          "trove-taskmanager",
+          "guest agent",
+          "trove-conductor"
+        ],
+        "leurres": [
+          "nova-conductor",
+          "trove-scheduler"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Trove_avant_TP10.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que désigne le datastore dans Trove ?",
+        "options": [
+          "A) Le volume Cinder des données",
+          "B) Le réseau de la base",
+          "C) Le groupe de sécurité",
+          "D) Le moteur de base de données et sa version (mariadb, par exemple)"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Trove_avant_TP10.pptx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Une base Trove reste, en coulisses, une instance Nova démarrée d'une image invitée.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "Cours_M203_Trove_avant_TP10.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans database instance create, à quoi sert --size 1 ?",
+        "options": [
+          "A) Taille en Go du volume Cinder des données, séparé du disque système",
+          "B) Taille de la RAM en Go",
+          "C) Nombre de bases créées",
+          "D) Nombre de répliques"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel est l'intérêt d'un groupe de configuration Trove plutôt que de modifier my.cnf dans la VM ?",
+        "options": [
+          "A) Aucun",
+          "B) Il désactive le guest agent",
+          "C) Il est géré par Trove, appliqué à une ou plusieurs instances et conservé lors des reconstructions",
+          "D) Il donne un accès SSH"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "La suppression de sg-db échoue. Cause probable ?",
+        "options": [
+          "A) Le groupe est protégé",
+          "B) vm-db existe encore et utilise le groupe",
+          "C) Il faut le rôle admin",
+          "D) Le port 3306 est ouvert"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "On peut supprimer le groupe de configuration conf-<id> avant l'instance db-complet-<id> qui l'utilise.",
+        "reponse_correcte": "Faux",
+        "points": 1,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi servent --replica-of et --replica-count ?",
+        "options": [
+          "A) À sauvegarder la base",
+          "B) À créer plusieurs comptes",
+          "C) À créer des répliques en lecture d'une instance existante",
+          "D) À changer de moteur"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove-CORRIGE.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Dans quel cas préférerais-tu l'approche IaaS (MariaDB sur une instance) à Trove ?",
+        "reponse_attendue_cles": [
+          "besoin de contrôle total (version, extension, réglages du système)",
+          "Trove ou le datastore voulu n'est pas disponible",
+          "ressources trop limitées pour le service managé"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-10_Bases-de-donnees-Trove-CORRIGE.docx"
+      }
+    ]
+  }
+}

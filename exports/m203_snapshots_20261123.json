@@ -1,0 +1,229 @@
+{
+  "evaluation": {
+    "module": "M203 Déployer une infrastructure Cloud Computing",
+    "sujet": "Snapshots d'instances et de volumes",
+    "titre": "Snapshots d'instances et de volumes",
+    "description": "Contrôle continu — Snapshots (TP09) : snapshot d'instance, rebuild, snapshot de volume, restauration, sauvegarde, ordre de nettoyage",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez le tableau des trois notions.",
+        "gabarit": "Snapshot d'instance : résultat = {{1}}\nSnapshot de volume : résultat = {{2}}\nSauvegarde : résultat = {{3}}",
+        "bonnes": [
+          "une image dans Glance",
+          "un point de restauration dans Cinder",
+          "une copie hors du stockage"
+        ],
+        "leurres": [
+          "un nouveau gabarit",
+          "un port Neutron"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Snapshots_avant_TP09.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande crée un snapshot de l'instance vm1 ?",
+        "options": [
+          "A) openstack volume snapshot create vm1",
+          "B) openstack image create --instance vm1 vm1-snap",
+          "C) openstack server image create --name vm1-snap --wait vm1",
+          "D) openstack server backup vm1"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-09_Snapshots.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Le snapshot d'instance contient aussi les données des volumes Cinder attachés à l'instance.",
+        "reponse_correcte": "Faux",
+        "explication": "Il ne capture que le disque racine éphémère ; il faut un snapshot de volume pour les données du volume.",
+        "points": 1,
+        "source": "TP-IDOCC-M203-09_Snapshots-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi lancer sync dans vm1 après avoir créé temoin.txt, avant le snapshot ?",
+        "options": [
+          "A) Pour écrire le cache sur le disque, sinon le fichier peut manquer dans le snapshot",
+          "B) Pour synchroniser l'horloge",
+          "C) Pour envoyer le fichier à Glance",
+          "D) Pour mettre l'instance en pause"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-09_Snapshots-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans Glance, comment reconnaît-on que vm1-snap vient d'un snapshot d'instance ?",
+        "options": [
+          "A) visibility=public",
+          "B) disk_format=snapshot",
+          "C) protected=True",
+          "D) image_type=snapshot"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Snapshots_avant_TP09.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Clonez vm1 à partir de son snapshot, puis restaurez vm1 elle-même.",
+        "gabarit": "openstack server create {{1}} vm1-snap --flavor m1.tp.nano --key-name kp-<id> --network tp-net --wait vm-clone\nopenstack server {{2}} --image vm1-snap --wait vm1",
+        "bonnes": [
+          "--image",
+          "rebuild"
+        ],
+        "leurres": [
+          "--snapshot",
+          "restore"
+        ],
+        "points": 1,
+        "source": "TP-IDOCC-M203-09_Snapshots.docx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Après openstack server rebuild --image vm1-snap vm1, qu'est-ce qui est conservé ?",
+        "options": [
+          "A) Le même ID d'instance",
+          "B) La même adresse IP",
+          "C) Le contenu du snapshot (temoin.txt)",
+          "D) Un nouveau nom vm1-rebuild"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B",
+          "C"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-09_Snapshots-CORRIGE.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Prenez un snapshot du volume vol-donnees, puis tirez-en un nouveau volume.",
+        "gabarit": "openstack volume {{1}} create {{2}} vol-donnees vol-donnees-snap\nopenstack volume create {{3}} vol-donnees-snap vol-restaure",
+        "bonnes": [
+          "snapshot",
+          "--volume",
+          "--snapshot"
+        ],
+        "leurres": [
+          "backup",
+          "--source",
+          "--image"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-09_Snapshots.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "vol-donnees est attaché (in-use). Que se passe-t-il pour volume snapshot create sans option ?",
+        "options": [
+          "A) Le snapshot est pris normalement",
+          "B) La commande refuse : il faut --force, ou mieux, détacher le volume",
+          "C) Le volume est détaché automatiquement",
+          "D) L'instance est supprimée"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "Cours_M203_Snapshots_avant_TP09.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "vol-restaure est attaché à une instance. Comment l'utiliser ?",
+        "options": [
+          "A) Le formater avec mkfs puis le monter",
+          "B) Le convertir en image d'abord",
+          "C) Il est inutilisable",
+          "D) Le monter sans formater"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Snapshots_avant_TP09.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : ton responsable considère que les snapshots de volume suffisent comme sauvegarde. Qu'en penses-tu ?",
+        "reponse_attendue_cles": [
+          "le snapshot est stocké sur le même backend que le volume et en dépend",
+          "si le stockage tombe en panne, volume et snapshots disparaissent ensemble",
+          "une sauvegarde (volume backup) est copiée ailleurs et reste indépendante",
+          "au labo, pas de cinder-backup"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M203-09_Snapshots-CORRIGE.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : tu as installé et configuré un serveur web sur une instance. Comment en faire un modèle pour lancer dix serveurs identiques ?",
+        "reponse_attendue_cles": [
+          "prendre un snapshot de l'instance (server image create)",
+          "le snapshot devient une image dans Glance",
+          "lancer les nouvelles instances depuis cette image, sans refaire la configuration"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-09_Snapshots-CORRIGE.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Remettez le nettoyage du TP-09 dans l'ordre imposé.",
+        "gabarit": "1. {{1}}\n2. {{2}}\n3. {{3}}\n4. server rebuild --image cirros vm1, puis {{4}}",
+        "bonnes": [
+          "volume delete vol-restaure",
+          "volume snapshot delete vol-donnees-snap",
+          "volume delete vol-donnees",
+          "image delete vm1-snap"
+        ],
+        "leurres": [
+          "server delete vm1"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Snapshots_avant_TP09.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "volume delete vol-donnees renvoie « Volume status must be available … must not … have snapshots (HTTP 400) ». Que faut-il faire ?",
+        "options": [
+          "A) Supprimer d'abord les snapshots du volume",
+          "B) Relancer la commande avec --force",
+          "C) Redémarrer Cinder",
+          "D) Agrandir le volume"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-09_Snapshots-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Le snapshot de vol-donnees fait 2 Go, car un snapshot a la taille du volume source (agrandi au TP-08).",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M203-09_Snapshots-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi servent les propriétés etape='avant-nettoyage' et usage='tp09' sur un snapshot ?",
+        "options": [
+          "A) À chiffrer le snapshot",
+          "B) À le rendre public",
+          "C) À retrouver pourquoi et quand il a été pris (tri, durée de conservation)",
+          "D) À accélérer la restauration"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-09_Snapshots-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Pendant un snapshot d'instance, Nova met brièvement l'instance en pause pour obtenir une copie cohérente du disque.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "Cours_M203_Snapshots_avant_TP09.pptx"
+      }
+    ]
+  }
+}

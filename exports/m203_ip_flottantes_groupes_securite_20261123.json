@@ -1,0 +1,244 @@
+{
+  "evaluation": {
+    "module": "M203 Déployer une infrastructure Cloud Computing",
+    "sujet": "IP flottantes et groupes de sécurité",
+    "titre": "IP flottantes et groupes de sécurité",
+    "description": "Contrôle continu — IP flottantes et groupes de sécurité (TP07) : NAT, règles, moindre privilège, SSH",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quelles sont les deux conditions pour joindre vm1 en SSH depuis ton poste ?",
+        "options": [
+          "A) Une IP flottante associée à vm1",
+          "B) Une règle de groupe de sécurité qui autorise le port 22",
+          "C) Un volume Cinder attaché",
+          "D) Un gabarit m1.tp.small"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B"
+        ],
+        "points": 2,
+        "source": "Cours_M203_IP-flottantes-Securite_avant_TP07.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment fonctionne une IP flottante ?",
+        "options": [
+          "A) Elle est configurée sur la carte réseau de l'instance",
+          "B) Elle est attribuée par le DHCP de tp-net",
+          "C) Le routeur Neutron traduit l'adresse externe vers l'adresse privée (NAT)",
+          "D) Elle remplace l'adresse privée de l'instance"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "Cours_M203_IP-flottantes-Securite_avant_TP07.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : connecté en SSH à vm1 par son IP flottante 192.168.149.x, tu tapes ip addr et ne vois que 10.20.0.x. Explique.",
+        "reponse_attendue_cles": [
+          "l'IP flottante n'est pas configurée dans l'instance",
+          "elle est traduite par le routeur virtuel (DNAT à l'entrée, SNAT à la sortie)",
+          "l'instance ne voit que son adresse privée"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite-CORRIGE.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Remettez dans l'ordre le chemin d'un paquet SSH entrant.",
+        "gabarit": "① Arrivée sur l'interface externe : {{1}}\n② Traduction de l'IP flottante vers 10.20.0.x : {{2}}\n③ Vérification du port 22 : {{3}}\n④ Livraison à l'instance : {{4}}",
+        "bonnes": [
+          "br-ex",
+          "agent L3 (DNAT)",
+          "groupe de sécurité",
+          "bridge OVS interne"
+        ],
+        "leurres": [
+          "agent DHCP",
+          "Keystone"
+        ],
+        "points": 2,
+        "source": "Cours_M203_IP-flottantes-Securite_avant_TP07.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que fait un groupe de sécurité du trafic entrant qui ne correspond à aucune règle ?",
+        "options": [
+          "A) Il le bloque",
+          "B) Il le laisse passer",
+          "C) Il le redirige vers le routeur",
+          "D) Il l'enregistre seulement"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "Cours_M203_IP-flottantes-Securite_avant_TP07.pptx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Les groupes de sécurité sont « avec état » : la réponse à une connexion autorisée passe sans règle supplémentaire.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "Cours_M203_IP-flottantes-Securite_avant_TP07.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Créez le groupe sg-web, autorisez SSH depuis partout et le ping, puis appliquez-le à vm1.",
+        "gabarit": "openstack security group {{1}} --description \"Acces SSH et web\" sg-web\nopenstack security group rule create {{2}} --protocol tcp {{3}} 22 --remote-ip 0.0.0.0/0 sg-web\nopenstack security group rule create --ingress --protocol {{4}} sg-web\nopenstack server {{5}} security group vm1 sg-web",
+        "bonnes": [
+          "create",
+          "--ingress",
+          "--dst-port",
+          "icmp",
+          "add"
+        ],
+        "leurres": [
+          "--egress",
+          "--port",
+          "ping",
+          "set"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Réservez une IP flottante sur le réseau externe et associez-la à vm1.",
+        "gabarit": "openstack floating ip {{1}} {{2}}\nopenstack server add {{3}} vm1 <ip_flottante>",
+        "bonnes": [
+          "create",
+          "public1",
+          "floating ip"
+        ],
+        "leurres": [
+          "tp-net",
+          "port",
+          "allocate"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que contiennent les règles ingress du groupe default ?",
+        "options": [
+          "A) SSH ouvert à tout Internet",
+          "B) Rien : tout est bloqué, y compris entre instances",
+          "C) HTTP et HTTPS ouverts",
+          "D) L'entrée autorisée seulement depuis les instances du groupe default"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_IP-flottantes-Securite_avant_TP07.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : en production, la règle SSH de sg-web autorise --remote-ip 0.0.0.0/0. Que proposes-tu et pourquoi ?",
+        "reponse_attendue_cles": [
+          "0.0.0.0/0 autorise toutes les sources ; /32 une seule adresse",
+          "restreindre au poste d'administration, bastion ou VPN, par exemple 192.168.149.133/32",
+          "principe du moindre privilège",
+          "éviter d'exposer SSH aux attaques par force brute"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Si on détache l'IP flottante de vm1, l'instance ne peut plus du tout accéder à Internet.",
+        "reponse_correcte": "Faux",
+        "explication": "La sortie passe par le SNAT du routeur avec son adresse de passerelle externe ; l'IP flottante sert à être joint depuis l'extérieur.",
+        "points": 1,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu supprimes la règle ICMP de sg-web. Que constates-tu ?",
+        "options": [
+          "A) Le SSH est coupé aussi",
+          "B) Le ping vers l'IP flottante échoue, le SSH reste possible",
+          "C) Rien ne change",
+          "D) L'IP flottante est libérée"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que signifient --icmp-type 8 --icmp-code 0 dans une règle ?",
+        "options": [
+          "A) Tous les messages ICMP",
+          "B) Le port 8 en TCP",
+          "C) Le traceroute",
+          "D) La demande d'écho, c'est-à-dire le ping uniquement"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que signifie --remote-group sg-complet dans une règle ?",
+        "options": [
+          "A) La source autorisée est l'ensemble des instances membres de sg-complet, quelle que soit leur adresse",
+          "B) La règle s'applique au réseau public1",
+          "C) La règle est copiée dans le groupe sg-complet",
+          "D) La règle s'applique au trafic sortant"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "On peut mettre --remote-ip et --remote-group dans la même règle.",
+        "reponse_correcte": "Faux",
+        "points": 1,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un groupe de sécurité tout neuf contient déjà deux règles. Lesquelles ?",
+        "options": [
+          "A) SSH et ICMP en entrée",
+          "B) HTTP et HTTPS en entrée",
+          "C) Deux règles egress IPv4 et IPv6 qui autorisent toute sortie",
+          "D) Deux règles qui bloquent tout"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un stagiaire crée une seconde IP flottante et obtient « 409, Quota exceeded for resources: ['floatingip'] ». Pourquoi ?",
+        "options": [
+          "A) Le réseau public1 est plein",
+          "B) Le quota est d'une IP flottante et vm1 l'utilise déjà",
+          "C) Il faut le rôle admin pour créer une IP flottante",
+          "D) Le groupe sg-web est absent"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-07_IP-flottantes-Groupes-securite-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "La connexion SSH propose la mauvaise clé et échoue. Quelle commande est correcte ?",
+        "options": [
+          "A) ssh cirros@10.20.0.x",
+          "B) ssh -p 22 root@192.168.2.100",
+          "C) ssh -i $HOME/.ssh/id_m203 cirros@<ip_flottante>",
+          "D) ssh -k kp-<id> <ip_flottante>"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "Cours_M203_IP-flottantes-Securite_avant_TP07.pptx"
+      }
+    ]
+  }
+}

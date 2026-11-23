@@ -1,0 +1,287 @@
+{
+  "evaluation": {
+    "module": "M203 Déployer une infrastructure Cloud Computing",
+    "sujet": "Installation multinode Kolla-Ansible",
+    "titre": "Installation multinode Kolla-Ansible",
+    "description": "Contrôle continu — Installation multinode (TP-INST-03, OpenStack 2025.1 sur Ubuntu 24.04) : architecture, préparation des nœuds, globals.yml, inventaire, déploiement, vérification, dépannage",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment Kolla-Ansible déploie-t-il OpenStack ?",
+        "options": [
+          "A) En paquets apt installés à la main sur chaque nœud",
+          "B) Dans une seule VM tout-en-un",
+          "C) Sous forme de conteneurs Docker orchestrés par Ansible",
+          "D) Par des scripts DevStack"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quels avantages apporte le déploiement conteneurisé de Kolla-Ansible ?",
+        "options": [
+          "A) Reproductibilité : même commande sur toutes les machines",
+          "B) Isolation : pas de conflits de dépendances entre services",
+          "C) Mise à jour progressive (rolling upgrade)",
+          "D) Plus besoin de réseau entre les nœuds"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B",
+          "C"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque nœud du labo à son adresse de management.",
+        "gabarit": "controller1 : {{1}}\ncompute1 : {{2}}\nstorage1 : {{3}}\nVIP (Keepalived / HAProxy) : {{4}}",
+        "bonnes": [
+          "192.168.2.11",
+          "192.168.2.21",
+          "192.168.2.31",
+          "192.168.2.100"
+        ],
+        "leurres": [
+          "192.168.149.1",
+          "192.168.2.1"
+        ],
+        "points": 2,
+        "source": "TP-INST-03_OpenStack-Multinode-KollaAnsible.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi sert l'adresse VIP 192.168.2.100 ?",
+        "options": [
+          "A) C'est le point d'entrée unique de l'API et d'Horizon, porté par Keepalived/HAProxy",
+          "B) C'est l'adresse du nœud compute",
+          "C) C'est la passerelle Internet des instances",
+          "D) C'est l'adresse du stockage LVM"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel service tourne sur le nœud compute pour exécuter les instances ?",
+        "options": [
+          "A) nova-api",
+          "B) MariaDB",
+          "C) Horizon",
+          "D) nova-compute avec libvirt/KVM"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "L'interface externe donnée à neutron_external_interface ne doit pas porter d'adresse IP.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Désactivez le swap de façon permanente sur chaque nœud, puis vérifiez.",
+        "gabarit": "{{1}} -a\nsed -i '/swap/d' {{2}}\n{{3}} --show",
+        "bonnes": [
+          "swapoff",
+          "/etc/fstab",
+          "swapon"
+        ],
+        "leurres": [
+          "swapon -a",
+          "/etc/hosts",
+          "free"
+        ],
+        "points": 2,
+        "source": "TP-INST-03_OpenStack-Multinode-KollaAnsible.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi désactive-t-on le swap sur tous les nœuds ?",
+        "options": [
+          "A) Pour gagner de l'espace disque",
+          "B) Parce que Docker l'exige",
+          "C) Pour accélérer SSH",
+          "D) Pour activer KVM"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-INST-03_OpenStack-Multinode-KollaAnsible.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Sur storage1, préparez le disque de données pour Cinder LVM.",
+        "gabarit": "{{1}} /dev/sdb\n{{2}} cinder /dev/sdb",
+        "bonnes": [
+          "pvcreate",
+          "vgcreate"
+        ],
+        "leurres": [
+          "mkfs.ext4",
+          "lvcreate",
+          "mount"
+        ],
+        "points": 1,
+        "source": "TP-INST-03_OpenStack-Multinode-KollaAnsible.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi installe-t-on Kolla-Ansible dans un environnement virtuel Python (venv) ?",
+        "options": [
+          "A) Parce que Docker l'impose",
+          "B) Pour le rendre accessible aux stagiaires",
+          "C) Pour éviter d'utiliser SSH",
+          "D) Pour isoler ses dépendances de celles du système"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les paramètres principaux de /etc/kolla/globals.yml.",
+        "gabarit": "openstack_release: \"{{1}}\"\nkolla_internal_vip_address: \"{{2}}\"\n{{3}}: \"ens33\"   # management\n{{4}}: \"ens37\"   # externe, sans IP",
+        "bonnes": [
+          "2025.1",
+          "192.168.2.100",
+          "network_interface",
+          "neutron_external_interface"
+        ],
+        "leurres": [
+          "2023.2",
+          "api_interface_ip",
+          "external_ip"
+        ],
+        "points": 2,
+        "source": "TP-INST-03_OpenStack-Multinode-KollaAnsible.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque groupe de l'inventaire multinode à son rôle.",
+        "gabarit": "[control] : {{1}}\n[compute] : {{2}}\n[network] : {{3}}\n[storage] : {{4}}",
+        "bonnes": [
+          "services API et base de données",
+          "instances via libvirt/KVM",
+          "agents L3 et DHCP de Neutron",
+          "cinder-volume (LVM)"
+        ],
+        "leurres": [
+          "Horizon uniquement"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Remettez le déploiement dans l'ordre (Kolla-Ansible 20 : la sous-commande se place avant l'inventaire).",
+        "gabarit": "kolla-ansible {{1}} -i /etc/kolla/multinode\nkolla-ansible {{2}} -i /etc/kolla/multinode\nkolla-ansible {{3}} -i /etc/kolla/multinode\nkolla-ansible {{4}} -i /etc/kolla/multinode",
+        "bonnes": [
+          "bootstrap-servers",
+          "prechecks",
+          "deploy",
+          "post-deploy"
+        ],
+        "leurres": [
+          "install",
+          "reconfigure"
+        ],
+        "points": 2,
+        "source": "TP-INST-03_OpenStack-Multinode-KollaAnsible.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Avant le premier déploiement, quelle commande génère les mots de passe des services dans passwords.yml ?",
+        "options": [
+          "A) kolla-ansible genpwd",
+          "B) openstack password create",
+          "C) kolla-ansible passwords",
+          "D) ansible-vault create"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Avec enable_octavia: \"yes\", il faut générer les certificats d'Octavia (kolla-ansible octavia-certificates) avant le déploiement.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-INST-03_OpenStack-Multinode-KollaAnsible.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Après post-deploy, quel fichier charge-t-on pour utiliser la CLI en administrateur ?",
+        "options": [
+          "A) /etc/kolla/globals.yml",
+          "B) /etc/kolla/multinode",
+          "C) /etc/kolla/admin-openrc.sh",
+          "D) ~/.ssh/config"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque vérification à sa commande.",
+        "gabarit": "Conteneurs tous « Up » : {{1}}\nHyperviseurs et services Nova : {{2}}\nAgents OVS, L3, DHCP : {{3}}\nCinder et son backend LVM : {{4}}",
+        "bonnes": [
+          "docker ps",
+          "openstack compute service list",
+          "openstack network agent list",
+          "openstack volume service list"
+        ],
+        "leurres": [
+          "openstack endpoint list",
+          "openstack server list"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : après le déploiement, un conteneur est en état « Exited » et prechecks signalait aussi un NTP non synchronisé. Donne ta démarche de dépannage.",
+        "reponse_attendue_cles": [
+          "lire les journaux du conteneur : docker logs <nom_conteneur>",
+          "corriger la cause puis kolla-ansible reconfigure (éventuellement --tags <service>)",
+          "NTP : systemctl enable --now chrony sur tous les nœuds"
+        ],
+        "points": 3,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : prechecks échoue avec « SSH : Permission denied (publickey) » vers compute1, puis le déploiement de Cinder signale que le VG cinder est introuvable. Que fais-tu ?",
+        "reponse_attendue_cles": [
+          "copier la clé du déployeur : ssh-copy-id root@192.168.2.21",
+          "vérifier /root/.ssh/authorized_keys",
+          "sur storage1 : pvcreate /dev/sdb puis vgcreate cinder /dev/sdb"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Horizon affiche « 502 Bad Gateway » sur http://192.168.2.100/. Quelle action essayer en premier ?",
+        "options": [
+          "A) Réinstaller Ubuntu",
+          "B) docker restart horizon, puis vérifier haproxy",
+          "C) Supprimer passwords.yml",
+          "D) Relancer bootstrap-servers"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "Cours_M203_Installation_Multinode.pptx"
+      }
+    ]
+  }
+}

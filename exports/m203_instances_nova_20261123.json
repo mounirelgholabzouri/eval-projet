@@ -1,0 +1,258 @@
+{
+  "evaluation": {
+    "module": "M203 Déployer une infrastructure Cloud Computing",
+    "sujet": "Instances Nova",
+    "titre": "Instances Nova",
+    "description": "Contrôle continu — Instances Nova (TP06) : services impliqués, server create, cycle de vie, console, métadonnées, refus",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque sous-processus Nova à son rôle.",
+        "gabarit": "Reçoit et valide la requête REST : {{1}}\nChoisit le nœud via Placement : {{2}}\nCoordonne et enregistre l'état dans MariaDB : {{3}}\nLance la VM via libvirt/KVM : {{4}}",
+        "bonnes": [
+          "nova-api",
+          "nova-scheduler",
+          "nova-conductor",
+          "nova-compute"
+        ],
+        "leurres": [
+          "nova-placement",
+          "nova-network"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Nova_avant_TP06.pptx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Nova exécute lui-même les machines virtuelles, sans hyperviseur.",
+        "reponse_correcte": "Faux",
+        "explication": "Nova choisit où placer l'instance et pilote l'hyperviseur KVM/QEMU, qui exécute la VM.",
+        "points": 1,
+        "source": "Cours_M203_Nova_avant_TP06.pptx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quels services interviennent quand on lance openstack server create avec une image et un réseau (sans volume) ?",
+        "options": [
+          "A) Keystone",
+          "B) Placement",
+          "C) Glance",
+          "D) Neutron",
+          "E) Trove"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-06_Instances-Nova-CORRIGE.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Lancez vm1 avec les quatre ingrédients du labo et attendez l'état ACTIVE.",
+        "gabarit": "openstack server create {{1}} cirros {{2}} m1.tp.nano \\\n  {{3}} kp-<id> {{4}} tp-net {{5}} vm1",
+        "bonnes": [
+          "--image",
+          "--flavor",
+          "--key-name",
+          "--network",
+          "--wait"
+        ],
+        "leurres": [
+          "--volume",
+          "--keypair",
+          "--subnet"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-06_Instances-Nova.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Une instance est en état ERROR. Où lire la cause de l'échec ?",
+        "options": [
+          "A) Dans openstack flavor show",
+          "B) Dans le fichier OpenRC",
+          "C) Dans le champ fault de openstack server show",
+          "D) Dans openstack token issue"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "Cours_M203_Nova_avant_TP06.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez le cycle de vie d'une instance.",
+        "gabarit": "Création en cours : {{1}}\nL'instance tourne : {{2}}\nArrêtée, disque conservé : {{3}}\nLa création a échoué : {{4}}",
+        "bonnes": [
+          "BUILD",
+          "ACTIVE",
+          "SHUTOFF",
+          "ERROR"
+        ],
+        "leurres": [
+          "DELETED",
+          "PAUSED"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Nova_avant_TP06.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un stagiaire pense qu'arrêter vm1 (SHUTOFF) libère son quota comme une suppression. Explique la différence.",
+        "reponse_attendue_cles": [
+          "SHUTOFF : la VM est arrêtée mais disque, port et adresse IP sont conservés",
+          "une instance SHUTOFF compte toujours dans le quota",
+          "on la relance avec openstack server start",
+          "supprimée : tout est libéré et le disque éphémère est perdu"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M203-06_Instances-Nova-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande affiche ce que le système de vm1 a écrit au démarrage (bail DHCP, identifiants cirros) ?",
+        "options": [
+          "A) openstack console log show --lines 30 vm1",
+          "B) openstack console url show vm1",
+          "C) openstack server show vm1 -c fault",
+          "D) openstack server event list vm1"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "Cours_M203_Nova_avant_TP06.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Depuis l'instance, quelle adresse interroge-t-on pour lire les métadonnées (gabarit, clé publique) ?",
+        "options": [
+          "A) 10.20.0.1",
+          "B) 192.168.2.100",
+          "C) 8.8.8.8",
+          "D) 169.254.169.254"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Nova_avant_TP06.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans la console de vm1, ping 10.20.0.1 répond mais ping 8.8.8.8 échoue. Cause la plus probable ?",
+        "options": [
+          "A) La paire de clés est mauvaise",
+          "B) La passerelle externe de tp-router est absente",
+          "C) Le gabarit est trop petit",
+          "D) L'image cirros est corrompue"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-06_Instances-Nova-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "server create --image ubuntu-22.04 --flavor m1.tp.nano renvoie « Flavor's disk is too small for requested image (HTTP 400) ». Pourquoi ?",
+        "options": [
+          "A) Le quota de vCPU est dépassé",
+          "B) L'image est privée",
+          "C) Le réseau tp-net est plein",
+          "D) ubuntu-22.04 exige 3 Go de disque, m1.tp.nano n'en a que 1"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Nova_avant_TP06.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : vm1 (m1.tp.nano) tourne. Tu lances une instance m1.tp.meduim et obtiens « Quota exceeded for cores: Requested 2, but already used 1 of 2 cores (HTTP 403) ». Quelle ressource est en cause, et comment le vérifier ?",
+        "reponse_attendue_cles": [
+          "la ressource en cause est le vCPU (cores)",
+          "vm1 utilise déjà 1 vCPU sur un quota de 2, m1.tp.meduim en demande 2",
+          "vérification avec openstack limits show --absolute"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-06_Instances-Nova-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "vm1 et vm2, toutes deux dans le groupe default, peuvent se pinguer sans ajouter de règle.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M203-06_Instances-Nova-CORRIGE.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : vm1 est ACTIVE avec l'adresse 10.20.0.x, mais ssh depuis ton poste échoue. Donne les deux raisons.",
+        "reponse_attendue_cles": [
+          "10.20.0.x est une adresse privée non routée depuis le réseau du labo",
+          "il manque une IP flottante",
+          "le groupe default bloque le SSH entrant depuis l'extérieur"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-06_Instances-Nova-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pour imposer l'adresse 10.20.0.50 à vm-complet, quelle option faut-il utiliser ?",
+        "options": [
+          "A) --nic net-id=<id>,v4-fixed-ip=10.20.0.50",
+          "B) --network tp-net --ip 10.20.0.50",
+          "C) --fixed-ip 10.20.0.50",
+          "D) --property ip=10.20.0.50"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-06_Instances-Nova.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi la commande de vm-complet commence-t-elle par --os-compute-api-version 2.90 ?",
+        "options": [
+          "A) Pour accélérer la création",
+          "B) Pour utiliser Keystone v3",
+          "C) Pour débloquer --description, --tag et --hostname",
+          "D) Pour démarrer sur un volume"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-06_Instances-Nova.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi sert --config-drive True ?",
+        "options": [
+          "A) À chiffrer le disque",
+          "B) À ajouter un petit disque contenant métadonnées et user-data",
+          "C) À attacher un volume Cinder",
+          "D) À sauvegarder l'instance"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-06_Instances-Nova.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Le nom vm-complet et la valeur de --hostname désignent toujours la même chose.",
+        "reponse_correcte": "Faux",
+        "explication": "Le nom est l'étiquette affichée par OpenStack ; --hostname est le nom d'hôte configuré dans le système invité.",
+        "points": 1,
+        "source": "TP-IDOCC-M203-06_Instances-Nova-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que fait --max 3 dans server create ... vm-complet ?",
+        "options": [
+          "A) Limite l'instance à 3 vCPU",
+          "B) Fait trois tentatives en cas d'échec",
+          "C) Crée trois instances vm-complet-1, -2 et -3, dans la limite du quota",
+          "D) Attache trois volumes"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-06_Instances-Nova-CORRIGE.docx"
+      }
+    ]
+  }
+}

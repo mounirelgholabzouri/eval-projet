@@ -1,0 +1,255 @@
+{
+  "evaluation": {
+    "module": "M203 Déployer une infrastructure Cloud Computing",
+    "sujet": "Accès au labo et client OpenStack",
+    "titre": "Accès au labo et client OpenStack",
+    "description": "Contrôle continu — Accès client (TP00) : Horizon, client openstack, variables OS_*, jeton Keystone, identifiant d'application",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que font Horizon et la commande openstack lorsqu'on crée une ressource ?",
+        "options": [
+          "A) Ils créent la ressource eux-mêmes sur le serveur",
+          "B) Ils écrivent directement dans la base de données MariaDB",
+          "C) Ils appellent les API des services (Keystone, Nova, Neutron…) à ta place",
+          "D) Ils passent par SSH sur le controller"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "Cours_M203_Acces-Client_avant_TP00.pptx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Une instance créée dans Horizon est aussi visible avec openstack server list, et inversement.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "Cours_M203_Acces-Client_avant_TP00.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel service la CLI contacte-t-elle en premier, avant tout autre appel ?",
+        "options": [
+          "A) Keystone",
+          "B) Nova",
+          "C) Glance",
+          "D) Horizon"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "Cours_M203_Acces-Client_avant_TP00.pptx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Que renvoie Keystone après une authentification réussie ?",
+        "options": [
+          "A) Un jeton",
+          "B) Le catalogue des adresses des services",
+          "C) Le mot de passe chiffré de l'utilisateur",
+          "D) La liste des instances du projet"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Acces-Client_avant_TP00.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque variable à sa valeur au labo.",
+        "gabarit": "OS_AUTH_URL = {{1}}\nOS_PROJECT_NAME = {{2}}\nOS_USER_DOMAIN_NAME = {{3}}\nOS_IDENTITY_API_VERSION = {{4}}",
+        "bonnes": [
+          "http://192.168.2.100:5000",
+          "M203-<id>",
+          "Default",
+          "3"
+        ],
+        "leurres": [
+          "https://192.168.2.11:5000",
+          "admin",
+          "RegionOne",
+          "2"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Sous Windows, comment faut-il saisir la variable OS_PASSWORD ?",
+        "options": [
+          "A) $env:OS_PASSWORD = \"MonMotDePasse\" dans un fichier partagé",
+          "B) set OS_PASSWORD dans le fichier hosts",
+          "C) On ne la définit jamais : Keystone la devine",
+          "D) $env:OS_PASSWORD = Read-Host \"Mot de passe\""
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Installez le client OpenStack selon le poste, puis vérifiez-le.",
+        "gabarit": "# Windows (PowerShell)\npip install {{1}}\n# Linux\nsudo apt install -y {{2}}\n# Vérification\nopenstack {{3}}",
+        "bonnes": [
+          "python-openstackclient",
+          "python3-openstackclient",
+          "--version"
+        ],
+        "leurres": [
+          "openstack-cli",
+          "python3-nova",
+          "--help-all"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Sous Linux, où télécharge-t-on le fichier OpenRC du projet ?",
+        "options": [
+          "A) Sur le site docs.openstack.org",
+          "B) Dans Horizon : Projet > Accès API",
+          "C) Dans /etc/kolla sur le poste du stagiaire",
+          "D) Dans le menu Admin > Système"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "Cours_M203_Acces-Client_avant_TP00.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un stagiaire tape openstack token issue et obtient « Missing value auth-url ». Quelle est la cause la plus probable ?",
+        "options": [
+          "A) Mot de passe incorrect",
+          "B) Serveur Keystone arrêté",
+          "C) Le quota du projet est dépassé",
+          "D) Les variables OS_* ne sont pas chargées dans ce terminal"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Acces-Client_avant_TP00.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "La commande répond « HTTP 401 (authentication) ». Que faut-il vérifier ?",
+        "options": [
+          "A) L'identifiant, le mot de passe et le nom du projet",
+          "B) Le câble réseau",
+          "C) La version de Python",
+          "D) L'espace disque du poste"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "Cours_M203_Acces-Client_avant_TP00.pptx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "« Unable to establish connection » indique en général un serveur injoignable : on vérifie le réseau (ping 192.168.2.100) et l'adresse.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "Cours_M203_Acces-Client_avant_TP00.pptx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quels champs affiche openstack token issue ?",
+        "options": [
+          "A) expires",
+          "B) id",
+          "C) project_id",
+          "D) password",
+          "E) user_id"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B",
+          "C",
+          "E"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack-CORRIGE.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : tu as chargé tes variables OS_* dans un terminal PowerShell, puis tu ouvres un second terminal et openstack server list échoue. Explique pourquoi et comment corriger.",
+        "reponse_attendue_cles": [
+          "les variables OS_* sont des variables d'environnement du processus du terminal",
+          "un nouveau terminal est un nouveau processus qui démarre sans elles",
+          "recharger les variables (refaire les $env: ou sourcer le fichier OpenRC) dans le nouveau terminal"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack-CORRIGE.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un collègue propose d'écrire ton mot de passe OpenStack en clair dans un script déposé sur un partage réseau. Quels risques et quelle solution proposes-tu ?",
+        "reponse_attendue_cles": [
+          "toute personne qui lit le fichier peut se faire passer pour toi (supprimer des instances, consommer le quota, lire des données)",
+          "le fichier peut finir dans une sauvegarde ou un dépôt Git",
+          "utiliser une saisie masquée ou un identifiant d'application limité et révocable"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Après openstack application credential create, à quel moment peut-on lire le secret de l'identifiant ?",
+        "options": [
+          "A) À tout moment avec application credential show",
+          "B) Uniquement dans Horizon",
+          "C) Uniquement à la création : ensuite il faut supprimer et recréer l'identifiant",
+          "D) Dans le fichier OpenRC"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "L'identifiant ac-script-<id> a la règle d'accès GET /v2.1/servers. Que se passe-t-il pour openstack image list avec cet identifiant ?",
+        "options": [
+          "A) La commande liste les images publiques seulement",
+          "B) La commande est refusée (401 ou 403)",
+          "C) La commande liste toutes les images",
+          "D) La commande crée une image vide"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Si on omet --role, l'identifiant d'application ne reçoit aucun rôle.",
+        "reponse_correcte": "Faux",
+        "points": 1,
+        "explication": "Il reçoit tous les rôles que l'utilisateur possède sur le projet au moment de la création.",
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi sert l'option --restricted d'un identifiant d'application ?",
+        "options": [
+          "A) À limiter l'identifiant au réseau 192.168.2.0/24",
+          "B) À rendre l'identifiant visible par tous les projets",
+          "C) À empêcher l'identifiant de créer d'autres identifiants d'application ou des trusts",
+          "D) À interdire la commande server list"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : l'identifiant ac-script-<id> a été créé avec --expiration 2026-12-31T23:59:59. Que se passe-t-il le 1er janvier 2027 ? Et pourquoi faut-il quand même le supprimer en fin de séance ?",
+        "reponse_attendue_cles": [
+          "après l'expiration toute authentification avec l'identifiant est refusée (HTTP 401)",
+          "un identifiant oublié reste utilisable jusqu'à son expiration",
+          "openstack application credential delete ac-script-<id>"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-00_Acces-Client-OpenStack-CORRIGE.docx"
+      }
+    ]
+  }
+}

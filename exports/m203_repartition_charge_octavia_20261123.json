@@ -1,0 +1,235 @@
+{
+  "evaluation": {
+    "module": "M203 Déployer une infrastructure Cloud Computing",
+    "sujet": "Répartition de charge Octavia",
+    "titre": "Répartition de charge Octavia",
+    "description": "Contrôle continu — Octavia (TP11) : load balancer, listener, pool, membres, health monitor, algorithmes, amphora, VIP",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quels sont les deux bénéfices d'un répartiteur de charge ?",
+        "options": [
+          "A) Traiter plus de demandes en ajoutant des serveurs",
+          "B) Continuer le service si un serveur tombe",
+          "C) Chiffrer les disques",
+          "D) Remplacer les groupes de sécurité"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Octavia_avant_TP11.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque objet Octavia à son rôle.",
+        "gabarit": "Point d'entrée avec l'adresse virtuelle : {{1}}\nÉcoute un protocole et un port : {{2}}\nGroupe de serveurs et algorithme : {{3}}\nUne adresse et un port de serveur : {{4}}\nTeste les membres : {{5}}",
+        "bonnes": [
+          "load balancer",
+          "listener",
+          "pool",
+          "membre",
+          "health monitor"
+        ],
+        "leurres": [
+          "amphora",
+          "flavor"
+        ],
+        "points": 3,
+        "source": "Cours_M203_Octavia_avant_TP11.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Qu'est-ce que l'amphora ?",
+        "options": [
+          "A) Un conteneur Docker du controller",
+          "B) Un agent Neutron",
+          "C) Une VM de service qui exécute HAProxy (environ 1 Go de RAM)",
+          "D) Une image Glance publique de serveur web"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "Cours_M203_Octavia_avant_TP11.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque algorithme à son comportement.",
+        "gabarit": "Chacun son tour : {{1}}\nVers le serveur le moins occupé : {{2}}\nUn client revient toujours au même serveur : {{3}}",
+        "bonnes": [
+          "ROUND_ROBIN",
+          "LEAST_CONNECTIONS",
+          "SOURCE_IP"
+        ],
+        "leurres": [
+          "HTTP_COOKIE",
+          "RANDOM"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Octavia_avant_TP11.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Créez le load balancer, son listener HTTP 80 et son pool.",
+        "gabarit": "openstack loadbalancer create --name lb-<id> {{1}} tp-subnet --wait\nopenstack loadbalancer listener create --name lst-<id> --protocol HTTP {{2}} 80 --wait lb-<id>\nopenstack loadbalancer pool create --name pool-<id> {{3}} lst-<id> --protocol HTTP {{4}} ROUND_ROBIN --wait",
+        "bonnes": [
+          "--vip-subnet-id",
+          "--protocol-port",
+          "--listener",
+          "--lb-algorithm"
+        ],
+        "leurres": [
+          "--network",
+          "--port",
+          "--pool"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle adresse donne-t-on dans member create --address pour web1 ?",
+        "options": [
+          "A) L'adresse privée 10.20.0.x de web1",
+          "B) L'IP flottante de web1",
+          "C) La VIP du load balancer",
+          "D) 192.168.2.100"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : pourquoi associe-t-on l'IP flottante au port de la VIP plutôt qu'à web1 ?",
+        "reponse_attendue_cles": [
+          "la VIP est le point d'entrée unique et stable",
+          "le trafic arrive au load balancer qui le répartit",
+          "associée à un serveur, l'IP flottante supprimerait la répartition et la tolérance de panne"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande publie le load balancer avec l'IP flottante ?",
+        "options": [
+          "A) openstack server add floating ip lb-<id> <ip>",
+          "B) openstack loadbalancer set --floating-ip <ip> lb-<id>",
+          "C) openstack port set --vip <ip>",
+          "D) openstack floating ip set --port <vip_port_id> <ip_flottante>"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Distinguez les deux statuts d'un load balancer.",
+        "gabarit": "État de la configuration, doit revenir à ACTIVE avant toute modification : {{1}}\nSanté réelle, passe à ERROR si un membre ne répond plus : {{2}}",
+        "bonnes": [
+          "provisioning_status",
+          "operating_status"
+        ],
+        "leurres": [
+          "admin_state_up",
+          "vm_state"
+        ],
+        "points": 1,
+        "source": "Cours_M203_Octavia_avant_TP11.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : tu arrêtes web2 pendant le test. Que se passe-t-il avec un health monitor ? Et sans health monitor ?",
+        "reponse_attendue_cles": [
+          "avec : le membre web2 passe en ERROR et seul WEB1 répond",
+          "le health monitor retire web2 de la répartition",
+          "sans : le load balancer continue d'envoyer des requêtes à web2",
+          "une requête sur deux échoue (délai dépassé ou erreur 503)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Les tests renvoient toujours WEB1, jamais WEB2. Cause probable ?",
+        "options": [
+          "A) L'algorithme ROUND_ROBIN ne fonctionne pas",
+          "B) Un seul membre est ONLINE, ou la boucle nc de web2 est arrêtée",
+          "C) L'IP flottante est sur web1",
+          "D) Le listener écoute sur 8080"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "openstack loadbalancer delete lb-<id> est refusé. Que faut-il ajouter ?",
+        "options": [
+          "A) --force",
+          "B) --all",
+          "C) --wait",
+          "D) --cascade"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Sans --insert-headers X-Forwarded-For=true, les serveurs web ne voient que l'adresse de l'amphora, pas celle du client.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi sert une persistance de session HTTP_COOKIE sur un pool ?",
+        "options": [
+          "A) À garder un même client sur le même membre, utile quand la session est stockée sur le serveur",
+          "B) À chiffrer les cookies",
+          "C) À répartir au hasard",
+          "D) À limiter le nombre de connexions"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi sert --allowed-cidr sur un listener ?",
+        "options": [
+          "A) À choisir l'adresse de la VIP",
+          "B) À ajouter des membres",
+          "C) À limiter les adresses sources autorisées à joindre ce port",
+          "D) À choisir le sous-réseau des membres"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Le load balancer peut-il être lui-même un point de panne unique ? Comment y remédier ?",
+        "reponse_attendue_cles": [
+          "oui, en topologie simple il n'y a qu'une amphora",
+          "si elle tombe, le service est coupé jusqu'à sa reconstruction",
+          "topologie ACTIVE_STANDBY, anti-affinité, plusieurs zones ou fournisseur ovn"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Au labo, chaque stagiaire peut garder plusieurs load balancers actifs sans conséquence.",
+        "reponse_correcte": "Faux",
+        "explication": "Chaque amphora consomme environ 1 Go de RAM sur le serveur partagé.",
+        "points": 1,
+        "source": "TP-IDOCC-M203-11_Repartition-charge-Octavia-CORRIGE.docx"
+      }
+    ]
+  }
+}

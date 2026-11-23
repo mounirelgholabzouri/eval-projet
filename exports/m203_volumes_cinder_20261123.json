@@ -1,0 +1,253 @@
+{
+  "evaluation": {
+    "module": "M203 Déployer une infrastructure Cloud Computing",
+    "sujet": "Volumes Cinder",
+    "titre": "Volumes Cinder",
+    "description": "Contrôle continu — Volumes Cinder (TP08) : stockage éphémère et persistant, attachement, formatage, déplacement, agrandissement",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque famille de stockage à son service.",
+        "gabarit": "Éphémère, disparaît avec l'instance : {{1}}\nBloc, disque brut à formater : {{2}}\nObjet, fichiers par API HTTP : {{3}}",
+        "bonnes": [
+          "Nova",
+          "Cinder",
+          "Swift"
+        ],
+        "leurres": [
+          "Glance",
+          "Neutron"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Cinder_avant_TP08.pptx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Les données d'un volume Cinder sont conservées après la suppression de l'instance à laquelle il était attaché.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "Cours_M203_Cinder_avant_TP08.pptx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : tu écris preuve.txt sur le disque de vm2 (et non sur le volume), puis tu supprimes vm2. Que devient le fichier ? Et s'il avait été écrit sur le volume ?",
+        "reponse_attendue_cles": [
+          "le fichier est perdu",
+          "le disque du gabarit est éphémère et disparaît avec l'instance",
+          "écrit sur le volume, il aurait survécu"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder-CORRIGE.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Remettez dans l'ordre le rôle de chaque composant lors de server add volume vm1 vol1.",
+        "gabarit": "Reçoit la demande et vérifie le jeton : {{1}}\nChoisit le backend de stockage : {{2}}\nPrépare le volume LVM et l'exporte : {{3}}\nAttache /dev/vdb via libvirt : {{4}}",
+        "bonnes": [
+          "cinder-api",
+          "cinder-scheduler",
+          "cinder-volume",
+          "nova-compute"
+        ],
+        "leurres": [
+          "nova-scheduler",
+          "glance-api"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Cinder_avant_TP08.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Créez un volume de 1 Go et attachez-le à vm1.",
+        "gabarit": "openstack volume create {{1}} 1 vol-donnees\nopenstack server {{2}} volume vm1 vol-donnees",
+        "bonnes": [
+          "--size",
+          "add"
+        ],
+        "leurres": [
+          "--disk",
+          "attach"
+        ],
+        "points": 1,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Après l'attachement à vm1, quel est le statut du volume ?",
+        "options": [
+          "A) available",
+          "B) creating",
+          "C) in-use",
+          "D) attached"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "Cours_M203_Cinder_avant_TP08.pptx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Dans vm1 : repérez le disque, formatez-le une seule fois, puis montez-le.",
+        "gabarit": "cat {{1}}\nsudo {{2}} /dev/vdb\nsudo mkdir -p /mnt/donnees\nsudo {{3}} /dev/vdb /mnt/donnees\ndf -h /mnt/donnees",
+        "bonnes": [
+          "/proc/partitions",
+          "mkfs.ext3",
+          "mount"
+        ],
+        "leurres": [
+          "/etc/fstab",
+          "fdisk",
+          "attach"
+        ],
+        "points": 2,
+        "source": "Cours_M203_Cinder_avant_TP08.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un stagiaire lance mkfs sur /dev/vda au lieu de /dev/vdb. Quel est le risque ?",
+        "options": [
+          "A) Il formate le disque système de l'instance",
+          "B) Aucun",
+          "C) Il formate le volume d'un autre stagiaire",
+          "D) Il agrandit le volume"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder-CORRIGE.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un collègue détache vol-donnees de vm1 sans le démonter. Explique le risque et donne les deux commandes dans le bon ordre.",
+        "reponse_attendue_cles": [
+          "le système garde des écritures en cache",
+          "risque de fichiers corrompus, comme arracher une clé USB",
+          "sudo umount /mnt/donnees dans l'instance",
+          "puis openstack server remove volume vm1 vol-donnees"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu attaches vol-donnees à vm2 pour retrouver preuve.txt. Que faut-il faire dans vm2 ?",
+        "options": [
+          "A) mkfs.ext3 /dev/vdb puis mount",
+          "B) Rien, le fichier apparaît dans /root",
+          "C) Recréer le volume",
+          "D) mount /dev/vdb /mnt/donnees, sans formater"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Cinder_avant_TP08.pptx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Un volume classique peut être attaché à deux instances en même temps.",
+        "reponse_correcte": "Faux",
+        "points": 1,
+        "source": "Cours_M203_Cinder_avant_TP08.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi le volume vol-donnees apparaît-il comme /dev/vdb dans l'instance et non sous son nom ?",
+        "options": [
+          "A) Cinder renomme les volumes",
+          "B) Le nom est donné par le noyau selon le pilote (virtio : vd) et l'ordre d'attachement",
+          "C) Le nom du volume est trop long",
+          "D) C'est une erreur de configuration"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder-CORRIGE.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Agrandissez vol-donnees à 2 Go (volume détaché) et vérifiez.",
+        "gabarit": "openstack volume {{1}} {{2}} 2 vol-donnees\nopenstack volume show vol-donnees -c size -c {{3}}",
+        "bonnes": [
+          "set",
+          "--size",
+          "status"
+        ],
+        "leurres": [
+          "extend",
+          "--grow",
+          "type"
+        ],
+        "points": 1,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel est le quota de volumes d'un stagiaire au labo ?",
+        "options": [
+          "A) 1 volume et 5 Go",
+          "B) 5 volumes et 50 Go",
+          "C) Illimité",
+          "D) 2 volumes et 10 Go"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "Cours_M203_Cinder_avant_TP08.pptx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi sert un volume bootable ?",
+        "options": [
+          "A) À démarrer une instance dessus, son disque système survivant alors à l'instance",
+          "B) À stocker des images Glance",
+          "C) À accélérer le démarrage",
+          "D) À partager un disque entre deux instances"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder-CORRIGE.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que désigne l'option --type d'un volume ?",
+        "options": [
+          "A) Le système de fichiers (ext3, xfs)",
+          "B) La taille en Go",
+          "C) Le backend de stockage et ses caractéristiques (performances, QoS, chiffrement)",
+          "D) Le format de l'image"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder-CORRIGE.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Avec --image, la taille du volume doit au moins atteindre le min_disk de l'image.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Différence entre --snapshot et --source à la création d'un volume ?",
+        "options": [
+          "A) Ce sont des synonymes",
+          "B) --snapshot part d'un snapshot de volume ; --source clone directement un autre volume",
+          "C) --source part d'une image Glance",
+          "D) --snapshot crée une sauvegarde"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder-CORRIGE.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : tu installes une base de données sur une instance. La places-tu sur le disque de l'instance ou sur un volume ? Justifie.",
+        "reponse_attendue_cles": [
+          "sur un volume",
+          "les données doivent survivre à l'instance (reconstruction, migration, panne)",
+          "le volume permet les snapshots de volume et l'agrandissement"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M203-08_Volumes-Cinder-CORRIGE.docx"
+      }
+    ]
+  }
+}
