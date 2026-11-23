@@ -1,0 +1,206 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP11 — Stockage Azure : comptes, blobs, partages",
+    "titre": "TP11 — Stockage Azure : comptes, blobs, partages",
+    "description": "Contrôle continu — Stockage (TP11) : redondance, niveaux d'accès, cycle de vie, immuabilité, SAS, partage de fichiers, restriction réseau",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque redondance à ce qu'elle protège.",
+        "gabarit": "LRS : {{1}}\nZRS : {{2}}\nGRS / RA-GRS : {{3}}",
+        "bonnes": [
+          "panne d'un disque",
+          "perte d'un centre de données (3 zones)",
+          "perte d'une région (copie dans la région jumelée)"
+        ],
+        "leurres": [
+          "suppression par erreur",
+          "attaque par rançongiciel"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle est la différence entre GRS et RA-GRS ?",
+        "options": [
+          "A) GRS est plus cher",
+          "B) RA-GRS n'existe qu'en Premium",
+          "C) RA-GRS garde 6 copies, GRS 3",
+          "D) RA-GRS permet de lire les données dans la région secondaire"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la durée minimale de conservation de chaque niveau d'accès.",
+        "gabarit": "Cool : {{1}}\nCold : {{2}}\nArchive : {{3}}",
+        "bonnes": [
+          "30 jours",
+          "90 jours",
+          "180 jours"
+        ],
+        "leurres": [
+          "7 jours",
+          "365 jours"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un fichier n'est consulté qu'une fois par an, et on accepte d'attendre plusieurs heures pour le lire. Quel niveau choisis-tu ?",
+        "options": [
+          "A) Hot",
+          "B) Premium",
+          "C) Cool",
+          "D) Archive"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Un blob au niveau Archive peut être lu directement, sans réhydratation.",
+        "reponse_correcte": "Faux",
+        "explication": "Archive est hors ligne : il faut réhydrater le blob avant de le lire.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle règle de cycle de vie crée le lab 07 ?",
+        "options": [
+          "A) Movetocool : blobs non modifiés depuis 30 jours vers le niveau froid",
+          "B) Copier vers une autre région",
+          "C) Supprimer les blobs après 7 jours",
+          "D) Archiver tout après 1 jour"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "L'URL directe du blob, ouverte en InPrivate, renvoie PublicAccessNotPermitted. Pourquoi l'URL SAS fonctionne-t-elle ?",
+        "options": [
+          "A) Elle contient un jeton signé qui donne un accès limité en temps et en droits",
+          "B) Elle contourne le pare-feu",
+          "C) Elle rend le conteneur public",
+          "D) Elle contient la clé du compte en clair"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Une stratégie d'immuabilité de 180 jours est posée sur le conteneur data. Que se passe-t-il avec az storage blob delete sur un blob récent ?",
+        "options": [
+          "A) La suppression est refusée",
+          "B) Le blob passe en Archive",
+          "C) Le blob est supprimé",
+          "D) Le blob passe dans la corbeille"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelles sont les règles d'un nom de compte de stockage ?",
+        "options": [
+          "A) Unique seulement dans le groupe de ressources",
+          "B) Jusqu'à 64 caractères avec tirets",
+          "C) 3 à 24 caractères, minuscules et chiffres, unique dans Azure",
+          "D) Majuscules autorisées"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Le pare-feu du compte n'autorise que ton poste. Pourquoi les commandes de données échouent-elles dans Cloud Shell, et que fait le TP ?",
+        "options": [
+          "A) Il faut un compte Premium",
+          "B) On désactive le chiffrement",
+          "C) On change la redondance en LRS",
+          "D) Cloud Shell a une autre IP : on l'ajoute avec az storage account network-rule add --ip-address"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la génération d'un jeton SAS en lecture seule.",
+        "gabarit": "az storage blob {{1}} --account-name $ST --account-key $KEY -c data \\\n  -n cli/rapport.txt --permissions {{2}} --expiry $FIN",
+        "bonnes": [
+          "generate-sas",
+          "r"
+        ],
+        "leurres": [
+          "create-token",
+          "rwd"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quels services de données un compte de stockage Standard v2 propose-t-il ?",
+        "options": [
+          "A) Fichiers (partages)",
+          "B) Bases SQL",
+          "C) Blobs",
+          "D) Tables et files d'attente"
+        ],
+        "reponses_correctes": [
+          "A",
+          "C",
+          "D"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Après la restriction au réseau vnet1 et la suppression de l'IP de ton poste, Storage browser affiche « not authorized to perform this operation ».",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un prestataire doit télécharger un rapport stocké dans un conteneur privé pendant 24 h, sans recevoir la clé du compte. Que fais-tu ? Précise les paramètres.",
+        "reponse_attendue_cles": [
+          "générer un jeton SAS sur le blob",
+          "permission Read seulement",
+          "date d'expiration à 24 h",
+          "envoyer l'URL SAS, le conteneur reste privé"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : des archives comptables doivent être conservées 10 ans, sans modification possible, et rester lisibles même si la région East US tombe. Quels réglages proposes-tu pour le compte et le conteneur ?",
+        "reponse_attendue_cles": [
+          "redondance RA-GRS (ou RA-GZRS)",
+          "stratégie d'immuabilité (rétention à durée)",
+          "cycle de vie vers Cool/Cold/Archive",
+          "conteneur privé, accès par SAS"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-11_Stockage.docx"
+      }
+    ]
+  }
+}

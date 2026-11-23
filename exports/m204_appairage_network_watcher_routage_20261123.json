@@ -1,0 +1,190 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP08 — Appairage, Network Watcher et routage",
+    "titre": "TP08 — Appairage, Network Watcher et routage",
+    "description": "Contrôle continu — Connectivité intersites (TP08) : appairage, Connection troubleshoot, routes effectives, UDR vers appliance, IP flow verify, passerelle VPN",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Avant l'appairage, Connection troubleshoot de CoreServicesVM vers ManufacturingVM (TCP 3389) donne Unreachable. Pourquoi ?",
+        "options": [
+          "A) Le port 3389 est fermé dans Windows",
+          "B) Network Watcher n'est pas activé",
+          "C) La VM est arrêtée",
+          "D) Les deux réseaux virtuels ne sont pas reliés"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "L'appairage est transitif : si A est appairé à B et B à C, alors A joint C.",
+        "reponse_correcte": "Faux",
+        "explication": "L'appairage n'est pas transitif : il faut appairer A et C, ou faire passer le trafic par une appliance/passerelle dans B.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Combien de liens d'appairage faut-il pour relier CoreServicesVnet et ManufacturingVnet ?",
+        "options": [
+          "A) 1, bidirectionnel",
+          "B) 4",
+          "C) 2, un dans chaque sens",
+          "D) Aucun, Azure les relie seul"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Après l'ajout des appairages, quel état doivent-ils afficher ?",
+        "options": [
+          "A) Disconnected",
+          "B) Initiated",
+          "C) Connected",
+          "D) Provisioning"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la route personnalisée du lab 05.",
+        "gabarit": "Table : {{1}}\nDestination : {{2}}\nType de saut suivant : {{3}}\nAdresse du saut suivant : {{4}}",
+        "bonnes": [
+          "rt-CoreServices",
+          "10.0.0.0/16",
+          "Virtual appliance",
+          "10.0.1.7"
+        ],
+        "leurres": [
+          "Internet",
+          "172.16.0.0/16"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Une route système et une route utilisateur (UDR) ont la même destination. Laquelle s'applique ?",
+        "options": [
+          "A) La route utilisateur",
+          "B) Les deux, en répartition de charge",
+          "C) La route système",
+          "D) La plus ancienne"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande affiche les routes effectives de la carte réseau de CoreServicesVM ?",
+        "options": [
+          "A) az network nic show-effective-route-table --ids $NIC",
+          "B) az network watcher topology",
+          "C) az vm show --routes",
+          "D) az network route-table list"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "show-next-hop de 10.0.0.4 vers 172.16.0.4 renvoie :",
+        "options": [
+          "A) None",
+          "B) VNetPeering",
+          "C) Internet",
+          "D) VirtualAppliance 10.0.1.7"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "test-ip-flow entrant vers ManufacturingVM:3389 depuis 8.8.8.8 donne Deny. Quelle règle l'explique ?",
+        "options": [
+          "A) AllowVnetInBound",
+          "B) AllowAzureLoadBalancerInBound",
+          "C) DenyAllInBound",
+          "D) DenyInternetOutbound"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment teste-t-on la connexion depuis ManufacturingVM sans ouvrir RDP ?",
+        "options": [
+          "A) Avec Azure Advisor",
+          "B) En ajoutant une IP publique",
+          "C) ping depuis Cloud Shell",
+          "D) Run command > RunPowerShellScript avec Test-NetConnection <IP> -port 3389"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque élément d'un VPN site à site à son rôle.",
+        "gabarit": "GatewaySubnet : {{1}}\nPasserelle de réseau virtuel : {{2}}\nPasserelle de réseau local : {{3}}\nConnexion : {{4}}",
+        "bonnes": [
+          "sous-réseau dédié, /27 conseillé",
+          "point de terminaison IPsec côté Azure",
+          "représente le routeur du site distant",
+          "lie les deux passerelles avec une clé partagée"
+        ],
+        "leurres": [
+          "appliance virtuelle 10.0.1.7",
+          "zone DNS privée"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Associer la table rt-CoreServices au sous-réseau Core avant d'avoir installé l'appliance 10.0.1.7 coupe le trafic interne du sous-réseau.",
+        "reponse_correcte": "Vrai",
+        "explication": "Le trafic vers 10.0.0.0/16 part vers 10.0.1.7, qui n'existe pas : on installe d'abord l'appliance, puis on associe la table.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : l'entreprise doit relier son réseau Azure à son agence de Casablanca (réseau local derrière un routeur) et, par ailleurs, relier deux réseaux virtuels Azure de la même région. Quelle solution pour chaque cas ? Justifie.",
+        "reponse_attendue_cles": [
+          "agence : passerelle VPN site à site",
+          "GatewaySubnet + passerelle de réseau local + connexion avec clé partagée",
+          "deux VNet Azure : appairage (dorsale Microsoft, plus simple et rapide)",
+          "espaces sans chevauchement"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un collègue signale que ManufacturingVM ne joint pas CoreServicesVM en RDP. Donne une démarche de diagnostic avec les outils du TP.",
+        "reponse_attendue_cles": [
+          "vérifier les appairages (Connected, dans les deux sens)",
+          "Connection troubleshoot de Network Watcher",
+          "IP flow verify / test-ip-flow pour voir la règle NSG",
+          "routes effectives / next hop (UDR éventuelle)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-08_Peering-VPN.docx"
+      }
+    ]
+  }
+}

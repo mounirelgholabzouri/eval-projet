@@ -1,0 +1,189 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP06 — Groupes de sécurité réseau NSG et ASG",
+    "titre": "TP06 — Groupes de sécurité réseau NSG et ASG",
+    "description": "Contrôle continu — NSG et ASG (TP06) : règles, priorités, règles par défaut, balise de service Internet, association au sous-réseau",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans quel ordre les règles d'un NSG sont-elles évaluées ?",
+        "options": [
+          "A) De la plus petite priorité (100) à la plus grande (4096) ; la première qui correspond s'applique",
+          "B) De la plus grande priorité (4096) à la plus petite (100)",
+          "C) Dans l'ordre de création",
+          "D) Toutes les règles sont évaluées, le Deny gagne toujours"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Une règle Deny en priorité 200 et une règle Allow en priorité 300 portent sur le même port. Résultat ?",
+        "options": [
+          "A) Le trafic est autorisé",
+          "B) Cela dépend du protocole",
+          "C) Azure refuse d'enregistrer la seconde règle",
+          "D) Le trafic est refusé"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les règles par défaut d'un NSG.",
+        "gabarit": "AllowVnetInBound : priorité {{1}}\nAllowAzureLoadBalancerInBound : priorité {{2}}\nDenyAllInBound : priorité {{3}}",
+        "bonnes": [
+          "65000",
+          "65001",
+          "65500"
+        ],
+        "leurres": [
+          "4096",
+          "100"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "On peut supprimer la règle par défaut AllowInternetOutBound d'un NSG.",
+        "reponse_correcte": "Faux",
+        "explication": "Les règles par défaut ne se suppriment pas : on les remplace par une règle de priorité plus forte (nombre plus petit).",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi la règle DenyInternetOutbound en priorité 4096 suffit-elle à bloquer Internet ?",
+        "options": [
+          "A) 4096 est la priorité la plus forte possible",
+          "B) Elle supprime AllowInternetOutBound",
+          "C) 4096 est plus petit que 65001 (AllowInternetOutBound), elle est donc évaluée avant",
+          "D) Les règles Deny passent toujours avant les Allow"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Qu'est-ce qu'un groupe de sécurité d'application (ASG) ?",
+        "options": [
+          "A) Une étiquette posée sur des cartes réseau, utilisable comme source ou destination d'une règle",
+          "B) Un groupe Entra ID",
+          "C) Un pare-feu applicatif",
+          "D) Un sous-réseau dédié aux applications"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans la règle sortante DenyInternetOutbound, quelle destination choisit-on ?",
+        "options": [
+          "A) Service tag Internet",
+          "B) Any",
+          "C) IP Addresses 0.0.0.0/0",
+          "D) Application security group asg-web"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la règle AllowASG du lab 04.",
+        "gabarit": "Source : {{1}}\nPorts de destination : {{2}}\nProtocole : {{3}}\nPriorité : {{4}}",
+        "bonnes": [
+          "asg-web",
+          "80,443",
+          "TCP",
+          "100"
+        ],
+        "leurres": [
+          "3389",
+          "4096"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi est associé myNSGSecure dans le lab ?",
+        "options": [
+          "A) À la carte réseau d'une VM",
+          "B) Au sous-réseau SharedServicesSubnet de CoreServicesVnet",
+          "C) Au groupe de ressources az104-rg4",
+          "D) À ManufacturingVnet entier"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu ajoutes DenyHttp (priorité 90, Deny, port 80) à côté de AllowASG (priorité 100, ports 80 et 443). Que devient le trafic ?",
+        "options": [
+          "A) 80 et 443 refusés",
+          "B) 80 autorisé, 443 refusé",
+          "C) 80 refusé, 443 autorisé",
+          "D) 80 et 443 autorisés"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle option de az network nsg rule create cible un ASG comme source ?",
+        "options": [
+          "A) --source-address-prefixes asg-web",
+          "B) --source-group asg-web",
+          "C) --application-group asg-web",
+          "D) --source-asgs asg-web"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Pour le trafic entrant, le NSG du sous-réseau est évalué avant celui de la carte réseau.",
+        "reponse_correcte": "Vrai",
+        "explication": "Entrant : sous-réseau puis carte réseau. Sortant : carte réseau puis sous-réseau. Le trafic doit être permis par les deux.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : les serveurs web changent souvent d'adresse IP (ajout et suppression de VM). Tu dois autoriser HTTP et HTTPS vers eux et SQL (1433) des serveurs web vers la base. Comment écris-tu tes règles ?",
+        "reponse_attendue_cles": [
+          "ASG asg-web et asg-db sur les cartes réseau",
+          "règle entrante Allow TCP 80,443 avec l'ASG",
+          "règle Allow 1433 de asg-web vers asg-db",
+          "les règles suivent les VM sans changer les IP"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : les serveurs de SharedServicesSubnet ne doivent plus sortir vers Internet, mais doivent garder l'accès entre eux. Quelle règle ajoutes-tu, et pourquoi le trafic interne reste-t-il permis ?",
+        "reponse_attendue_cles": [
+          "règle sortante Deny vers la balise Internet",
+          "priorité inférieure à 65001 (ex. 4096)",
+          "AllowVnetOutBound (65000) permet le trafic interne",
+          "NSG associé au sous-réseau"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-06_NSG-ASG.docx"
+      }
+    ]
+  }
+}

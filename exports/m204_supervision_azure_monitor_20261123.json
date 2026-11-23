@@ -1,0 +1,197 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP22 — Supervision avec Azure Monitor",
+    "titre": "TP22 — Supervision avec Azure Monitor",
+    "description": "Contrôle continu — Azure Monitor (TP22) : métriques et journaux, VM Insights, règle d'alerte, groupe d'actions, règle de traitement, journal d'activité, KQL",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque élément d'Azure Monitor à son rôle.",
+        "gabarit": "Métriques : {{1}}\nJournaux (Log Analytics) : {{2}}\nJournal d'activité : {{3}}\nGroupe d'actions : {{4}}",
+        "bonnes": [
+          "valeurs chiffrées régulières, gardées 93 jours",
+          "événements détaillés interrogés en KQL",
+          "qui a fait quoi sur les ressources",
+          "qui prévenir et comment"
+        ],
+        "leurres": [
+          "chiffrement des disques",
+          "verrou de suppression"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Une règle d'alerte se compose de trois éléments. Complétez.",
+        "gabarit": "{{1}} + {{2}} + {{3}}",
+        "bonnes": [
+          "condition (signal)",
+          "étendue",
+          "groupe d'actions"
+        ],
+        "leurres": [
+          "étiquette",
+          "région"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel signal choisit-on pour l'alerte VM was deleted ?",
+        "options": [
+          "A) Disk Read Bytes",
+          "B) Heartbeat",
+          "C) Percentage CPU",
+          "D) Delete Virtual Machine (Virtual Machines), du journal d'activité"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi sépare-t-on la règle d'alerte du groupe d'actions ?",
+        "options": [
+          "A) Un même groupe d'actions sert à plusieurs alertes : on change les destinataires à un seul endroit",
+          "B) Pour désactiver les alertes",
+          "C) C'est obligatoire pour le prix",
+          "D) Le groupe d'actions est dans une autre région"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle adresse met-on dans le groupe d'actions Alert the operations team ?",
+        "options": [
+          "A) azure-noreply@microsoft.com",
+          "B) Une adresse Gmail",
+          "C) L'adresse OFPPT <prénom.nom>@ofppt-edu.ma",
+          "D) L'adresse du formateur"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "La règle Planned Maintenance (Suppress notifications, de 22 h à 7 h) est active. Une VM est supprimée à 23 h. Que se passe-t-il ?",
+        "options": [
+          "A) L'alerte se déclenche et est visible dans Monitor, mais aucun e-mail n'est envoyé",
+          "B) La suppression est bloquée",
+          "C) L'e-mail part à 7 h",
+          "D) Rien n'est enregistré"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans quel journal trouves-tu qui a supprimé une ressource ?",
+        "options": [
+          "A) Le journal de la sauvegarde",
+          "B) Le journal d'activité (champ caller)",
+          "C) Les journaux de Nginx",
+          "D) Les métriques"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle requête KQL compte les battements de cœur par ordinateur sur les 24 dernières heures ?",
+        "options": [
+          "A) Heartbeat | take 24",
+          "B) Heartbeat | render timechart",
+          "C) Heartbeat | where TimeGenerated > ago(24h) | summarize count() by Computer",
+          "D) SELECT COUNT(*) FROM Heartbeat GROUP BY Computer"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la requête KQL du lab 11 (moyenne CPU toutes les 5 minutes).",
+        "gabarit": "InsightsMetrics\n| where TimeGenerated > {{1}}\n| where Name == \"UtilizationPercentage\"\n| {{2}} avg(Val) by bin(TimeGenerated, 5m), Computer\n| render {{3}}",
+        "bonnes": [
+          "ago(1h)",
+          "summarize",
+          "timechart"
+        ],
+        "leurres": [
+          "project",
+          "now()"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que faut-il activer sur la VM pour obtenir les données InsightsMetrics ?",
+        "options": [
+          "A) Azure Backup",
+          "B) Boot diagnostics",
+          "C) Un verrou ReadOnly",
+          "D) VM Insights (agent de supervision)"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Si la VM est supprimée avant que l'alerte soit créée, l'e-mail d'alerte part quand même.",
+        "reponse_correcte": "Faux",
+        "explication": "Il faut attendre que la règle soit créée, sinon l'alerte ne part pas.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande crée en CLI une alerte sur la libération (deallocate) d'une VM ?",
+        "options": [
+          "A) az monitor metrics alert create --condition \"avg Percentage CPU > 70\"",
+          "B) az monitor action-group create --deallocate",
+          "C) az vm deallocate --alert",
+          "D) az monitor activity-log alert create ... --condition category=Administrative and operationName=Microsoft.Compute/virtualMachines/deallocate/action --action-group $AG"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : l'équipe d'exploitation veut être prévenue par e-mail si le CPU d'un serveur dépasse 90 % pendant 15 minutes, mais pas pendant la fenêtre de maintenance du dimanche de 1 h à 5 h. Décris ce que tu crées.",
+        "reponse_attendue_cles": [
+          "règle d'alerte sur métrique Percentage CPU > 90, 15 min",
+          "étendue : la VM ou le groupe",
+          "groupe d'actions avec e-mail de l'équipe",
+          "règle de traitement des alertes : suppression des notifications planifiée le dimanche 1 h-5 h"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : une VM de production a disparu ce matin. Le chef de service demande qui l'a supprimée et à quelle heure, et comment être prévenu la prochaine fois. Que fais-tu ?",
+        "reponse_attendue_cles": [
+          "consulter le journal d'activité (az monitor activity-log list)",
+          "filtrer sur virtualMachines/delete : caller et eventTimestamp",
+          "créer une alerte journal d'activité Delete Virtual Machine",
+          "groupe d'actions avec e-mail"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-22_Supervision-Azure-Monitor.docx"
+      }
+    ]
+  }
+}

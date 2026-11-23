@@ -1,0 +1,188 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP10 — Routage, Azure Bastion et Pare-feu Azure",
+    "titre": "TP10 — Routage, Azure Bastion et Pare-feu Azure",
+    "description": "Contrôle continu — Routage, Bastion, Pare-feu (TP10) : routes système et UDR, sauts suivants, Azure Bastion, Pare-feu Azure, règles d'application",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque type de prochain saut à son effet.",
+        "gabarit": "VnetLocal : {{1}}\nInternet : {{2}}\nVirtualAppliance : {{3}}\nNone : {{4}}",
+        "bonnes": [
+          "trafic dans le réseau virtuel",
+          "sortie vers Internet (0.0.0.0/0)",
+          "vers l'IP d'un pare-feu ou d'un routeur",
+          "trafic abandonné"
+        ],
+        "leurres": [
+          "vers la passerelle VPN",
+          "vers une zone DNS"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quels noms de sous-réseau Azure impose-t-il pour Bastion et le Pare-feu ?",
+        "options": [
+          "A) GatewaySubnet pour les deux",
+          "B) snet-bastion et snet-firewall",
+          "C) Le nom est libre",
+          "D) AzureBastionSubnet et AzureFirewallSubnet, au minimum /26"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel avantage apporte Azure Bastion par rapport à une IP publique avec SSH ouvert ?",
+        "options": [
+          "A) Il remplace le NSG",
+          "B) Il accélère la VM",
+          "C) Connexion depuis le navigateur sans IP publique sur la VM ni port 22 ouvert sur Internet",
+          "D) Il est gratuit"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "La règle deny-vnet-in de nsg-app bloque Bastion vers vm-app1. Quelle règle ajoutes-tu ?",
+        "options": [
+          "A) Supprimer nsg-app",
+          "B) Allow TCP 3389 depuis Internet",
+          "C) Allow tout depuis 0.0.0.0/0",
+          "D) Allow TCP 22 depuis 10.40.250.0/26 (sous-réseau Bastion), priorité 110"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la route qui force la sortie de snet-app par le pare-feu.",
+        "gabarit": "az network route-table route create -g $RG --route-table-name rt-app -n vers-pare-feu \\\n  --address-prefix {{1}} --next-hop-type {{2}} --next-hop-ip-address {{3}}",
+        "bonnes": [
+          "0.0.0.0/0",
+          "VirtualAppliance",
+          "$FWIP"
+        ],
+        "leurres": [
+          "10.40.0.0/16",
+          "Internet"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Après association de rt-app à snet-app, que montrent les routes effectives de vm-app1 ?",
+        "options": [
+          "A) La route VnetLocal disparaît",
+          "B) Les deux routes sont actives en répartition",
+          "C) Aucune route",
+          "D) La route système 0.0.0.0/0 vers Internet passe à Invalid, la route User 0.0.0.0/0 vers VirtualAppliance est active"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "La règle d'application autorise www.microsoft.com et *.ubuntu.com. Depuis vm-app1, que donnent curl www.google.com et apt-get update ?",
+        "options": [
+          "A) Les deux réussissent",
+          "B) Les deux échouent",
+          "C) Google réussit, apt-get échoue",
+          "D) Google échoue, apt-get update réussit"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle est la différence entre une règle réseau et une règle d'application du Pare-feu Azure ?",
+        "options": [
+          "A) Règle réseau : IP et port ; règle d'application : noms de domaine (FQDN)",
+          "B) La règle d'application ne filtre que le trafic entrant",
+          "C) Aucune différence",
+          "D) Règle réseau : FQDN ; règle d'application : IP"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Le Pare-feu Azure est un service géré à état, facturé à l'heure ; il faut le supprimer à la fin de la séance.",
+        "reponse_correcte": "Vrai",
+        "explication": "Environ 1,25 $ de l'heure pour le pare-feu et 0,19 $ pour Bastion Basic.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi le trafic de vm-app1 vers vm-web1 (même VNet) ne passe-t-il pas par le pare-feu ?",
+        "options": [
+          "A) Le pare-feu le refuse",
+          "B) La route VnetLocal 10.40.0.0/16 est plus précise que 0.0.0.0/0 et reste choisie",
+          "C) Les VM sont dans le même sous-réseau",
+          "D) Bastion le redirige"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "En production, que recommande Microsoft à la place des règles « classiques » du pare-feu ?",
+        "options": [
+          "A) Une stratégie de pare-feu (Firewall Policy) partagée entre pare-feux",
+          "B) Des routes BGP",
+          "C) Des NSG uniquement",
+          "D) Azure Policy"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Une table de routage associée à un sous-réseau l'emporte sur les routes système pour le même préfixe.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : les serveurs d'application (snet-app, sans IP publique) doivent pouvoir faire leurs mises à jour Ubuntu, mais rien d'autre sur Internet. Décris la solution complète.",
+        "reponse_attendue_cles": [
+          "Pare-feu Azure dans AzureFirewallSubnet",
+          "règle d'application Allow *.ubuntu.com (HTTP/HTTPS) depuis snet-app",
+          "table de routage 0.0.0.0/0 vers VirtualAppliance (IP privée du pare-feu)",
+          "associer la table à snet-app"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un administrateur doit se connecter en SSH à vm-app1, qui n'a pas d'IP publique, et la direction refuse d'ouvrir le port 22 sur Internet. Que proposes-tu ? Détaille la mise en place.",
+        "reponse_attendue_cles": [
+          "Azure Bastion",
+          "sous-réseau AzureBastionSubnet /26 minimum + IP publique Standard",
+          "autoriser SSH depuis le sous-réseau Bastion dans le NSG",
+          "connexion par le portail (clé privée), sans IP publique sur la VM"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-10_Routage-Bastion-Pare-feu.docx"
+      }
+    ]
+  }
+}

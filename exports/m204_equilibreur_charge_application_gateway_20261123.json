@@ -1,0 +1,200 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP09 — Équilibreur de charge et Application Gateway",
+    "titre": "TP09 — Équilibreur de charge et Application Gateway",
+    "description": "Contrôle continu — Trafic réseau (TP09) : Load Balancer Standard (frontal, pool, sonde, règle), Application Gateway et routage par chemin, panne d'un serveur",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Comparez les deux services de répartition.",
+        "gabarit": "Azure Load Balancer : couche {{1}}, décide selon {{2}}\nApplication Gateway : couche {{3}}, décide selon {{4}}",
+        "bonnes": [
+          "4",
+          "IP et port",
+          "7",
+          "URL, en-tête Host, cookie"
+        ],
+        "leurres": [
+          "3",
+          "adresse MAC"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque composant de l'équilibreur az104-lb à son rôle.",
+        "gabarit": "Frontal (az104-fe) : {{1}}\nPool principal (az104-be) : {{2}}\nSonde (az104-hp) : {{3}}\nRègle (az104-lbrule) : {{4}}",
+        "bonnes": [
+          "IP publique qui reçoit le trafic",
+          "cartes réseau des VM",
+          "teste le port 80 de chaque VM",
+          "port frontal 80 vers port 80 des VM"
+        ],
+        "leurres": [
+          "sous-réseau dédié /27",
+          "certificat TLS"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi sert la sonde d'intégrité ?",
+        "options": [
+          "A) À compter les visiteurs",
+          "B) À tester chaque VM ; une VM qui ne répond plus est retirée du pool",
+          "C) À chiffrer le trafic",
+          "D) À créer une IP publique"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu arrêtes az104-06-vm0 et relances curl en boucle sur l'IP de l'équilibreur. Que vois-tu après une dizaine de secondes ?",
+        "options": [
+          "A) Seul vm1 répond",
+          "B) vm0 et vm1 alternent toujours",
+          "C) L'équilibreur redémarre vm0",
+          "D) Erreur 502 à chaque requête"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi l'Application Gateway peut-elle envoyer /image/ vers vm1 et /video/ vers vm2, et pas l'équilibreur de charge ?",
+        "options": [
+          "A) C'est une option payante de l'équilibreur",
+          "B) L'Application Gateway a plus de VM",
+          "C) L'équilibreur ne gère pas HTTP du tout",
+          "D) L'équilibreur ne voit que IP et port (couche 4), pas l'URL"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel sous-réseau crée-t-on pour l'Application Gateway ?",
+        "options": [
+          "A) AzureBastionSubnet",
+          "B) GatewaySubnet en /29",
+          "C) subnet-appgw en 10.60.3.224/27, dédié",
+          "D) Aucun, elle utilise subnet0"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la règle de routage par chemin de az104-appgw.",
+        "gabarit": "/image/* : pool {{1}}\n/video/* : pool {{2}}\nautres chemins : pool {{3}}",
+        "bonnes": [
+          "az104-imagebe",
+          "az104-videobe",
+          "az104-appgwbe"
+        ],
+        "leurres": [
+          "az104-be",
+          "az104-lbrule"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que signifie un code 502 Bad Gateway renvoyé par l'Application Gateway sur /image/ ?",
+        "options": [
+          "A) La page n'existe pas",
+          "B) L'IP publique est mal configurée",
+          "C) Le certificat est expiré",
+          "D) Le pool az104-imagebe n'a plus de serveur sain"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Où vérifies-tu au portail que les serveurs de l'Application Gateway répondent ?",
+        "options": [
+          "A) Monitoring > Backend health",
+          "B) Access control (IAM)",
+          "C) Activity log",
+          "D) Settings > Listeners"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle référence (SKU) d'équilibreur crée-t-on dans le lab 06 ?",
+        "options": [
+          "A) Basic, Internal",
+          "B) Standard, Internal, Global",
+          "C) Gateway",
+          "D) Standard, Public, Regional"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "La terminaison TLS et le pare-feu applicatif (WAF) sont des options de l'Application Gateway, pas de l'équilibreur de charge.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Il faut répartir un trafic SQL Server (TCP 1433) entre deux VM. Quel service choisis-tu ?",
+        "options": [
+          "A) Azure DNS",
+          "B) Application Gateway",
+          "C) Azure Load Balancer",
+          "D) Azure Bastion"
+        ],
+        "reponse_correcte": "C",
+        "explication": "SQL n'est pas du HTTP : seul l'équilibreur de couche 4 convient.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : le site public de l'ISTA doit rester en ligne si un des deux serveurs web tombe. Décris l'équilibreur à créer (composants et valeurs) et comment tu testes la panne.",
+        "reponse_attendue_cles": [
+          "équilibreur Standard public avec IP publique frontale",
+          "pool avec les deux VM",
+          "sonde TCP ou HTTP sur le port 80",
+          "règle 80 vers 80",
+          "arrêter une VM et vérifier que l'autre répond (curl en boucle)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : une boutique en ligne veut servir le catalogue (/catalogue/*) depuis deux serveurs et le paiement (/paiement/*) depuis un serveur dédié, en HTTPS. Quel service choisis-tu et comment le configures-tu ?",
+        "reponse_attendue_cles": [
+          "Application Gateway (couche 7)",
+          "sous-réseau dédié",
+          "un pool par groupe de serveurs",
+          "règle de routage par chemin d'URL",
+          "écouteur HTTPS / terminaison TLS"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-09_Equilibreur-de-charge.docx"
+      }
+    ]
+  }
+}

@@ -1,0 +1,188 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP12 — Machines virtuelles : zones, tailles, PowerShell et CLI",
+    "titre": "TP12 — Machines virtuelles : zones, tailles, PowerShell et CLI",
+    "description": "Contrôle continu — Machines virtuelles (TP12) : SLA, zones, familles de tailles, redimensionnement, arrêter ou libérer, New-AzVm, az vm create, run-command",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque configuration à son SLA.",
+        "gabarit": "Une VM, disque Premium SSD : {{1}}\nDeux VM ou plus dans un groupe à haute disponibilité : {{2}}\nDeux VM ou plus dans deux zones ou plus : {{3}}",
+        "bonnes": [
+          "99,9 %",
+          "99,95 %",
+          "99,99 %"
+        ],
+        "leurres": [
+          "99,5 %",
+          "100 %"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "az104-vm1 (zone 1) et az104-vm2 (zone 2) font tourner la même application. Quel SLA obtiens-tu ?",
+        "options": [
+          "A) 99,95 %",
+          "B) Aucun SLA",
+          "C) 99,99 %",
+          "D) 99,9 %"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque famille de VM à son usage.",
+        "gabarit": "B : {{1}}\nD : {{2}}\nE : {{3}}\nF : {{4}}",
+        "bonnes": [
+          "économique, CPU en rafales",
+          "usage général",
+          "mémoire élevée",
+          "calcul intensif"
+        ],
+        "leurres": [
+          "GPU",
+          "stockage"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle différence entre arrêter une VM dans le système et la libérer (deallocate) pour la facture ?",
+        "options": [
+          "A) Libérée, plus rien n'est facturé, même les disques",
+          "B) Arrêtée dans le système, le calcul reste facturé ; libérée, seuls les disques sont facturés",
+          "C) Aucune",
+          "D) Arrêtée, la VM est supprimée"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Après Stop-AzVM sur myPSVM, quel état montre Get-AzVM -Status ?",
+        "options": [
+          "A) VM running",
+          "B) VM stopped",
+          "C) VM deallocated",
+          "D) VM deleted"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi le redimensionnement de az104-vm1 redémarre-t-il la VM ?",
+        "options": [
+          "A) Pour appliquer les mises à jour Windows",
+          "B) Ce n'est pas obligatoire, c'est une option",
+          "C) Pour changer son IP",
+          "D) La VM doit être replacée sur un hôte qui offre la nouvelle taille (CPU, mémoire)"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande liste les tailles vers lesquelles az104-vm2 peut être redimensionnée ?",
+        "options": [
+          "A) az vm list-vm-resize-options -g $RG -n az104-vm2",
+          "B) az vm list-usage -n az104-vm2",
+          "C) az vm list-sizes -g az104-rg8",
+          "D) az vm resize --list"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande montre le quota de cœurs utilisé et la limite dans East US ?",
+        "options": [
+          "A) az quota cores",
+          "B) az vm list-usage -l eastus",
+          "C) az vm list-sizes -l eastus",
+          "D) az account show --quota"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment le TP installe-t-il Nginx sur myCLIVM sans connexion SSH ?",
+        "options": [
+          "A) Par le port 80",
+          "B) Avec az vm run-command invoke --command-id RunShellScript, exécuté par l'agent Azure",
+          "C) Avec un modèle Bicep",
+          "D) Avec Azure Bastion"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande ouvre le port 80 de myCLIVM ?",
+        "options": [
+          "A) az network port open 80",
+          "B) az vm open-port -g $RG -n myCLIVM --port 80 --priority 900",
+          "C) az vm update --http",
+          "D) Set-AzVmPort 80"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "La carte réseau, le disque et l'IP publique d'une VM sont des ressources Azure séparées de la VM.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Une zone de disponibilité et un groupe à haute disponibilité offrent la même protection.",
+        "reponse_correcte": "Faux",
+        "explication": "Le groupe à haute disponibilité répartit les VM dans un même centre de données (domaines de panne et de mise à jour) ; les zones sont des centres de données distincts (SLA 99,99 %).",
+        "points": 1,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un serveur web de test ne sert que pendant les séances (8 h par semaine). Comment réduis-tu la facture sans perdre la VM ? Donne la commande.",
+        "reponse_attendue_cles": [
+          "libérer la VM (deallocate) hors séance",
+          "az vm deallocate -g ... -n ...",
+          "seuls les disques restent facturés",
+          "az vm start pour la relancer"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : une application critique doit tenir même si un centre de données d'East US tombe. Que proposes-tu pour les VM (nombre, placement, taille) et quel SLA annonces-tu ?",
+        "reponse_attendue_cles": [
+          "au moins deux VM",
+          "dans deux zones de disponibilité différentes",
+          "SLA 99,99 %",
+          "taille adaptée (ex. D2s_v3 usage général) + équilibreur devant"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-12_Machines-virtuelles.docx"
+      }
+    ]
+  }
+}

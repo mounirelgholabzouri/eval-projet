@@ -1,0 +1,192 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP00 — Environnement de lab, Cloud Shell, CLI et PowerShell",
+    "titre": "TP00 — Environnement de lab, Cloud Shell, CLI et PowerShell",
+    "description": "Contrôle continu — Environnement (TP00) : lab MSLE, hiérarchie Azure, Cloud Shell, az et Az PowerShell, --output et --query",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Le portail, Cloud Shell, Azure CLI, Azure PowerShell et les modèles ARM passent tous par la même API. Laquelle ?",
+        "options": [
+          "A) Microsoft Entra Connect",
+          "B) Azure Resource Manager",
+          "C) Azure DevOps",
+          "D) Microsoft Graph"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque niveau Azure à son rôle.",
+        "gabarit": "Tenant Microsoft Entra ID : {{1}}\nAbonnement : {{2}}\nGroupe de ressources : {{3}}\nRégion : {{4}}",
+        "bonnes": [
+          "annuaire des utilisateurs, groupes et applications",
+          "facturation et quotas",
+          "conteneur logique supprimé d'un bloc",
+          "centre de données (East US)"
+        ],
+        "leurres": [
+          "filtre JMESPath",
+          "verrou de suppression"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans un lab MSLE, tu crées une VM avec une taille différente de celle de l'énoncé Microsoft. Quel message d'erreur obtiens-tu le plus probablement ?",
+        "options": [
+          "A) RequestDisallowedByPolicy",
+          "B) AuthorizationFailed",
+          "C) ResourceGroupNotFound",
+          "D) QuotaExceeded"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande crée le groupe de ressources du lab 03b ?",
+        "options": [
+          "A) az resource create -g az104-rg3 -l eastus",
+          "B) az group new --name az104-rg3 --region eastus",
+          "C) New-AzResourceGroup az104-rg3",
+          "D) az group create --name az104-rg3 --location eastus"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Au premier lancement de Cloud Shell dans le lab, quel choix de stockage prend-on ?",
+        "options": [
+          "A) Monter un disque managé",
+          "B) Utiliser OneDrive",
+          "C) Créer un compte de stockage Premium",
+          "D) No storage account required (session éphémère)"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez l'effet de chaque option de sortie d'Azure CLI.",
+        "gabarit": "--output table : {{1}}\n--output tsv : {{2}}\n--query \"...\" : {{3}}",
+        "bonnes": [
+          "tableau lisible",
+          "valeur brute à mettre dans une variable",
+          "filtre JMESPath sur le JSON"
+        ],
+        "leurres": [
+          "sortie en YAML colorée",
+          "export vers un fichier Excel"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande met l'identifiant du groupe az104-rg3 dans la variable RGID ?",
+        "options": [
+          "A) RGID=$(az group show --name az104-rg3 --query id -o table)",
+          "B) RGID=$(az group list --output json)",
+          "C) RGID=az group show az104-rg3 id",
+          "D) RGID=$(az group show --name az104-rg3 --query id -o tsv)"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Une ressource créée dans le portail Azure n'est pas visible avec la commande az, il faut la recréer en CLI.",
+        "reponse_correcte": "Faux",
+        "explication": "Tous les outils passent par Azure Resource Manager : une ressource créée avec l'un se gère avec les autres.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "À la fermeture d'un lab MSLE, les ressources créées sont effacées.",
+        "reponse_correcte": "Vrai",
+        "explication": "Le lab ouvre un abonnement temporaire et l'efface à la fin : il faut garder ses commandes dans un fichier texte.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans Cloud Shell en PowerShell, quelle commande affiche le compte et l'abonnement en cours ?",
+        "options": [
+          "A) Get-AzSubscriptionInfo",
+          "B) az account show",
+          "C) Get-AzContext",
+          "D) Get-AzAccount"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Sur un poste Windows (hors lab), quelles commandes installent les outils d'administration Azure ?",
+        "options": [
+          "A) Install-Module -Name Az -Repository PSGallery -Scope CurrentUser -Force",
+          "B) apt install azure-portal",
+          "C) az login --install",
+          "D) winget install --exact --id Microsoft.AzureCLI"
+        ],
+        "reponses_correctes": [
+          "A",
+          "D"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Sur ton poste, tu tapes az et Windows répond « 'az' n'est pas reconnu », alors que l'installation vient de finir. Que fais-tu ?",
+        "options": [
+          "A) Installer le module Az PowerShell",
+          "B) Lancer az login",
+          "C) Fermer le terminal et le rouvrir",
+          "D) Réinstaller Windows"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un camarade veut afficher seulement l'ID de son abonnement, sans tableau ni JSON, pour le copier dans un script. Donne la commande et explique chaque option.",
+        "reponse_attendue_cles": [
+          "az account show",
+          "--query id",
+          "-o tsv (valeur brute)",
+          "--query filtre le JSON (JMESPath)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : dans le lab 03b, ta commande az est refusée avec AuthorizationFailed, puis une autre avec RequestDisallowedByPolicy. Explique la cause probable de chaque erreur et ce que tu fais.",
+        "reponse_attendue_cles": [
+          "AuthorizationFailed : le compte du lab n'a pas ce droit",
+          "le signaler au formateur",
+          "RequestDisallowedByPolicy : nom, taille ou région différents de l'énoncé",
+          "reprendre les valeurs de la fiche"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-00_Environnement-CLI-PowerShell.docx"
+      }
+    ]
+  }
+}

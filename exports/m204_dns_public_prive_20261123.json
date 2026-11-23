@@ -1,0 +1,186 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP07 — Azure DNS : zones publiques et privées",
+    "titre": "TP07 — Azure DNS : zones publiques et privées",
+    "description": "Contrôle continu — Azure DNS (TP07) : zone publique, serveurs de noms, enregistrements A, CNAME, TXT, zone privée, liens de réseau virtuel",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Combien de serveurs de noms Azure sont attribués à une zone DNS publique ?",
+        "options": [
+          "A) 1",
+          "B) 2",
+          "C) Aucun",
+          "D) 4"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Qui résout les noms d'une zone DNS privée Azure ?",
+        "options": [
+          "A) Le DNS Azure 168.63.129.16, pour les réseaux liés",
+          "B) Le serveur 8.8.8.8",
+          "C) Le bureau d'enregistrement",
+          "D) Les 4 serveurs ns1-xx.azure-dns.com"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande vérifie l'enregistrement www directement sur le serveur de noms Azure ?",
+        "options": [
+          "A) az dns check www",
+          "B) ping www.contoso.com",
+          "C) nslookup www.contoso.com <serveur de noms copié>",
+          "D) nslookup contoso.com 168.63.129.16"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "nslookup www.contoso.com sans serveur de noms ne renvoie pas 10.1.1.4, alors que la zone existe. Pourquoi ?",
+        "options": [
+          "A) Le domaine n'est pas délégué à la zone Azure chez le bureau d'enregistrement",
+          "B) Le TTL est trop court",
+          "C) La zone est privée",
+          "D) Le NSG bloque le port 53"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque type d'enregistrement à son usage.",
+        "gabarit": "A : {{1}}\nCNAME : {{2}}\nTXT : {{3}}",
+        "bonnes": [
+          "nom vers adresse IPv4",
+          "alias vers un autre nom",
+          "texte libre (vérification de domaine)"
+        ],
+        "leurres": [
+          "serveur de messagerie",
+          "adresse IPv6"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que faut-il créer pour qu'un réseau virtuel résolve les noms de private.contoso.com ?",
+        "options": [
+          "A) Un lien de réseau virtuel (Virtual network link)",
+          "B) Un appairage",
+          "C) Une route définie par l'utilisateur",
+          "D) Un enregistrement NS"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Avec l'inscription automatique activée sur un lien, chaque VM du réseau obtient son enregistrement A sans action manuelle.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Une VM d'un réseau virtuel non lié à private.contoso.com peut résoudre sensorvm.private.contoso.com.",
+        "reponse_correcte": "Faux",
+        "explication": "Une zone privée n'est visible que des réseaux virtuels liés.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les commandes d'ajout d'enregistrements dans la zone publique.",
+        "gabarit": "az network dns record-set {{1}} add-record -g az104-rg4 -z $ZONE -n api --ipv4-address 10.1.1.5\naz network dns record-set {{2}} set-record -g az104-rg4 -z $ZONE -n intranet --cname www.$ZONE",
+        "bonnes": [
+          "a",
+          "cname"
+        ],
+        "leurres": [
+          "mx",
+          "ns"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande lie CoreServicesVnet à la zone privée avec l'inscription automatique ?",
+        "options": [
+          "A) az network dns zone link -z private.contoso.com --vnet CoreServicesVnet",
+          "B) az network private-dns link vnet create -g az104-rg4 -z private.contoso.com -n core-link -v CoreServicesVnet --registration-enabled true",
+          "C) az network vnet peering create --zone private.contoso.com",
+          "D) az network private-dns record-set a add-record -n core-link"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans le lab 04, pourquoi l'inscription automatique ne peut-elle pas être observée ?",
+        "options": [
+          "A) Le lab 04 n'a pas de VM",
+          "B) Il faut une licence Entra ID P2",
+          "C) Le TTL est de 1 seconde",
+          "D) Le lab interdit les zones privées"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Le nom contoso.com est refusé à la création de la zone publique. Que fait la fiche ?",
+        "options": [
+          "A) Utiliser le domaine onmicrosoft.com",
+          "B) Créer une zone privée à la place",
+          "C) Ajouter son prénom : contoso-ali.com",
+          "D) Abandonner la tâche"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : l'entreprise a acheté le domaine ista-exemple.ma chez un bureau d'enregistrement et veut l'héberger dans Azure DNS pour publier son site. Décris les étapes.",
+        "reponse_attendue_cles": [
+          "créer la zone DNS publique dans Azure",
+          "relever les 4 serveurs de noms Azure",
+          "les déclarer (délégation NS) chez le bureau d'enregistrement",
+          "ajouter l'enregistrement A (ou CNAME) du site"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : les VM de l'usine (ManufacturingVnet) et des services centraux (CoreServicesVnet) doivent se trouver par leur nom, sans exposer ces noms sur Internet. Que mets-tu en place ?",
+        "reponse_attendue_cles": [
+          "zone DNS privée (private.contoso.com)",
+          "un lien de réseau virtuel par réseau",
+          "inscription automatique activée",
+          "résolution par 168.63.129.16, invisible d'Internet"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-07_DNS-public-prive.docx"
+      }
+    ]
+  }
+}

@@ -1,0 +1,189 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP15 — Azure App Service : applications web",
+    "titre": "TP15 — Azure App Service : applications web",
+    "description": "Contrôle continu — App Service (TP15) : plan et application, emplacements, échange, paramètres d'emplacement, déploiement Git, mise à l'échelle, journaux",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle est la différence entre un plan App Service et une application web ?",
+        "options": [
+          "A) Le plan contient le code, l'application les serveurs",
+          "B) Aucune, ce sont deux noms du même objet",
+          "C) Le plan porte les serveurs (taille, nombre, prix) ; l'application est le site, et plusieurs applications peuvent partager un plan",
+          "D) Le plan est gratuit, l'application est payante"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les paramètres de l'application web du lab 09a.",
+        "gabarit": "Runtime stack : {{1}}\nOperating system : {{2}}\nPricing plan : {{3}}\nEmplacement créé : {{4}}",
+        "bonnes": [
+          "PHP 8.2",
+          "Linux",
+          "Premium V3 P1V3",
+          "staging"
+        ],
+        "leurres": [
+          "Free F1",
+          "preprod"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un plan Basic suffit-il pour ce TP ?",
+        "options": [
+          "A) Oui, il a tout",
+          "B) Non : pas d'emplacement de déploiement ni de mise à l'échelle automatique en Basic",
+          "C) Non, Basic est réservé à Windows",
+          "D) Oui, mais sans PHP"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque niveau de plan au nombre d'emplacements.",
+        "gabarit": "Free, Basic : {{1}}\nStandard : {{2}}\nPremium v3 : {{3}}",
+        "bonnes": [
+          "aucun emplacement",
+          "5 emplacements",
+          "20 emplacements"
+        ],
+        "leurres": [
+          "illimité",
+          "1 emplacement"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que fait l'échange (swap) des emplacements staging et production ?",
+        "options": [
+          "A) Il supprime staging",
+          "B) Il copie la base de données",
+          "C) Il redémarre le plan",
+          "D) Il inverse les emplacements : la production reçoit le code testé, sans coupure"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Qu'est-ce qu'un paramètre d'emplacement (slot setting) ?",
+        "options": [
+          "A) Un paramètre qui suit le code lors de l'échange",
+          "B) La taille du plan",
+          "C) Le nom DNS de l'emplacement",
+          "D) Un paramètre qui reste attaché à l'emplacement lors de l'échange (ex. chaîne de connexion de test)"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "D'où vient le code déployé dans l'emplacement staging du lab ?",
+        "options": [
+          "A) D'un fichier zip téléversé",
+          "B) D'une image Docker Hub",
+          "C) D'un dépôt External Git (Azure-Samples/php-docs-hello-world, branche master)",
+          "D) De Visual Studio"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande échange staging et production en CLI ?",
+        "options": [
+          "A) az appservice plan swap",
+          "B) az webapp restart --slot staging",
+          "C) az webapp swap staging production",
+          "D) az webapp deployment slot swap -g $RG -n $APP --slot staging --target-slot production"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande affiche en direct les journaux de l'application ?",
+        "options": [
+          "A) tail -f /var/log/nginx",
+          "B) az webapp show --logs",
+          "C) az webapp log tail -g $RG -n $APP",
+          "D) az monitor log-analytics query"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment passe-t-on le plan à 2 instances à la main ?",
+        "options": [
+          "A) az webapp update --sku P2V3",
+          "B) az webapp scale --instances 2",
+          "C) az appservice plan update -g $RG -n $PLAN --number-of-workers 2",
+          "D) az vmss scale --new-capacity 2"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Avec App Service, l'administrateur n'a plus à gérer le système d'exploitation ni le serveur web, contrairement à une VM avec Nginx.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Dans le lab, ENVIRONNEMENT=staging défini avec --slot-settings part en production lors de l'échange.",
+        "reponse_correcte": "Faux",
+        "explication": "C'est un paramètre d'emplacement : il reste sur l'emplacement staging.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : l'équipe veut publier une nouvelle version du site sans coupure et pouvoir revenir en arrière en une minute si un bug apparaît. Décris la démarche avec App Service.",
+        "reponse_attendue_cles": [
+          "plan Standard ou plus (emplacements)",
+          "déployer dans l'emplacement staging et tester sur son URL",
+          "échange (swap) vers la production",
+          "en cas de bug, nouvel échange pour revenir",
+          "paramètres d'emplacement pour les réglages de test"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : les sites PHP de l'entreprise tournent sur de vieux serveurs Windows. Le directeur hésite entre des VM Azure et App Service. Compare les deux pour l'administrateur et recommande.",
+        "reponse_attendue_cles": [
+          "App Service : PaaS, pas d'OS ni de serveur web à gérer",
+          "emplacements, échange, mise à l'échelle automatique intégrés",
+          "VM : contrôle total mais correctifs, sécurité, sauvegardes à gérer",
+          "recommandation argumentée (App Service pour un site PHP standard)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-15_App-Service.docx"
+      }
+    ]
+  }
+}

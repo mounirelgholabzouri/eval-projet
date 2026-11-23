@@ -1,0 +1,192 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP20 — Site web sur VM : Nginx, PHP et MariaDB",
+    "titre": "TP20 — Site web sur VM : Nginx, PHP et MariaDB",
+    "description": "Contrôle continu — Site web sur VM (TP20) : SSH par clé, Nginx, PHP-FPM, MariaDB, utilisateur applicatif, secret protégé, NSG, run-command et cloud-init",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque couche à son logiciel sur myCLIVM.",
+        "gabarit": "Serveur web : {{1}}\nLangage : {{2}}\nBase de données : {{3}}\nRéseau Azure : {{4}}",
+        "bonnes": [
+          "Nginx",
+          "PHP 8.1 (PHP-FPM)",
+          "MariaDB",
+          "règle du NSG sur le port 80"
+        ],
+        "leurres": [
+          "IIS",
+          "Azure SQL"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi Nginx a-t-il besoin de PHP-FPM pour afficher index.php ?",
+        "options": [
+          "A) Ce n'est pas nécessaire",
+          "B) PHP-FPM ouvre le port 80",
+          "C) PHP-FPM chiffre la page",
+          "D) Nginx ne sait pas exécuter PHP : il passe les fichiers .php à PHP-FPM par un socket"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande vérifie la configuration de Nginx avant de la recharger ?",
+        "options": [
+          "A) sudo nginx --check-all",
+          "B) sudo systemctl status php",
+          "C) sudo nginx -t",
+          "D) curl localhost"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi l'utilisateur de base app n'a-t-il que le droit SELECT ?",
+        "options": [
+          "A) MariaDB n'accepte pas d'autre droit",
+          "B) Moindre privilège : la page web ne peut rien modifier, même en cas de faille",
+          "C) Pour aller plus vite",
+          "D) Pour économiser de la place"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Où est rangé le mot de passe de la base, et avec quels droits ?",
+        "options": [
+          "A) Dans index.php, en clair",
+          "B) Dans le NSG",
+          "C) Dans un fichier sur le Bureau du poste",
+          "D) Dans /etc/ista-db.pass, propriétaire root:www-data, droits 640"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "MariaDB doit être ouvert dans le NSG (port 3306) pour que la page PHP puisse lire la base.",
+        "reponse_correcte": "Faux",
+        "explication": "PHP et MariaDB sont sur la même VM : MariaDB écoute sur 127.0.0.1:3306, aucune règle NSG n'est nécessaire, et l'ouvrir exposerait la base.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande montre que MariaDB n'écoute qu'en local ?",
+        "options": [
+          "A) sudo ss -ltnp | grep 3306",
+          "B) az vm show --ports",
+          "C) ping 3306",
+          "D) mysql --version"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "SSH vers myCLIVM ne répond pas (délai dépassé). Que propose la fiche ?",
+        "options": [
+          "A) Le port 22 n'est pas ouvert : tout faire par run-command (Partie 5)",
+          "B) Recréer la VM",
+          "C) Changer de région",
+          "D) Ouvrir le port 3306"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez l'exécution du script d'installation par l'agent Azure.",
+        "gabarit": "az vm {{1}} invoke -g $RG -n myCLIVM --command-id {{2}} --scripts {{3}}",
+        "bonnes": [
+          "run-command",
+          "RunShellScript",
+          "@installe-ista.sh"
+        ],
+        "leurres": [
+          "RunPowerShellScript",
+          "extension"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment le même script peut-il configurer la VM dès sa création ?",
+        "options": [
+          "A) az vm create --custom-data installe-ista.sh (cloud-init)",
+          "B) Avec un verrou",
+          "C) Avec une stratégie Azure Policy",
+          "D) az vm start --script"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Avant mkfs.ext4 sur le nouveau disque de données, il faut vérifier son nom avec lsblk : formater le mauvais disque efface le système.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quelles tâches de maintenance restent à ta charge sur cette VM, et qu'App Service ferait à ta place ?",
+        "options": [
+          "A) Redémarrage des services en panne",
+          "B) Mises à jour de sécurité du système et de Nginx/PHP",
+          "C) Sauvegarde de la base",
+          "D) Écrire le contenu de la page"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B",
+          "C"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : l'ISTA doit déployer la même application sur 5 VM. Pourquoi et comment automatiser l'installation plutôt que la faire à la main ?",
+        "reponse_attendue_cles": [
+          "script unique (bash) rejouable",
+          "run-command sur chaque VM ou cloud-init (--custom-data) à la création",
+          "même résultat partout, sans oubli",
+          "même principe qu'un groupe identique (VMSS)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un collègue a mis le mot de passe de la base en clair dans index.php, a donné tous les droits à l'utilisateur app et a ouvert le port 3306 dans le NSG. Liste les problèmes et corrige chacun.",
+        "reponse_attendue_cles": [
+          "mot de passe dans un fichier protégé (root:www-data, 640) lu par PHP",
+          "utilisateur app limité à SELECT (moindre privilège)",
+          "fermer 3306 : MariaDB écoute en local (127.0.0.1)",
+          "ne jamais mettre de secret dans le code ni les captures"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-20_Site-web-sur-VM.docx"
+      }
+    ]
+  }
+}

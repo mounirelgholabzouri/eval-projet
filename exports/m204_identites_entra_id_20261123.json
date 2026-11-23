@@ -1,0 +1,190 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP01 — Identités Microsoft Entra ID",
+    "titre": "TP01 — Identités Microsoft Entra ID",
+    "description": "Contrôle continu — Identités Entra ID (TP01) : utilisateurs, invités B2B, groupes de sécurité, az ad et Microsoft Graph",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle est la différence entre un utilisateur membre et un invité (guest) dans Entra ID ?",
+        "options": [
+          "A) Le membre ne peut pas être ajouté à un groupe",
+          "B) L'invité n'apparaît pas dans la liste des utilisateurs",
+          "C) Le membre est créé dans le tenant ; l'invité est un compte externe qui garde son e-mail et son mot de passe",
+          "D) L'invité a plus de droits que le membre"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu dois donner des droits Azure à une équipe. Quel type de groupe crées-tu ?",
+        "options": [
+          "A) Un groupe Microsoft 365",
+          "B) Un groupe de sécurité",
+          "C) Une liste de distribution",
+          "D) Un groupe d'administration"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les paramètres de l'utilisateur créé à la tâche 1 du lab 01.",
+        "gabarit": "User principal name : {{1}}\nJob title : {{2}}\nDepartment : {{3}}\nUsage location : {{4}}",
+        "bonnes": [
+          "az104-user1",
+          "IT Lab Administrator",
+          "IT",
+          "United States"
+        ],
+        "leurres": [
+          "helpdesk",
+          "Morocco"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle adresse utilises-tu pour l'invité externe du lab 01 ?",
+        "options": [
+          "A) Ton adresse OFPPT <prénom.nom>@ofppt-edu.ma",
+          "B) Ton adresse Gmail personnelle",
+          "C) L'adresse d'un camarade",
+          "D) Une adresse inventée en @onmicrosoft.com"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "L'appartenance dynamique d'un groupe demande une licence Microsoft Entra ID P1 ou P2.",
+        "reponse_correcte": "Vrai",
+        "explication": "Sans licence P1/P2, seul Membership type Assigned est proposé.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans le groupe IT Lab Administrators, qui ajoute-t-on comme membres ?",
+        "options": [
+          "A) az104-user1 et l'invité",
+          "B) Seulement toi-même",
+          "C) Le groupe helpdesk",
+          "D) Tous les utilisateurs du tenant"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande liste les membres du groupe IT Lab Administrators ?",
+        "options": [
+          "A) Get-AzGroupMember \"IT Lab Administrators\"",
+          "B) az group member list --name \"IT Lab Administrators\"",
+          "C) az ad user list --group \"IT Lab Administrators\"",
+          "D) az ad group member list --group \"IT Lab Administrators\""
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "az ad user update ne sait pas changer le poste ni le service de az104-user2. Comment fait-on dans le TP ?",
+        "options": [
+          "A) C'est impossible en ligne de commande",
+          "B) On supprime et recrée l'utilisateur",
+          "C) On modifie le fichier parameters.json",
+          "D) On passe par az rest --method PATCH sur l'API Microsoft Graph"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Les utilisateurs et groupes Entra ID sont rangés dans un groupe de ressources Azure.",
+        "reponse_correcte": "Faux",
+        "explication": "Les objets Entra ID sont dans le tenant, pas dans un groupe de ressources.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel filtre JMESPath liste seulement les invités ?",
+        "options": [
+          "A) --filter guest",
+          "B) --query \"[?userType=='Guest'].displayName\"",
+          "C) --query \"[?type=='External']\"",
+          "D) --query \"[].guest\""
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la création du groupe helpdesk et l'ajout de az104-user2.",
+        "gabarit": "az ad group {{1}} --display-name helpdesk --mail-nickname helpdesk\nU2=$(az ad user show --id az104-user2@$DOMAINE --query {{2}} -o tsv)\naz ad group member {{3}} --group helpdesk --member-id $U2",
+        "bonnes": [
+          "create",
+          "id",
+          "add"
+        ],
+        "leurres": [
+          "new",
+          "upn",
+          "assign"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "En PowerShell, quel module et quelle commande ouvrent la session pour lire les utilisateurs Entra ID ?",
+        "options": [
+          "A) Connect-AzureAD -Tenant lab",
+          "B) Connect-AzAccount puis Get-AzUser",
+          "C) Connect-MgGraph -Scopes \"User.Read.All\",\"Group.Read.All\"",
+          "D) az login --graph"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : ton organisation doit créer 300 comptes pour une nouvelle promotion. Portail ou CLI ? Justifie et cite les commandes utiles.",
+        "reponse_attendue_cles": [
+          "CLI (ou script)",
+          "répétable, sans erreur de saisie, en boucle",
+          "az ad user create",
+          "az ad group member add"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un nouveau technicien rejoint l'équipe IT et doit avoir les mêmes droits Azure que ses collègues. Pourquoi est-il préférable que ces droits soient donnés à un groupe plutôt qu'à chaque utilisateur ? Que fais-tu concrètement ?",
+        "reponse_attendue_cles": [
+          "droits donnés une fois au groupe",
+          "il suffit d'ajouter le technicien au groupe",
+          "retrait simple au départ",
+          "groupe de sécurité (IT Lab Administrators)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-01_Identites-Entra-ID.docx"
+      }
+    ]
+  }
+}

@@ -1,0 +1,190 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP21 — Dockerfile, image et registre",
+    "titre": "TP21 — Dockerfile, image et registre",
+    "description": "Contrôle continu — Conteneuriser (TP21) : Dockerfile, couches, build, run, exec, logs, conteneur jetable, étiquettes, Docker Hub, Azure Container Registry",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque instruction du Dockerfile à son rôle.",
+        "gabarit": "FROM : {{1}}\nCOPY : {{2}}\nRUN : {{3}}\nEXPOSE : {{4}}\nCMD : {{5}}",
+        "bonnes": [
+          "image de départ",
+          "copie des fichiers dans l'image",
+          "commande exécutée pendant la construction",
+          "documente le port écouté",
+          "commande lancée au démarrage du conteneur"
+        ],
+        "leurres": [
+          "publie l'image",
+          "ouvre le port dans le NSG"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande construit l'image ista-site en version 1.0 à partir du dossier courant ?",
+        "options": [
+          "A) docker run -t ista-site:1.0",
+          "B) docker push ista-site:1.0",
+          "C) docker create ista-site:1.0",
+          "D) docker build -t ista-site:1.0 ."
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que fait docker run -d --name ista1 -p 8080:80 ista-site:1.0 ?",
+        "options": [
+          "A) Lance le conteneur au premier plan sur le port 80 de l'hôte",
+          "B) Construit l'image",
+          "C) Publie l'image sur le port 8080",
+          "D) Lance un conteneur en arrière-plan ; le port 8080 de l'hôte mène au port 80 du conteneur"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi fixer FROM nginx:1.27-alpine plutôt que nginx:latest ?",
+        "options": [
+          "A) Pour que la construction donne toujours le même résultat",
+          "B) Pour avoir plus de fonctions",
+          "C) latest n'existe pas",
+          "D) Alpine est plus récent"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu crées test.html avec docker exec dans ista1, puis docker rm -f ista1 et relances un conteneur depuis la même image. test.html renvoie :",
+        "options": [
+          "A) 404 : la modification a disparu avec le conteneur",
+          "B) Une redirection",
+          "C) 500",
+          "D) Le contenu « modif »"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Seul index.html change. Que fait la reconstruction de ista-site:2.0 ?",
+        "options": [
+          "A) Elle écrase la version 1.0",
+          "B) Elle retélécharge tout",
+          "C) Elle échoue",
+          "D) Elle réutilise les couches en cache (CACHED) ; seule la couche COPY est refaite"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande montre une couche par instruction de l'image ?",
+        "options": [
+          "A) docker history ista-site:1.0",
+          "B) docker images",
+          "C) docker inspect --layers",
+          "D) docker logs ista-site"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Remettez dans l'ordre la publication sur Docker Hub.",
+        "gabarit": "1. docker {{1}} -u $DH\n2. docker {{2}} ista-site:2.0 $DH/ista-site:2.0\n3. docker {{3}} $DH/ista-site:2.0\n4. docker {{4}}",
+        "bonnes": [
+          "login",
+          "tag",
+          "push",
+          "logout"
+        ],
+        "leurres": [
+          "pull",
+          "commit"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que colle-t-on au mot de passe de docker login ?",
+        "options": [
+          "A) La clé SSH",
+          "B) Le mot de passe du compte Microsoft 365",
+          "C) Un jeton d'accès personnel Docker Hub (Read & Write), jamais noté dans un fichier",
+          "D) Rien, la connexion est anonyme"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Un conteneur partage le noyau de la machine hôte : il démarre en une seconde, alors qu'une VM met des minutes.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Qu'apporte az acr build par rapport à docker build ?",
+        "options": [
+          "A) Il rend l'image publique",
+          "B) Rien",
+          "C) L'image est construite dans Azure, sans Docker sur le poste, et poussée dans ACR",
+          "D) Il construit une VM"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Revenir à la version précédente du site, c'est relancer un conteneur depuis l'image ista-site:1.0, toujours disponible.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : le site doit garder des fichiers téléversés par les utilisateurs, mais le conteneur est remplacé à chaque nouvelle version. Où mets-tu ces données et pourquoi ?",
+        "reponse_attendue_cles": [
+          "pas dans la couche du conteneur (jetable)",
+          "dans un volume (docker volume / montage)",
+          "dans Azure : partage Azure Files ou stockage externe",
+          "le contenu fixe du site va dans l'image (reconstruction)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : l'entreprise veut garder ses images privées dans Azure et reconstruire l'image à chaque modification du dépôt Git. Que proposes-tu ? Cite les commandes.",
+        "reponse_attendue_cles": [
+          "Azure Container Registry (privé)",
+          "az acr create --sku Basic",
+          "az acr build -r <registre> -t ista-site:x .",
+          "az acr task create pour automatiser à chaque commit",
+          "ACI/Container Apps tirent l'image avec une identité managée"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-21_Docker-image.docx"
+      }
+    ]
+  }
+}

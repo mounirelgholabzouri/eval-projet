@@ -1,0 +1,194 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP13 — Disques managés",
+    "titre": "TP13 — Disques managés",
+    "description": "Contrôle continu — Disques managés (TP13) : types de disques, attacher, détacher, changer de type, agrandir, LUN, instantané",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque type de disque à son SKU.",
+        "gabarit": "HDD Standard : {{1}}\nSSD Standard : {{2}}\nSSD Premium : {{3}}\nUltra Disk : {{4}}",
+        "bonnes": [
+          "Standard_LRS",
+          "StandardSSD_LRS",
+          "Premium_LRS",
+          "UltraSSD_LRS"
+        ],
+        "leurres": [
+          "Standard_GRS",
+          "PremiumSSD_ZRS"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel type de disque choisis-tu pour une base de données de production ?",
+        "options": [
+          "A) HDD Standard",
+          "B) SSD Standard",
+          "C) Disque temporaire",
+          "D) SSD Premium"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans le lab, avec quel type vm1-disk1 est-il créé, puis converti ?",
+        "options": [
+          "A) Créé en Standard SSD, converti en Premium",
+          "B) Créé en Premium SSD, converti en HDD",
+          "C) Créé en Ultra, converti en Premium",
+          "D) Créé en Standard HDD, converti en Standard SSD"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi détache-t-on vm1-disk1 avant de changer son type ?",
+        "options": [
+          "A) Ce n'est pas nécessaire",
+          "B) Changer le type demande en général un disque détaché ou une VM libérée",
+          "C) Pour le chiffrer",
+          "D) Pour le déplacer dans une autre région"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "On peut réduire un disque managé de 64 Go à 32 Go avec az disk update --size-gb 32.",
+        "reponse_correcte": "Faux",
+        "explication": "On peut agrandir un disque, jamais le réduire.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Remettez dans l'ordre l'agrandissement du disque en CLI.",
+        "gabarit": "1. az vm disk {{1}} -g $RG --vm-name az104-vm1 -n vm1-disk1\n2. az disk {{2}} -g $RG -n vm1-disk1 --size-gb 64\n3. az vm disk {{3}} -g $RG --vm-name az104-vm1 --name vm1-disk1 --lun 0",
+        "bonnes": [
+          "detach",
+          "update",
+          "attach"
+        ],
+        "leurres": [
+          "resize",
+          "delete"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Le disque est passé à 64 Go dans Azure. Que reste-t-il à faire dans Windows ?",
+        "options": [
+          "A) Réinstaller Windows",
+          "B) Étendre le volume (Gestion des disques)",
+          "C) Rien",
+          "D) Formater le disque"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi sert le numéro LUN d'un disque de données ?",
+        "options": [
+          "A) À identifier la position du disque sur le contrôleur de la VM",
+          "B) À choisir la zone",
+          "C) À chiffrer le disque",
+          "D) À fixer le prix du disque"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande crée et attache un nouveau disque de 32 Go en SSD Standard, en une seule ligne ?",
+        "options": [
+          "A) az vm disk attach -g $RG --vm-name az104-vm1 --name vm1-disk2 --new --size-gb 32 --sku StandardSSD_LRS --lun 1",
+          "B) New-AzDisk -Attach",
+          "C) az disk create --attach az104-vm1",
+          "D) az vm update --add-disk 32"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que devient un disque de données quand on supprime la VM (sans option de suppression sur ce disque) ?",
+        "options": [
+          "A) Il reste, détaché (Unattached), et continue d'être facturé",
+          "B) Il est supprimé avec la VM",
+          "C) Il est converti en instantané",
+          "D) Il est déplacé dans un compte de stockage"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu crées vm1-disk1-copie en zone 1 à partir d'un instantané. À quelle VM peux-tu l'attacher ?",
+        "options": [
+          "A) Seulement à une VM de la zone 1",
+          "B) À n'importe quelle VM de la région",
+          "C) À aucune VM",
+          "D) À une VM d'une autre région"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande fait un instantané de vm1-disk1 ?",
+        "options": [
+          "A) az disk backup vm1-disk1",
+          "B) az vm snapshot -n az104-vm1",
+          "C) az snapshot create -g $RG -n snap-vm1-disk1 --source vm1-disk1 --sku Standard_LRS",
+          "D) az disk copy --snapshot"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : le disque de données d'un serveur de fichiers (Standard HDD, 128 Go) est plein et trop lent. Décris les étapes pour le passer en 256 Go et en SSD Standard, en CLI.",
+        "reponse_attendue_cles": [
+          "détacher le disque (ou libérer la VM)",
+          "az disk update --size-gb 256",
+          "changer le SKU en StandardSSD_LRS (--sku)",
+          "rattacher avec son LUN, puis étendre le volume dans l'OS"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : avant une mise à jour risquée d'une application, tu veux pouvoir revenir à l'état du disque de données. Que fais-tu et comment restaures-tu en cas de problème ?",
+        "reponse_attendue_cles": [
+          "instantané (az snapshot create) avant la mise à jour",
+          "en cas de problème : az disk create --source <instantané>",
+          "attacher le nouveau disque à la place de l'ancien",
+          "même zone que la VM"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-13_Disques-manages.docx"
+      }
+    ]
+  }
+}

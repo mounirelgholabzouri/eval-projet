@@ -1,0 +1,189 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP05 — Réseaux virtuels et sous-réseaux",
+    "titre": "TP05 — Réseaux virtuels et sous-réseaux",
+    "description": "Contrôle continu — Réseaux virtuels (TP05) : espace d'adressage, sous-réseaux, adresses réservées, chevauchement, déploiement par modèle",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez le plan d'adressage du lab 04.",
+        "gabarit": "CoreServicesVnet : {{1}}\nSharedServicesSubnet : {{2}}\nDatabaseSubnet : {{3}}\nManufacturingVnet : {{4}}",
+        "bonnes": [
+          "10.20.0.0/16",
+          "10.20.10.0/24",
+          "10.20.20.0/24",
+          "10.30.0.0/16"
+        ],
+        "leurres": [
+          "10.20.0.0/24",
+          "10.40.0.0/16"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Combien d'adresses Azure réserve-t-il dans chaque sous-réseau ?",
+        "options": [
+          "A) 3",
+          "B) 2",
+          "C) 5",
+          "D) 10"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Combien d'adresses utilisables dans un sous-réseau /24 sur Azure ?",
+        "options": [
+          "A) 250",
+          "B) 254",
+          "C) 256",
+          "D) 251"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Combien d'adresses utilisables dans un sous-réseau /26 sur Azure ?",
+        "options": [
+          "A) 61",
+          "B) 59",
+          "C) 64",
+          "D) 62"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu dois prévoir 1 000 capteurs dans un sous-réseau de ManufacturingVnet. Quelle taille minimale choisis-tu ?",
+        "options": [
+          "A) /22",
+          "B) /24",
+          "C) /23",
+          "D) /21"
+        ],
+        "reponse_correcte": "A",
+        "explication": "/22 = 1024 adresses - 5 réservées = 1019 utilisables ; /23 n'en donne que 507.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Deux réseaux virtuels dont les espaces d'adressage se chevauchent pourront quand même être appairés plus tard.",
+        "reponse_correcte": "Faux",
+        "explication": "Deux réseaux qui se chevauchent ne pourront jamais être appairés.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu ajoutes ErreurSubnet en 10.20.10.128/25 dans CoreServicesVnet. Que se passe-t-il ?",
+        "options": [
+          "A) Azure le déplace automatiquement en 10.20.11.0/25",
+          "B) SharedServicesSubnet est réduit",
+          "C) Erreur : la plage chevauche SharedServicesSubnet",
+          "D) Le sous-réseau est créé"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "az network vnet check-ip-address pour 10.20.10.1 répond que l'adresse n'est pas disponible. Pourquoi ?",
+        "options": [
+          "A) Elle est prise par une VM",
+          "B) Elle est réservée par Azure (passerelle par défaut)",
+          "C) Elle est hors de l'espace d'adressage",
+          "D) Le NSG la bloque"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la commande qui ajoute ManagementSubnet.",
+        "gabarit": "az network vnet {{1}} create -g az104-rg4 --vnet-name {{2}} \\\n  --name ManagementSubnet --address-prefixes {{3}}",
+        "bonnes": [
+          "subnet",
+          "CoreServicesVnet",
+          "10.20.30.0/24"
+        ],
+        "leurres": [
+          "nic",
+          "10.30.30.0/24"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment le lab crée-t-il ManufacturingVnet ?",
+        "options": [
+          "A) Avec un appairage",
+          "B) À partir du modèle exporté de CoreServicesVnet, modifié puis déployé avec Deploy a custom template",
+          "C) Avec Azure Policy",
+          "D) En copiant CoreServicesVnet depuis le portail (bouton Clone)"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "À la création de CoreServicesVnet au portail, on supprime le sous-réseau default proposé par Azure.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande PowerShell liste les sous-réseaux de ManufacturingVnet ?",
+        "options": [
+          "A) az network vnet subnet list --vnet-name ManufacturingVnet",
+          "B) Get-AzSubnet ManufacturingVnet",
+          "C) (Get-AzVirtualNetwork -ResourceGroupName az104-rg4 -Name ManufacturingVnet).Subnets",
+          "D) Get-AzNetworkInterface -Name ManufacturingVnet"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : ton entreprise ouvre un troisième site (logistique) qui devra un jour être relié à CoreServicesVnet et ManufacturingVnet. Propose un espace d'adressage et deux sous-réseaux, et justifie.",
+        "reponse_attendue_cles": [
+          "espace sans chevauchement avec 10.20.0.0/16 et 10.30.0.0/16 (ex. 10.40.0.0/16)",
+          "sous-réseaux /24 dans cet espace",
+          "pas de chevauchement pour pouvoir appairer",
+          "5 adresses réservées par sous-réseau"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : tu dois recréer exactement les mêmes réseaux dans un nouveau lab ou pour un autre client. Quel est l'intérêt d'un modèle ou d'un script par rapport au portail ? Cite la commande de création d'un réseau.",
+        "reponse_attendue_cles": [
+          "reproductible, sans erreur de saisie",
+          "rapide à relancer",
+          "az network vnet create --address-prefixes ... --subnet-name ... --subnet-prefixes ...",
+          "modèle exporté et déployé (template.json / parameters.json)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-05_Reseaux-virtuels-IP.docx"
+      }
+    ]
+  }
+}

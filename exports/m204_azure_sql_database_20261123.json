@@ -1,0 +1,185 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP17 — Base de données Azure SQL",
+    "titre": "TP17 — Base de données Azure SQL",
+    "description": "Contrôle continu — Azure SQL (TP17) : serveur logique, base, pare-feu du serveur, sqlcmd, modèles DTU et vCore, restauration à un instant donné",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que gère Azure à ta place avec Azure SQL Database, par rapport à SQL Server installé dans une VM ?",
+        "options": [
+          "A) Seulement le matériel",
+          "B) Le schéma des tables",
+          "C) L'installation, les correctifs, la haute disponibilité et les sauvegardes",
+          "D) Rien, c'est la même chose"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez le rôle de chaque élément.",
+        "gabarit": "Serveur logique : {{1}}\nBase : {{2}}",
+        "bonnes": [
+          "nom DNS, comptes administrateurs et pare-feu",
+          "données, rattachée au serveur"
+        ],
+        "leurres": [
+          "une VM Windows",
+          "un compte de stockage"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande crée la base db-m204 avec les données d'exemple ?",
+        "options": [
+          "A) az sql server create -n db-m204",
+          "B) az sql db import AdventureWorksLT",
+          "C) az sql db create -g $RG -s $SQL -n db-m204 --service-objective Basic --sample-name AdventureWorksLT",
+          "D) sqlcmd -create db-m204"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "sqlcmd depuis Cloud Shell échoue : l'adresse n'est pas autorisée. Que fais-tu ?",
+        "options": [
+          "A) Changer le mot de passe",
+          "B) Passer en S0",
+          "C) Créer une règle de pare-feu du serveur avec l'IP de Cloud Shell",
+          "D) Redémarrer la base"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi la règle « Autoriser les services Azure » (0.0.0.0 – 0.0.0.0) est-elle risquée ?",
+        "options": [
+          "A) Elle ouvre le serveur à tous les services Azure, y compris ceux d'autres clients",
+          "B) Elle bloque le portail",
+          "C) Elle supprime les sauvegardes",
+          "D) Elle désactive le chiffrement"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "En production, que préfère-t-on à cette règle pour l'accès à la base ?",
+        "options": [
+          "A) Un verrou ReadOnly",
+          "B) Une IP publique sur la base",
+          "C) Un point de terminaison privé",
+          "D) Une règle 0.0.0.0 – 255.255.255.255"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Comparez les deux modèles d'achat.",
+        "gabarit": "DTU : {{1}}\nvCore : {{2}}",
+        "bonnes": [
+          "forfait CPU + mémoire + E/S (Basic, Standard, Premium)",
+          "cœurs et mémoire choisis, option serverless"
+        ],
+        "leurres": [
+          "facturé au nombre de tables",
+          "gratuit au-delà de 2 Go"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande passe db-m204 du niveau Basic au niveau S0 ?",
+        "options": [
+          "A) az sql db restore --service-objective S0",
+          "B) az sql server update --tier S0",
+          "C) az sql db update -g $RG -s $SQL -n db-m204 --service-objective S0",
+          "D) az sql db scale S0"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "La restauration à un instant donné écrase la base d'origine.",
+        "reponse_correcte": "Faux",
+        "explication": "Elle crée une nouvelle base (db-m204-restauree) ; l'originale reste intacte.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Combien de jours de restauration à un instant donné Azure SQL garde-t-il par défaut ?",
+        "options": [
+          "A) 1",
+          "B) 30",
+          "C) 7",
+          "D) 365"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Juste après la création de la base, la restauration échoue. Pourquoi ?",
+        "options": [
+          "A) La première sauvegarde n'est pas encore faite (attendre 10 à 15 minutes, voir earliestRestoreDate)",
+          "B) Le pare-feu bloque la restauration",
+          "C) Il faut une licence SQL Server",
+          "D) Le niveau Basic interdit la restauration"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Dans le TP, le mot de passe administrateur SQL est saisi avec read -s et gardé dans une variable, jamais écrit dans la fiche.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un développeur a supprimé par erreur la table Stagiaire à 10 h 15. Il est 10 h 40. Comment récupères-tu les données sans perturber la base en service ?",
+        "reponse_attendue_cles": [
+          "restauration à un instant donné (point-in-time)",
+          "instant avant 10 h 15",
+          "az sql db restore --dest-name ... --time ...",
+          "nouvelle base : copier la table vers l'originale"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : l'application web PHP de l'ISTA doit utiliser une base SQL dans Azure, accessible seulement par l'application et par le poste de l'administrateur. Décris la mise en place (serveur, base, accès).",
+        "reponse_attendue_cles": [
+          "serveur logique + base (niveau adapté, ex. Basic/S0)",
+          "règle de pare-feu pour l'IP de l'administrateur",
+          "pas de règle « Autoriser les services Azure » / point de terminaison privé",
+          "chaîne de connexion (show-connection-string) dans les paramètres de l'application"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-17_Azure-SQL-Database.docx"
+      }
+    ]
+  }
+}

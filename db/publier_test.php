@@ -3,7 +3,8 @@
  * Publie un test JSON dans l'application : module (par code) + évaluation CC/EFM + questions.
  * Clés optionnelles : code_module, filiere, type_evaluation (CC|EFM), numero_cc.
  *
- * CLI : php db/publier_test.php fichier.json [--dry-run]
+ * CLI : php db/publier_test.php fichier.json [--dry-run] [--inactif]
+ *  --inactif  crée l'évaluation désactivée (invisible des stagiaires)
  *  --dry-run  valide le JSON sans rien écrire
  */
 
@@ -118,7 +119,7 @@ function chargerTest(string $jsonPath): array {
  * Publie le test : module (retrouvé par son code) + évaluation CC/EFM (contenu = sujet) + questions.
  * Ré-exécutable sans doublon. Retourne module_id, evaluation_id, nom, importees, ignorees, total.
  */
-function publierTest(PDO $pdo, string $jsonPath): array {
+function publierTest(PDO $pdo, string $jsonPath, bool $actif = true): array {
     $t = chargerTest($jsonPath);
 
     $pdo->beginTransaction();
@@ -139,7 +140,7 @@ function publierTest(PDO $pdo, string $jsonPath): array {
             $evalId = creerEvaluation([
                 'module_id' => $moduleId, 'type' => $t['type'], 'mode' => 'theorique', 'numero' => $numero,
                 'contenu' => $t['sujet'], 'duree_minutes' => $t['duree'], 'note_max' => $t['note_max'],
-                'nb_questions' => $t['quota'], 'actif' => true,
+                'nb_questions' => $t['quota'], 'actif' => $actif ? 1 : 0,
             ]);
         }
 
@@ -178,7 +179,7 @@ if (PHP_SAPI === 'cli' && realpath($argv[0] ?? '') === __FILE__) {
             echo "OK : " . strtoupper($t['type']) . " « {$t['code']} — {$t['sujet']} » — " . count($t['questions']) . " question(s) valides\n";
             exit(0);
         }
-        $r = publierTest(getDB(), $path);
+        $r = publierTest(getDB(), $path, !in_array('--inactif', $args, true));
         echo "Publié : « {$r['nom']} » (module #{$r['module_id']}, évaluation #{$r['evaluation_id']})\n";
         echo "Questions : {$r['importees']} importée(s), {$r['ignorees']} déjà présente(s), {$r['total']} au total\n";
         echo "Admin : http://eval-projet.test/admin/evaluations.php?action=edit&id={$r['evaluation_id']}\n";

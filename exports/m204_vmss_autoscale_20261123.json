@@ -1,0 +1,187 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP14 — VMSS et mise à l'échelle automatique",
+    "titre": "TP14 — VMSS et mise à l'échelle automatique",
+    "description": "Contrôle continu — VMSS (TP14) : groupe identique sur trois zones, règles d'autoscale, limites, refroidissement, profil planifié, mise à l'échelle manuelle",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les deux types de mise à l'échelle.",
+        "gabarit": "Verticale (scale up/down) : {{1}}\nHorizontale (scale out/in) : {{2}}",
+        "bonnes": [
+          "changer la taille d'une VM",
+          "changer le nombre d'instances"
+        ],
+        "leurres": [
+          "changer de région",
+          "changer d'image"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la règle d'augmentation de vmss1.",
+        "gabarit": "Métrique : {{1}}\nOpérateur et seuil : {{2}}\nDurée : {{3}}\nAction : {{4}}",
+        "bonnes": [
+          "Percentage CPU",
+          "Greater than 70",
+          "10 min",
+          "Increase percent by 50"
+        ],
+        "leurres": [
+          "Less than 30",
+          "Available Memory"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelles limites d'instances le lab 08 fixe-t-il pour vmss1 ?",
+        "options": [
+          "A) Minimum 2, Maximum 10, Défaut 2",
+          "B) Minimum 0, Maximum 100, Défaut 2",
+          "C) Minimum 1, Maximum 3, Défaut 1",
+          "D) Minimum 2, Maximum 2, Défaut 2"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "vmss1 a 4 instances. La règle +50 % se déclenche. Combien d'instances après ?",
+        "options": [
+          "A) 5",
+          "B) 8",
+          "C) 10",
+          "D) 6"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "À quoi sert le temps de refroidissement (cool down) de 5 minutes ?",
+        "options": [
+          "A) À refroidir le processeur des VM",
+          "B) À arrêter les VM la nuit",
+          "C) À retarder la création du groupe",
+          "D) À attendre que la dernière action produise son effet avant une nouvelle action"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi faut-il toujours une règle de diminution avec une règle d'augmentation ?",
+        "options": [
+          "A) Pour respecter le SLA",
+          "B) Sinon les instances ajoutées ne sont jamais retirées et la facture reste haute",
+          "C) Azure refuse une règle seule",
+          "D) Pour garder 0 instance la nuit"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Sur combien de zones vmss1 est-il réparti dans le lab ?",
+        "options": [
+          "A) 2",
+          "B) 3",
+          "C) 1",
+          "D) Aucune"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande passe vmss1 à 3 instances à la main ?",
+        "options": [
+          "A) az vmss update --instances 3",
+          "B) az vm create --count 3",
+          "C) az vmss scale -g $RG -n vmss1 --new-capacity 3",
+          "D) az monitor autoscale update --count 3"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Avant une mise à l'échelle manuelle, le TP désactive la mise à l'échelle automatique, sinon Azure peut revenir au nombre d'instances fixé par les règles.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel profil ajoute-t-on à l'étape B.3 ?",
+        "options": [
+          "A) Un profil qui supprime le groupe",
+          "B) Un profil nuit : 2 instances fixes de 20 h à 7 h, tous les jours",
+          "C) Un profil sur la mémoire",
+          "D) Un profil week-end à 0 instance"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle règle de NSG crée-t-on pour vmss1 dans le lab ?",
+        "options": [
+          "A) allow-rdp, priorité 100",
+          "B) allow-ssh, priorité 300",
+          "C) allow-http, priorité 1010",
+          "D) deny-all, priorité 4096"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "La mise à l'échelle verticale redémarre la VM ; la mise à l'échelle horizontale ajoute ou retire des instances sans redémarrer les autres.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : le site des inscriptions de l'ISTA est très chargé de 9 h à 12 h en septembre, et presque vide la nuit. Propose une configuration de vmss1 : règles, limites et profil.",
+        "reponse_attendue_cles": [
+          "règle d'augmentation sur Percentage CPU > 70 %",
+          "règle de diminution < 30 %",
+          "limites minimum, maximum et par défaut",
+          "refroidissement",
+          "profil planifié la nuit (nombre fixe bas)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : pourquoi place-t-on un groupe identique derrière un équilibreur de charge ? Que se passerait-il sans lui lors d'une augmentation de 2 à 4 instances ?",
+        "reponse_attendue_cles": [
+          "une seule adresse d'entrée pour les clients",
+          "le trafic est réparti sur toutes les instances",
+          "les nouvelles instances entrent automatiquement dans le pool",
+          "sans équilibreur, les clients ne connaîtraient pas les nouvelles IP"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-14_VMSS-Autoscale.docx"
+      }
+    ]
+  }
+}

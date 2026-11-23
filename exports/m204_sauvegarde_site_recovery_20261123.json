@@ -1,0 +1,191 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP18 — Azure Backup et Site Recovery",
+    "titre": "TP18 — Azure Backup et Site Recovery",
+    "description": "Contrôle continu — Protection des données (TP18) : coffre Recovery Services, stratégie de sauvegarde, suppression réversible, RPO et RTO, réplication Site Recovery, supervision",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Comparez Azure Backup et Azure Site Recovery.",
+        "gabarit": "Azure Backup, but : {{1}}\nSite Recovery, but : {{2}}\nAzure Backup, fréquence : {{3}}\nSite Recovery, fréquence : {{4}}",
+        "bonnes": [
+          "revenir à un état passé",
+          "redémarrer dans une autre région",
+          "une fois par jour",
+          "réplication continue"
+        ],
+        "leurres": [
+          "toutes les secondes",
+          "une fois par an"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les définitions.",
+        "gabarit": "RPO : {{1}}\nRTO : {{2}}",
+        "bonnes": [
+          "quantité de données qu'on accepte de perdre",
+          "temps pour redémarrer"
+        ],
+        "leurres": [
+          "coût mensuel du coffre",
+          "nombre de copies"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans quelle région crée-t-on le coffre az104-rsv-region1 qui sauvegarde az104-10-vm0 ?",
+        "options": [
+          "A) Une région hors des États-Unis",
+          "B) East US, la région de la VM",
+          "C) N'importe quelle région",
+          "D) West US"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Et le coffre de Site Recovery az104-rsv-region2 ?",
+        "options": [
+          "A) West US, la région cible de la réplication",
+          "B) Il n'y a pas de coffre pour Site Recovery",
+          "C) East US",
+          "D) Dans le même groupe que la VM"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un rançongiciel supprime les sauvegardes du coffre. Quelle option te protège ?",
+        "options": [
+          "A) La stratégie Standard",
+          "B) La redondance LRS",
+          "C) Le paramètre de diagnostic",
+          "D) La suppression réversible (Soft Delete), 14 jours"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la stratégie de sauvegarde az104-backup.",
+        "gabarit": "Fréquence : {{1}}\nHeure : {{2}}\nFuseau : {{3}}\nInstantanés de restauration rapide : {{4}}",
+        "bonnes": [
+          "Daily",
+          "12:00 AM",
+          "(UTC+01:00) Casablanca",
+          "2 jours"
+        ],
+        "leurres": [
+          "Weekly",
+          "30 jours"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel type de réplication de stockage garde le coffre dans le lab ?",
+        "options": [
+          "A) Zone-redundant",
+          "B) Locally-redundant",
+          "C) Geo-redundant",
+          "D) Aucune"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "La redondance du coffre peut être changée à tout moment, même après la première sauvegarde.",
+        "reponse_correcte": "Faux",
+        "explication": "Elle se règle avant de protéger un élément ; ensuite elle est figée.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Où envoie-t-on les journaux du coffre dans la tâche 4 ?",
+        "options": [
+          "A) Vers une boîte e-mail",
+          "B) Vers Docker Hub",
+          "C) Vers un compte de stockage, par un paramètre de diagnostic",
+          "D) Vers le journal d'activité seulement"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande liste les tâches de sauvegarde du coffre ?",
+        "options": [
+          "A) az vm backup list",
+          "B) az backup vault jobs",
+          "C) az backup job list -g $RG -v $V",
+          "D) az monitor activity-log list"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Où vérifies-tu que la VM est bien répliquée vers West US ?",
+        "options": [
+          "A) az104-rsv-region1 > Backup jobs",
+          "B) az104-rsv-region2 > Protected items > Replicated items (Healthy, Protected)",
+          "C) Monitor > Metrics",
+          "D) La VM > Disks"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Une restauration de VM ou de fichiers se lance au portail depuis l'élément de sauvegarde (Restore VM ou File Recovery).",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : un technicien a supprimé par erreur des fichiers sur un serveur Windows hier soir. Le serveur est protégé par Azure Backup. Comment récupères-tu les fichiers ? Quel RPO as-tu avec une sauvegarde quotidienne ?",
+        "reponse_attendue_cles": [
+          "coffre > élément de sauvegarde > File Recovery (ou Restore)",
+          "choisir le point de restauration d'avant la suppression",
+          "RPO jusqu'à 24 h",
+          "az backup recoverypoint list pour voir les points"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : la direction exige que le site d'inscriptions redémarre en moins d'une heure, avec au plus quelques minutes de données perdues, même si toute la région East US tombe. Que proposes-tu ? Azure Backup suffit-il ?",
+        "reponse_attendue_cles": [
+          "Azure Site Recovery vers une autre région (West US)",
+          "RPO de quelques minutes, RTO court",
+          "coffre dans la région cible",
+          "Backup seul ne suffit pas (RPO 24 h, restauration en heures) mais reste utile contre les erreurs"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-18_Sauvegarde-Restauration.docx"
+      }
+    ]
+  }
+}

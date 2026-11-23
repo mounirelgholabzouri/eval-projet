@@ -1,0 +1,196 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP04 — Modèles ARM et Bicep",
+    "titre": "TP04 — Modèles ARM et Bicep",
+    "description": "Contrôle continu — ARM et Bicep (TP04) : export de modèle, template et parameters, déploiement portail, PowerShell, CLI, Bicep, what-if, mode Incremental",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque élément à son rôle.",
+        "gabarit": "template.json : {{1}}\nparameters.json : {{2}}\nBicep : {{3}}\nwhat-if : {{4}}",
+        "bonnes": [
+          "décrit les ressources (déclaratif)",
+          "valeurs d'un déploiement",
+          "langage plus court compilé en ARM JSON",
+          "montre ce qui va changer sans déployer"
+        ],
+        "leurres": [
+          "journal d'activité",
+          "verrou en lecture seule"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans le portail, où récupère-t-on le modèle ARM du disque az104-disk1 ?",
+        "options": [
+          "A) Monitoring > Logs",
+          "B) Settings > Configuration",
+          "C) Access control (IAM)",
+          "D) Automation > Export template"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande PowerShell déploie template.json et parameters.json dans az104-rg3 ?",
+        "options": [
+          "A) New-AzResourceGroupDeployment -ResourceGroupName az104-rg3 -TemplateFile template.json -TemplateParameterFile parameters.json",
+          "B) Deploy-AzTemplate az104-rg3",
+          "C) New-AzDeployment -File template.json",
+          "D) az deployment group create -g az104-rg3"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande Azure CLI déploie le fichier Bicep dans az104-rg3 ?",
+        "options": [
+          "A) az disk create --template azuredeploydisk.bicep",
+          "B) az bicep deploy azuredeploydisk.bicep",
+          "C) az group deployment bicep -g az104-rg3",
+          "D) az deployment group create --resource-group az104-rg3 --template-file azuredeploydisk.bicep"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Pour déployer un fichier Bicep avec az deployment group create, il faut d'abord le compiler à la main en JSON.",
+        "reponse_correcte": "Faux",
+        "explication": "Azure CLI compile le Bicep automatiquement ; az bicep build sert seulement à voir le JSON produit.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que fait le mode Incremental (par défaut) avec une ressource du groupe absente du modèle ?",
+        "options": [
+          "A) Il la laisse en place",
+          "B) Il la supprime",
+          "C) Il la déplace dans un autre groupe",
+          "D) Il bloque le déploiement"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Et le mode Complete, avec cette même ressource absente du modèle ?",
+        "options": [
+          "A) Il la laisse en place",
+          "B) Il la verrouille",
+          "C) Il l'ajoute au modèle",
+          "D) Il la supprime"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu relances what-if sur az104-disk6 avec diskSizeinGiB=64 (le disque fait 32 Go). Qu'affiche le résultat ?",
+        "options": [
+          "A) Aucun changement",
+          "B) ~ Modify, diskSizeGB 32 => 64",
+          "C) - Delete az104-disk6",
+          "D) + Create az104-disk6"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez la prévisualisation du disque az104-disk6, avec un paramètre passé en ligne de commande.",
+        "gabarit": "az deployment group {{1}} --resource-group az104-rg3 \\\n  --template-file azuredeploydisk.bicep --parameters {{2}}=az104-disk6",
+        "bonnes": [
+          "what-if",
+          "managedDiskName"
+        ],
+        "leurres": [
+          "validate-only",
+          "diskName"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans le fichier Bicep du lab, quel type de disque (sku name) met-on pour az104-disk5 ?",
+        "options": [
+          "A) StandardSSD_LRS",
+          "B) Standard_LRS",
+          "C) UltraSSD_LRS",
+          "D) Premium_LRS"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande affiche l'historique des déploiements du groupe az104-rg3 ?",
+        "options": [
+          "A) az deployment group list -g az104-rg3 -o table",
+          "B) az group history -n az104-rg3",
+          "C) az disk list -g az104-rg3",
+          "D) az monitor metrics list -g az104-rg3"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quels sont des avantages de Bicep sur le JSON ARM ?",
+        "options": [
+          "A) Supprime automatiquement les ressources inutiles",
+          "B) Compilé en ARM JSON, donc mêmes ressources disponibles",
+          "C) Fonctionne sans Azure Resource Manager",
+          "D) Syntaxe plus courte et plus lisible"
+        ],
+        "reponses_correctes": [
+          "B",
+          "D"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : ton équipe doit déployer le même disque dans trois environnements (test, préproduction, production) avec des noms et tailles différents. Comment organises-tu tes fichiers et ton déploiement ?",
+        "reponse_attendue_cles": [
+          "un seul modèle (template ou Bicep)",
+          "un fichier de paramètres par environnement (ou --parameters)",
+          "what-if avant chaque déploiement",
+          "az deployment group create"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : avant de déployer en production, ton responsable veut savoir exactement ce qui va changer. Quelle commande lances-tu et comment lis-tu son résultat ?",
+        "reponse_attendue_cles": [
+          "az deployment group what-if",
+          "+ Create : ressource créée",
+          "~ Modify : propriété modifiée",
+          "rien n'est déployé"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-04_Modeles-ARM-Bicep.docx"
+      }
+    ]
+  }
+}

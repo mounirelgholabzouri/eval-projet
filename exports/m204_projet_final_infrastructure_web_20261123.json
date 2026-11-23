@@ -1,0 +1,196 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP19 — Projet final : infrastructure web de l'ISTA",
+    "titre": "TP19 — Projet final : infrastructure web de l'ISTA",
+    "description": "Contrôle de synthèse — Projet final (TP19) : architecture, gouvernance, réseau, NAT, NSG/ASG, zones, équilibreur, DNS privé, stockage SAS, sauvegarde, recette",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez le plan d'adressage du projet.",
+        "gabarit": "vnet-projet : {{1}}\nsnet-web : {{2}}\nsnet-data : {{3}}",
+        "bonnes": [
+          "10.50.0.0/16",
+          "10.50.1.0/24",
+          "10.50.2.0/24"
+        ],
+        "leurres": [
+          "10.50.0.0/24",
+          "10.40.1.0/24"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Les serveurs web n'ont pas d'IP publique. Comment sortent-ils sur Internet (mises à jour) ?",
+        "options": [
+          "A) Par la zone DNS privée",
+          "B) Ils ne peuvent pas sortir",
+          "C) Par Azure Bastion",
+          "D) Par la passerelle NAT associée à snet-web"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment l'administrateur se connecte-t-il en SSH aux serveurs web ?",
+        "options": [
+          "A) Par le compte de stockage",
+          "B) Par l'équilibreur de charge, port 22",
+          "C) Seulement par Bastion ou depuis l'adresse du formateur",
+          "D) Par leur IP publique, port 22 ouvert à tous"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment les serveurs web sont-ils configurés (Nginx, page) dans le projet ?",
+        "options": [
+          "A) Par Azure Policy",
+          "B) À la main en SSH",
+          "C) Par cloud-init à leur création",
+          "D) Par le coffre de sauvegarde"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque test de recette à son résultat attendu.",
+        "gabarit": "Boucle curl sur l'IP du LB : {{1}}\nUn serveur arrêté : {{2}}\ntest-ip-flow port 22 depuis Internet : {{3}}\naz group delete sur le groupe : {{4}}",
+        "bonnes": [
+          "les deux serveurs répondent",
+          "l'autre répond seul",
+          "Deny",
+          "refusé par le verrou"
+        ],
+        "leurres": [
+          "Allow",
+          "erreur 404"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "nslookup vm-web2.projet.lab depuis vm-web1 renvoie une adresse 10.50.1.x. Quelle configuration le permet ?",
+        "options": [
+          "A) Une zone DNS publique",
+          "B) Un fichier hosts",
+          "C) Une zone DNS privée liée au VNet avec inscription automatique",
+          "D) L'équilibreur de charge"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment partage-t-on les documents du compte stprojet<id> ?",
+        "options": [
+          "A) Conteneur public",
+          "B) Clé du compte envoyée par e-mail",
+          "C) Compte privé, conteneur documents, SAS de lecture d'une semaine",
+          "D) Partage SMB ouvert sur Internet"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quand pose-t-on le verrou CanNotDelete lock-projet ?",
+        "options": [
+          "A) Au tout début du script",
+          "B) En fin de déploiement",
+          "C) Jamais, il gêne le nettoyage",
+          "D) Avant chaque sauvegarde"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que doit faire le script nettoyage.sh, dans l'ordre ?",
+        "options": [
+          "A) Supprimer le groupe, puis le verrou",
+          "B) Supprimer les VM une à une",
+          "C) Désactiver la stratégie",
+          "D) Supprimer le verrou, puis le groupe"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Le script deploiement.sh doit pouvoir être rejoué dans un groupe vide et aller au bout sans intervention.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Quelles exigences de gouvernance le projet impose-t-il ?",
+        "options": [
+          "A) Verrou CanNotDelete en fin de déploiement",
+          "B) Étiquettes Cours=M204 et Projet=Inscriptions sur le groupe",
+          "C) Stratégie qui fait hériter l'étiquette Cours",
+          "D) Rôle Owner donné à tous les stagiaires"
+        ],
+        "reponses_correctes": [
+          "A",
+          "B",
+          "C"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Soutenance : que changerais-tu dans l'architecture pour survivre à la perte de la région eastus ?",
+        "reponse_attendue_cles": [
+          "réplication Site Recovery (ou seconde infrastructure) dans une autre région",
+          "stockage géoredondant (GRS/RA-GRS)",
+          "coffre dans la région cible",
+          "bascule DNS ou Front Door / Traffic Manager vers la seconde région"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Soutenance : qui, dans ton tenant, peut supprimer le verrou du groupe ? Comment limiter ce droit ?",
+        "reponse_attendue_cles": [
+          "Owner ou User Access Administrator (droit Microsoft.Authorization/locks/delete)",
+          "les Contributors ne peuvent pas gérer les verrous",
+          "limiter le nombre d'Owners, rôles au plus juste (RBAC)",
+          "suivre l'action dans le journal d'activité / alerte"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Soutenance : décris les flux autorisés par tes NSG (nsg-web, nsg-data) et l'usage de l'ASG web.",
+        "reponse_attendue_cles": [
+          "HTTP 80 depuis Internet vers asg-web seulement",
+          "SSH seulement depuis Bastion ou l'adresse du formateur",
+          "snet-data accessible seulement depuis le web",
+          "tout le reste refusé (DenyAllInBound)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-19_Projet-final.docx"
+      }
+    ]
+  }
+}

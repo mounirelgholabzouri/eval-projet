@@ -1,0 +1,205 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP02 — Abonnements et contrôle d'accès RBAC",
+    "titre": "TP02 — Abonnements et contrôle d'accès RBAC",
+    "description": "Contrôle continu — RBAC (TP02) : groupes d'administration, rôles intégrés, rôle personnalisé, étendues, journal d'activité",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Une attribution de rôle répond à trois questions. Complétez.",
+        "gabarit": "Qui : {{1}}\nQuoi : {{2}}\nOù : {{3}}",
+        "bonnes": [
+          "utilisateur, groupe ou identité",
+          "définition de rôle",
+          "étendue"
+        ],
+        "leurres": [
+          "étiquette",
+          "région"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Rangez les étendues RBAC de la plus large à la plus étroite.",
+        "gabarit": "1. {{1}}\n2. {{2}}\n3. {{3}}\n4. {{4}}",
+        "bonnes": [
+          "groupe d'administration",
+          "abonnement",
+          "groupe de ressources",
+          "ressource"
+        ],
+        "leurres": [
+          "tenant root user",
+          "région"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel rôle intégré permet de tout gérer, sauf de donner des droits ?",
+        "options": [
+          "A) Reader",
+          "B) Contributor",
+          "C) Owner",
+          "D) User Access Administrator"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel rôle le lab 02a attribue-t-il au groupe helpdesk sur az104-mg1 ?",
+        "options": [
+          "A) Owner",
+          "B) Network Contributor",
+          "C) Support Request Contributor",
+          "D) Virtual Machine Contributor"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Un rôle attribué sur le groupe d'administration az104-mg1 est hérité par les groupes de ressources des abonnements de ce groupe.",
+        "reponse_correcte": "Vrai",
+        "explication": "Les étendues s'emboîtent : un rôle donné en haut est hérité en dessous.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un membre de helpdesk (Virtual Machine Contributor) veut modifier le réseau virtuel d'une VM. Que se passe-t-il ?",
+        "options": [
+          "A) Il est refusé : le rôle ne donne pas de droit sur le réseau ni le stockage reliés à la VM",
+          "B) Il réussit si la VM est arrêtée",
+          "C) Il réussit, le rôle couvre tout ce qui touche à la VM",
+          "D) Il réussit seulement depuis le portail"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment le rôle personnalisé Custom Support Request est-il créé dans le lab ?",
+        "options": [
+          "A) Avec une stratégie Azure Policy",
+          "B) En partant de zéro avec un JSON vide",
+          "C) En clonant Support Request Contributor puis en excluant une permission",
+          "D) En copiant le rôle Owner"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les trois sections du JSON d'un rôle personnalisé.",
+        "gabarit": "{{1}} : opérations autorisées\n{{2}} : opérations retirées des autorisations\n{{3}} : étendues où le rôle peut être attribué",
+        "bonnes": [
+          "Actions",
+          "NotActions",
+          "AssignableScopes"
+        ],
+        "leurres": [
+          "DataActions",
+          "Deny"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle permission est passée en NotActions dans le rôle Custom Support Request ?",
+        "options": [
+          "A) Microsoft.Authorization/roleAssignments/write",
+          "B) Microsoft.Support/register/action",
+          "C) Microsoft.Compute/virtualMachines/delete",
+          "D) Microsoft.Resources/subscriptions/read"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel groupe d'administration se trouve au sommet de la hiérarchie, au-dessus de az104-mg1 ?",
+        "options": [
+          "A) Tenant Root Group",
+          "B) az104-rg1",
+          "C) Default Management Group",
+          "D) Global Administrators"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande ajoute le rôle Reader au groupe helpdesk sur le groupe d'administration ?",
+        "options": [
+          "A) az ad group member add --group Reader --member-id $GID",
+          "B) az role assignment create --assignee-object-id $GID --assignee-principal-type Group --role Reader --scope $MG",
+          "C) az policy assignment create --role Reader --scope $MG",
+          "D) az role definition create --role Reader --group helpdesk"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "La bonne pratique est d'attribuer les rôles directement aux personnes plutôt qu'aux groupes.",
+        "reponse_correcte": "Faux",
+        "explication": "On attribue les rôles à des groupes, jamais à des personnes.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Où retrouves-tu l'opération d'attribution de rôle faite à la tâche 2 ?",
+        "options": [
+          "A) Dans Azure Advisor",
+          "B) Dans les étiquettes du groupe",
+          "C) Dans le journal d'activité (Activity log) de az104-mg1",
+          "D) Dans les métriques de la VM"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : tu es déjà Owner sur l'abonnement et on te donne en plus Virtual Machine Contributor. Qu'est-ce que cela change ? Explique le principe.",
+        "reponse_attendue_cles": [
+          "rien ne change en pratique",
+          "les autorisations se cumulent",
+          "Owner inclut déjà tous les droits",
+          "rôle redondant à retirer (moindre privilège)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : le support doit gérer les VM de tous les abonnements de l'entreprise et ouvrir des demandes de support, sans autre droit. Décris l'organisation RBAC à mettre en place.",
+        "reponse_attendue_cles": [
+          "groupe d'administration regroupant les abonnements",
+          "groupe de sécurité helpdesk",
+          "Virtual Machine Contributor à l'étendue du groupe d'administration",
+          "rôle personnalisé pour les demandes de support (moindre privilège)"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-02_Abonnements-RBAC.docx"
+      }
+    ]
+  }
+}

@@ -1,0 +1,193 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP16 — Container Instances et Container Apps",
+    "titre": "TP16 — Container Instances et Container Apps",
+    "description": "Contrôle continu — Conteneurs (TP16) : image et conteneur, ACI (FQDN, journaux, exec, cycle de vie), Container Apps (environnement, révisions, répliques)",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les définitions.",
+        "gabarit": "Image : {{1}}\nConteneur : {{2}}\nRegistre : {{3}}",
+        "bonnes": [
+          "modèle en lecture seule",
+          "image en cours d'exécution",
+          "stocke les images (Docker Hub, ACR)"
+        ],
+        "leurres": [
+          "machine virtuelle complète",
+          "disque managé"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Comparez ACI et Container Apps.",
+        "gabarit": "ACI, mise à l'échelle : {{1}}\nContainer Apps, mise à l'échelle : {{2}}\nACI, usage : {{3}}\nContainer Apps, usage : {{4}}",
+        "bonnes": [
+          "aucune",
+          "automatique, jusqu'à 0",
+          "tâche ponctuelle, test, lots",
+          "microservices, API, sites"
+        ],
+        "leurres": [
+          "manuelle par VMSS",
+          "bases de données"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle image déploie-t-on dans az104-c1 ?",
+        "options": [
+          "A) ubuntu:22.04",
+          "B) nginx:latest depuis Docker Hub",
+          "C) mcr.microsoft.com/azuredocs/aci-helloworld:latest",
+          "D) Une image construite par le stagiaire"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Comment le conteneur az104-c1 devient-il joignable par un nom ?",
+        "options": [
+          "A) Avec une zone DNS privée",
+          "B) Avec un enregistrement CNAME manuel",
+          "C) Avec un DNS name label unique, qui donne un FQDN",
+          "D) Avec un équilibreur de charge"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande affiche les journaux du conteneur az104-c1 ?",
+        "options": [
+          "A) docker logs az104-c1",
+          "B) az container show --logs",
+          "C) az container logs -g $RG -n az104-c1",
+          "D) az monitor logs az104-c1"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande exécute une commande à l'intérieur du conteneur az104-c2 ?",
+        "options": [
+          "A) az container ssh az104-c2",
+          "B) az container attach --command",
+          "C) az container exec -g $RG -n az104-c2 --exec-command \"...\"",
+          "D) az vm run-command invoke -n az104-c2"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Un conteneur ACI arrêté (az container stop) n'est plus facturé.",
+        "reponse_correcte": "Vrai",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Dans Container Apps, qu'est-ce qu'une révision ?",
+        "options": [
+          "A) Une version immuable de l'application, créée à chaque changement de configuration ou d'image",
+          "B) Un environnement réseau",
+          "C) Une sauvegarde de la base",
+          "D) Une copie de l'image dans ACR"
+        ],
+        "reponse_correcte": "A",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quel inconvénient a une application Container Apps qui descend à 0 réplique ?",
+        "options": [
+          "A) Elle perd son URL",
+          "B) Démarrage à froid : la première requête est lente",
+          "C) Elle est facturée plus cher",
+          "D) Elle est supprimée"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle commande impose au moins 1 réplique et au plus 3 à my-app ?",
+        "options": [
+          "A) az vmss scale --new-capacity 3",
+          "B) az containerapp scale --count 3",
+          "C) az container create --replicas 3",
+          "D) az containerapp update -g $RG -n my-app --min-replicas 1 --max-replicas 3"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Que faut-il créer avec la première application Container Apps ?",
+        "options": [
+          "A) Un cluster AKS géré par l'utilisateur",
+          "B) Un environnement Container Apps (my-environment)",
+          "C) Un plan App Service",
+          "D) Une VM Docker"
+        ],
+        "reponse_correcte": "B",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Où stockerais-tu les images privées de l'entreprise ?",
+        "options": [
+          "A) Sur Docker Hub en public",
+          "B) Dans le conteneur lui-même",
+          "C) Dans un partage de fichiers",
+          "D) Dans Azure Container Registry (registre privé)"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : chaque nuit, un traitement de 15 minutes convertit des fichiers ; le jour, une API doit répondre aux utilisateurs avec une charge variable. Quel service choisis-tu pour chaque besoin ? Justifie.",
+        "reponse_attendue_cles": [
+          "traitement de nuit : ACI (tâche ponctuelle, facturé à la seconde)",
+          "API : Container Apps",
+          "mise à l'échelle automatique (HTTP), jusqu'à 0",
+          "révisions et entrée HTTPS"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : tu dois déployer en CLI un second conteneur ACI à partir de la même image, avec 1 vCPU, 1 Go, le port 80 public et une variable ENVIRONNEMENT=test. Donne la commande et explique comment vérifier qu'il tourne.",
+        "reponse_attendue_cles": [
+          "az container create --image ... --os-type Linux",
+          "--cpu 1 --memory 1 --ports 80 --ip-address Public --dns-name-label",
+          "--environment-variables ENVIRONNEMENT=test",
+          "az container list / show : état Running, curl sur le FQDN"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-16_Conteneurs-ACI-Container-Apps.docx"
+      }
+    ]
+  }
+}

@@ -1,0 +1,191 @@
+{
+  "evaluation": {
+    "module": "M204 Administrer un environnement Cloud propriétaire en ligne public (Microsoft Azure)",
+    "sujet": "TP03 — Gouvernance : étiquettes, Azure Policy et verrous",
+    "titre": "TP03 — Gouvernance : étiquettes, Azure Policy et verrous",
+    "description": "Contrôle continu — Gouvernance (TP03) : étiquettes, effets Deny et Modify, correction, verrous CanNotDelete et ReadOnly",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Associez chaque outil de gouvernance au moment où il agit.",
+        "gabarit": "Azure Policy, effet Deny : {{1}}\nAzure Policy, effet Modify : {{2}}\nVerrou : {{3}}",
+        "bonnes": [
+          "avant la création : refuse",
+          "à la création ou par correction : modifie",
+          "après la création : protège"
+        ],
+        "leurres": [
+          "toutes les 5 minutes : supprime",
+          "à la facturation : alerte"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle étiquette le lab 02b pose-t-il sur le groupe az104-rg2 ?",
+        "options": [
+          "A) Cours = M204",
+          "B) Environment = Lab",
+          "C) Cost Center = 000",
+          "D) Owner = helpdesk"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "La stratégie « Require a tag and its value on resources » est attribuée sur az104-rg2. Tu crées un compte de stockage sans étiquette. Résultat ?",
+        "options": [
+          "A) Le compte est créé puis supprimé 24 h plus tard",
+          "B) Le compte est créé avec un avertissement",
+          "C) Validation failed : le déploiement est refusé par la stratégie",
+          "D) Le compte est créé et l'étiquette est ajoutée"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Quelle définition de stratégie copie l'étiquette du groupe de ressources sur les nouvelles ressources ?",
+        "options": [
+          "A) Allowed locations",
+          "B) Require a tag on resource groups",
+          "C) Inherit a tag from the resource group if missing",
+          "D) Append a tag and its value to resources"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Pourquoi l'effet Modify a-t-il besoin d'une identité managée ?",
+        "options": [
+          "A) Pour chiffrer les étiquettes",
+          "B) Pour se connecter au portail",
+          "C) Pour envoyer un e-mail à l'administrateur",
+          "D) Pour avoir le droit de modifier les ressources à la place de l'utilisateur"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "Un verrou CanNotDelete s'impose aussi au propriétaire (Owner) du groupe de ressources.",
+        "reponse_correcte": "Vrai",
+        "explication": "Le verrou s'impose à tous : l'Owner doit d'abord retirer le verrou.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Tu lances az group delete -n az104-rg2 --yes alors que rg-lock (Delete) est en place. Quelle erreur obtiens-tu ?",
+        "options": [
+          "A) AuthorizationFailed",
+          "B) RequestDisallowedByPolicy",
+          "C) ResourceNotFound",
+          "D) ScopeLocked"
+        ],
+        "reponse_correcte": "D",
+        "points": 1,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "QCM_choix_unique",
+        "question": "Un verrou ReadOnly est posé sur az104-rg2. Que se passe-t-il avec az group update -n az104-rg2 --set tags.Projet=M204 ?",
+        "options": [
+          "A) Le verrou est supprimé automatiquement",
+          "B) L'étiquette est ajoutée",
+          "C) La modification est refusée",
+          "D) Le groupe est déplacé"
+        ],
+        "reponse_correcte": "C",
+        "points": 1,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complétez les commandes de contrôle en CLI.",
+        "gabarit": "Lister les ressources étiquetées : az resource list --tag \"{{1}}\"\nRésumé de conformité : az policy state {{2}} -g az104-rg2\nRelancer l'évaluation : az policy state {{3}} -g az104-rg2\nVoir les verrous : az {{4}} list -g az104-rg2",
+        "bonnes": [
+          "Cost Center=000",
+          "summarize",
+          "trigger-scan",
+          "lock"
+        ],
+        "leurres": [
+          "refresh",
+          "Cost Center:000"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "Vrai_Faux",
+        "question": "La conformité Azure Policy est évaluée en temps réel, il n'y a jamais besoin d'attendre.",
+        "reponse_correcte": "Faux",
+        "explication": "L'évaluation a lieu environ toutes les 24 h ; trigger-scan la relance en quelques minutes. Il faut aussi attendre 5 à 10 minutes après une attribution.",
+        "points": 1,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "QCM_choix_multiple",
+        "question": "Lesquelles sont des différences correctes entre Policy, RBAC et verrous ?",
+        "options": [
+          "A) RBAC remplace les étiquettes",
+          "B) Un verrou peut refuser la création d'une ressource sans étiquette",
+          "C) Un verrou protège une ressource même contre un Owner",
+          "D) Policy décide ce qui peut être déployé, RBAC décide qui peut agir"
+        ],
+        "reponses_correctes": [
+          "C",
+          "D"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : des ressources existaient avant l'attribution de la stratégie « Inherit a tag ». Elles n'ont pas l'étiquette Cost Center. Comment les rendre conformes ?",
+        "reponse_attendue_cles": [
+          "tâche de correction (remediation task)",
+          "effet Modify avec identité managée",
+          "relancer l'évaluation (trigger-scan) puis vérifier",
+          "az policy remediation list / state summarize"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "Scenario_pratique",
+        "question": "Mise en situation : l'audit demande que plus aucune ressource ne soit créée sans centre de coûts, et que le groupe de production ne puisse pas être supprimé par erreur. Propose les deux mécanismes et leurs paramètres.",
+        "reponse_attendue_cles": [
+          "Azure Policy effet Deny « Require a tag and its value »",
+          "Tag Name Cost Center et sa valeur",
+          "verrou Delete (CanNotDelete) sur le groupe",
+          "Policy agit avant, le verrou après la création"
+        ],
+        "points": 3,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx"
+      },
+      {
+        "type": "Texte_libre",
+        "question": "À quoi sert une stratégie de déploiement bleu-vert ? Quels outils remplacent aujourd'hui Azure Blueprints ?",
+        "reponse_attendue_cles": [
+          "deux environnements identiques, bascule du trafic",
+          "retour arrière rapide sans interruption",
+          "Template Specs",
+          "Deployment Stacks"
+        ],
+        "points": 2,
+        "source": "TP-IDOCC-M204-03_Gouvernance-Policy-Verrous.docx ; Pedagogie/objectifs.md"
+      }
+    ]
+  }
+}
