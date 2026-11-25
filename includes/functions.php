@@ -540,14 +540,94 @@ function _fetchSession(string $where, array $params): ?array {
 
 function sauvegarderReponse(int $sessionId, int $questionId, ?int $choixId, ?string $reponseTxt, bool $isCorrect, float $points): void {
     $pdo = getDB();
-    // Upsert (remplace si déjà répondu)
+    // Remplace la réponse existante (pas de clé unique session/question → DELETE + INSERT,
+    // indispensable avec la sauvegarde automatique qui réenregistre plusieurs fois)
+    $pdo->prepare("DELETE FROM reponses_stagiaires WHERE session_id = ? AND question_id = ?")
+        ->execute([$sessionId, $questionId]);
     $stmt = $pdo->prepare("
         INSERT INTO reponses_stagiaires (session_id, question_id, choix_id, reponse_texte, is_correct, points_obtenus)
         VALUES (?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE choix_id = VALUES(choix_id), reponse_texte = VALUES(reponse_texte),
-                                is_correct = VALUES(is_correct), points_obtenus = VALUES(points_obtenus)
     ");
     $stmt->execute([$sessionId, $questionId, $choixId, $reponseTxt, $isCorrect ? 1 : 0, $points]);
+}
+
+// Corrige et enregistre les réponses postées du formulaire quiz ($post = $_POST).
+// Utilisée à la soumission finale ET par la sauvegarde automatique (quiz_autosave.php).
+function enregistrerReponsesQuiz(int $sessionId, array $questions, array $post): void {
+    $pdo = getDB();
+    $pdo->beginTransaction();
+    try {
+        foreach ($questions as $q) {
+            $qId     = (int)$q['id'];
+            $type    = $q['type'];
+            $points  = (float)$q['points'];
+            $choixId = null;
+            $repTxt  = null;
+            $correct = false;
+            $gained  = 0.0;
+
+            if ($type === 'texte_libre') {
+                $repTxt = trim((string)($post["rep_$qId"] ?? ''));
+                if ($repTxt === '') $repTxt = null;
+            } elseif ($type === 'glisser_deposer') {
+                $placement = $post["dd_$qId"] ?? [];
+                $res     = corrigerGlisserDeposer($q, is_array($placement) ? $placement : []);
+                $repTxt  = $res['json'];
+                $correct = $res['correct'];
+                $gained  = $res['points'];
+            } elseif ($type === 'multiple') {
+                // Tout ou rien : exactement l'ensemble des bonnes réponses
+                $coches  = array_values(array_unique(array_map('intval', (array)($post["rep_$qId"] ?? []))));
+                $bonnes  = array_map(fn($c) => (int)$c['id'], array_filter($q['choix'], fn($c) => $c['is_correct']));
+                $textes  = array_column(array_filter($q['choix'], fn($c) => in_array((int)$c['id'], $coches, true)), 'texte');
+                $repTxt  = $textes ? implode(' | ', $textes) : null;
+                sort($coches); sort($bonnes);
+                $correct = $coches && $coches === $bonnes;
+                $gained  = $correct ? $points : 0.0;
+            } else {
+                $choixId = (int)($post["rep_$qId"] ?? 0);
+                foreach ($q['choix'] as $c) {
+                    if ($choixId > 0 && (int)$c['id'] === $choixId && $c['is_correct']) {
+                        $correct = true;
+                        $gained  = $points;
+                        break;
+                    }
+                }
+            }
+
+            sauvegarderReponse($sessionId, $qId, $choixId ?: null, $repTxt, $correct, $gained);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        throw $e;
+    }
+}
+
+// Clôture une session restée « en cours » avec les réponses déjà enregistrées.
+function cloturerSession(int $sessionId): bool {
+    $s = getSession($sessionId);
+    if (!$s || $s['statut'] !== 'en_cours') return false;
+    terminerSession($sessionId);
+    return true;
+}
+
+// Clôture automatiquement les sessions dont la durée (+ marge) est dépassée :
+// stagiaire qui a fermé l'onglet, coupure réseau, PC éteint… Retourne le nombre clôturé.
+function cloturerSessionsExpirees(int $margeMinutes = 2): int {
+    $stmt = getDB()->prepare("
+        SELECT s.id FROM sessions_eval s
+        JOIN evaluations e ON e.id = s.evaluation_id
+        WHERE s.statut = 'en_cours'
+          AND e.duree_minutes > 0
+          AND s.date_debut < NOW() - INTERVAL (e.duree_minutes + ?) MINUTE
+    ");
+    $stmt->execute([$margeMinutes]);
+    $n = 0;
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+        if (cloturerSession((int)$id)) $n++;
+    }
+    return $n;
 }
 
 // Question glisser_deposer : texte = "énoncé\n---\ngabarit avec {{1}}, {{2}}…" ;

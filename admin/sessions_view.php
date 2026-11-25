@@ -4,6 +4,17 @@ require_once __DIR__ . '/../includes/functions.php';
 
 $pdo = getDB();
 
+// Clôture manuelle (forcée) d'une ou de toutes les sessions en cours de la vue
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cloturer'])) {
+    $ids = array_map('intval', (array)($_POST['session_ids'] ?? []));
+    $nb = 0;
+    foreach ($ids as $id) if (cloturerSession($id)) $nb++;
+    $q = $_GET; $q['cloturees'] = $nb;
+    header('Location: sessions_view.php?' . http_build_query($q));
+    exit;
+}
+$nbAuto = cloturerSessionsExpirees();
+
 $filterModule = (int)($_GET['module_id'] ?? 0);
 $filterEval   = (int)($_GET['evaluation_id'] ?? 0);
 $filterJour   = trim($_GET['jour'] ?? '');
@@ -78,6 +89,24 @@ if ($filterEval && $filterJour) {
                 </a>
             </div>
         </div>
+
+        <?php if (isset($_GET['cloturees'])): ?>
+        <div class="alert alert-success py-2"><i class="bi bi-lock me-1"></i><?= (int)$_GET['cloturees'] ?> session(s) clôturée(s) avec les réponses enregistrées.</div>
+        <?php endif; ?>
+        <?php if ($nbAuto > 0): ?>
+        <div class="alert alert-info py-2"><i class="bi bi-clock-history me-1"></i><?= $nbAuto ?> session(s) non achevée(s) clôturée(s) automatiquement (temps dépassé).</div>
+        <?php endif; ?>
+        <?php $idsEnCours = array_map(fn($s) => (int)$s['id'], array_filter($stagiaires, fn($s) => $s['statut'] === 'en_cours')); ?>
+        <?php if ($idsEnCours): ?>
+        <form method="POST" class="alert alert-warning d-flex align-items-center gap-3 py-2"
+              onsubmit="return confirm('Clôturer les <?= count($idsEnCours) ?> session(s) en cours ? Elles seront notées avec les réponses déjà enregistrées.')">
+            <?= csrfField() ?>
+            <input type="hidden" name="cloturer" value="1">
+            <?php foreach ($idsEnCours as $id): ?><input type="hidden" name="session_ids[]" value="<?= $id ?>"><?php endforeach; ?>
+            <span><i class="bi bi-hourglass-split me-1"></i><?= count($idsEnCours) ?> session(s) encore en cours.</span>
+            <button type="submit" class="btn btn-sm btn-warning ms-auto"><i class="bi bi-lock me-1"></i>Forcer la clôture de toutes</button>
+        </form>
+        <?php endif; ?>
 
         <!-- Stats rapides -->
         <div class="row g-3 mb-4">
@@ -167,6 +196,15 @@ if ($filterEval && $filterJour) {
                             <span class="badge bg-success-subtle text-success border border-success-subtle">Terminé</span>
                             <?php else: ?>
                             <span class="badge bg-warning-subtle text-warning border border-warning-subtle">En cours</span>
+                            <form method="POST" class="d-inline"
+                                  onsubmit="return confirm('Clôturer la session de ce stagiaire avec ses réponses enregistrées ?')">
+                                <?= csrfField() ?>
+                                <input type="hidden" name="cloturer" value="1">
+                                <input type="hidden" name="session_ids[]" value="<?= (int)$s['id'] ?>">
+                                <button type="submit" class="btn btn-outline-warning py-0 px-1 ms-1" style="font-size:11px" title="Forcer la clôture">
+                                    <i class="bi bi-lock"></i>
+                                </button>
+                            </form>
                             <?php endif; ?>
                         </td>
                         <td class="text-center">

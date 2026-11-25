@@ -21,55 +21,24 @@ $nbQ = count($questions);
 
 // ── Traitement de la soumission finale ──────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_final'])) {
-    foreach ($questions as $q) {
-        $qId     = (int)$q['id'];
-        $type    = $q['type'];
-        $points  = (float)$q['points'];
-        $choixId = null;
-        $repTxt  = null;
-        $correct = false;
-        $gained  = 0.0;
-
-        if ($type === 'texte_libre') {
-            $repTxt  = trim($_POST["rep_$qId"] ?? '');
-            $correct = false; // Correction manuelle par le formateur
-            $gained  = 0;
-        } elseif ($type === 'glisser_deposer') {
-            $placement = $_POST["dd_$qId"] ?? [];
-            $res     = corrigerGlisserDeposer($q, is_array($placement) ? $placement : []);
-            $repTxt  = $res['json'];
-            $correct = $res['correct'];
-            $gained  = $res['points'];
-        } elseif ($type === 'multiple') {
-            // Tout ou rien : exactement l'ensemble des bonnes réponses
-            $coches  = array_values(array_unique(array_map('intval', (array)($_POST["rep_$qId"] ?? []))));
-            $bonnes  = array_map(fn($c) => (int)$c['id'], array_filter($q['choix'], fn($c) => $c['is_correct']));
-            $textes  = array_column(array_filter($q['choix'], fn($c) => in_array((int)$c['id'], $coches, true)), 'texte');
-            $repTxt  = $textes ? implode(' | ', $textes) : null;
-            sort($coches); sort($bonnes);
-            $correct = $coches && $coches === $bonnes;
-            $gained  = $correct ? $points : 0.0;
-        } else {
-            $choixId = (int)($_POST["rep_$qId"] ?? 0);
-            if ($choixId > 0) {
-                // Vérifier si c'est correct
-                foreach ($q['choix'] as $c) {
-                    if ((int)$c['id'] === $choixId && $c['is_correct']) {
-                        $correct = true;
-                        $gained  = $points;
-                        break;
-                    }
-                }
-            }
-        }
-
-        sauvegarderReponse($sessionId, $qId, $choixId ?: null, $repTxt, $correct, $gained);
-    }
+    enregistrerReponsesQuiz($sessionId, $questions, $_POST);
 
     $result = terminerSession($sessionId);
     $_SESSION['eval_result'] = $result;
     redirect('result.php');
 }
+
+// ── Réponses déjà sauvegardées (rechargement / reprise après coupure) ──
+$saved = [];
+$stSaved = getDB()->prepare("SELECT question_id, choix_id, reponse_texte FROM reponses_stagiaires WHERE session_id = ? ORDER BY id");
+$stSaved->execute([$sessionId]);
+foreach ($stSaved->fetchAll() as $r) $saved[(int)$r['question_id']] = $r;
+$savedMultiple = function (array $q) use ($saved): array {
+    $txt = $saved[(int)$q['id']]['reponse_texte'] ?? null;
+    if ($txt === null || $txt === '') return [];
+    $textes = explode(' | ', $txt);
+    return array_map(fn($c) => (int)$c['id'], array_filter($q['choix'], fn($c) => in_array($c['texte'], $textes, true)));
+};
 
 // ── Décompte du temps ────────────────────────────────────────
 $dureeSecondes = (int)$session['duree_minutes'] * 60;
@@ -246,7 +215,8 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
                                    name="rep_<?= $qId ?>"
                                    id="rep_<?= $qId ?>_<?= $c['id'] ?>"
                                    value="<?= $c['id'] ?>"
-                                   data-qid="<?= $qId ?>">
+                                   data-qid="<?= $qId ?>"
+                                   <?= (int)($saved[$qId]['choix_id'] ?? 0) === (int)$c['id'] ? 'checked' : '' ?>>
                             <span><?= sanitize($c['texte']) ?></span>
                         </label>
                         <?php endforeach; ?>
@@ -255,6 +225,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
                 <?php elseif ($q['type'] === 'multiple'): ?>
                     <div class="choices-list ps-5">
                         <div class="text-muted small mb-2"><i class="bi bi-ui-checks me-1"></i>Plusieurs réponses possibles — cochez toutes les bonnes réponses</div>
+                        <?php $cochesSaved = $savedMultiple($q); ?>
                         <?php foreach ($q['choix'] as $c): ?>
                         <label class="choice-label d-flex align-items-center gap-3 p-3 rounded-3 mb-2 cursor-pointer"
                                for="rep_<?= $qId ?>_<?= (int)$c['id'] ?>">
@@ -263,7 +234,8 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
                                    name="rep_<?= $qId ?>[]"
                                    id="rep_<?= $qId ?>_<?= (int)$c['id'] ?>"
                                    value="<?= (int)$c['id'] ?>"
-                                   data-qid="<?= $qId ?>">
+                                   data-qid="<?= $qId ?>"
+                                   <?= in_array((int)$c['id'], $cochesSaved, true) ? 'checked' : '' ?>>
                             <span><?= sanitize($c['texte']) ?></span>
                         </label>
                         <?php endforeach; ?>
@@ -275,7 +247,7 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
                                   name="rep_<?= $qId ?>"
                                   rows="5"
                                   placeholder="Rédigez votre réponse ici..."
-                                  data-qid="<?= $qId ?>"></textarea>
+                                  data-qid="<?= $qId ?>"><?= sanitize((string)($saved[$qId]['reponse_texte'] ?? '')) ?></textarea>
                         <div class="text-muted small mt-1">
                             <i class="bi bi-info-circle me-1"></i>Réponse corrigée par le formateur
                         </div>
@@ -283,7 +255,8 @@ $groupe = $session['groupe_nom'] ?: $session['groupe_libre'];
 
                 <?php elseif ($q['type'] === 'glisser_deposer'): ?>
                     <?php $etiquettes = $q['choix']; shuffle($etiquettes); ?>
-                    <div class="ps-5 dd-question" data-qid="<?= $qId ?>">
+                    <div class="ps-5 dd-question" data-qid="<?= $qId ?>"
+                         data-saved="<?= sanitize((string)($saved[$qId]['reponse_texte'] ?? '')) ?>">
                         <div class="dd-template mb-3"><?php
                             foreach (preg_split('/(\{\{\d+\}\})/', $gabarit, -1, PREG_SPLIT_DELIM_CAPTURE) as $seg):
                                 if (preg_match('/^\{\{(\d+)\}\}$/', $seg, $mm)): ?><span class="dd-slot" data-slot="<?= (int)$mm[1] ?>" title="Déposer ici"></span><input type="hidden" name="dd_<?= $qId ?>[<?= (int)$mm[1] ?>]" value=""><?php
@@ -501,8 +474,10 @@ setInterval(updateTimer, 1000);
 // ── Progression ──────────────────────────────────────────────
 const total = <?= $nbQ ?>;
 const answered = new Set();
+let autosaveReady = false;
 
 function updateProgress() {
+    if (typeof scheduleAutosave === 'function') scheduleAutosave();
     const pct = Math.round(answered.size / total * 100);
     document.getElementById('progress-bar').style.width = pct + '%';
     document.getElementById('progress-text').textContent = `${answered.size} / ${total} répondu(s)`;
@@ -661,7 +636,57 @@ document.querySelectorAll('.dd-question').forEach(box => {
             else { clearSlot(slot); refresh(); }
         });
     });
+
+    // Restauration des étiquettes déjà sauvegardées
+    try {
+        const saved = box.dataset.saved ? JSON.parse(box.dataset.saved) : {};
+        Object.entries(saved).forEach(([trou, id]) => {
+            const slot = box.querySelector('.dd-slot[data-slot="' + trou + '"]');
+            if (slot && token(String(id))) place(slot, String(id));
+        });
+    } catch (e) {}
 });
+
+// ── Restauration de l'état « répondu » des réponses sauvegardées ──
+document.querySelectorAll('.answer-input').forEach(input => {
+    const qid = input.dataset.qid;
+    if ((input.checked) || (input.tagName === 'TEXTAREA' && input.value.trim() !== '')) {
+        answered.add(qid);
+        document.getElementById('card-' + qid).classList.add('answered');
+    }
+});
+updateProgress();
+autosaveReady = true;
+
+// ── Sauvegarde automatique (les réponses ne sont jamais perdues) ──
+let autosaveTimer = null;
+let autosaveDirty = false;
+function autosaveData() {
+    return new FormData(document.getElementById('quiz-form'));
+}
+function autosaveNow() {
+    if (quizSubmitted || !autosaveDirty) return;
+    autosaveDirty = false;
+    fetch('quiz_autosave.php', { method: 'POST', body: autosaveData(), credentials: 'same-origin' })
+        .then(r => r.json())
+        .then(j => { if (j.termine) { quizSubmitted = true; window.location.href = 'result.php'; } })
+        .catch(() => { autosaveDirty = true; }); // réessai au prochain cycle
+}
+function scheduleAutosave() {
+    if (!autosaveReady) return;
+    autosaveDirty = true;
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(autosaveNow, 1500);
+}
+setInterval(autosaveNow, 20000);
+// Fermeture de l'onglet / du navigateur, mise en veille : envoi immédiat
+function autosaveBeacon() {
+    if (quizSubmitted || !autosaveDirty) return;
+    autosaveDirty = false;
+    navigator.sendBeacon('quiz_autosave.php', autosaveData());
+}
+window.addEventListener('pagehide', autosaveBeacon);
+document.addEventListener('visibilitychange', () => { if (document.hidden) autosaveBeacon(); });
 </script>
 </body>
 </html>

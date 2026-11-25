@@ -6,6 +6,18 @@ $pdo = getDB();
 $msg    = '';
 $erreur = '';
 
+// Sessions dont le temps est dépassé (onglet fermé, coupure…) → clôturées avec les réponses sauvegardées
+$nbAutoCloturees = cloturerSessionsExpirees();
+if ($nbAutoCloturees > 0) $msg = "$nbAutoCloturees session(s) non achevée(s) clôturée(s) automatiquement (temps dépassé).";
+
+// ── Clôture manuelle d'une session en cours ───────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cloturer_session'])) {
+    $ok = cloturerSession((int)$_POST['cloturer_session']);
+    header("Location: results.php?" . http_build_query(array_merge($_GET, ['cloturees' => $ok ? 1 : 0])));
+    exit;
+}
+if (isset($_GET['cloturees'])) $msg = (int)$_GET['cloturees'] . " session(s) clôturée(s) avec les réponses enregistrées.";
+
 // ── Suppression d'un résultat ─────────────────────────────────
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete_session'])) {
     $delId = (int)($_POST['delete_id'] ?? 0);
@@ -39,6 +51,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['bulk_action'])) {
     $selectedIds = array_map('intval', $_POST['selected_ids'] ?? []);
 
     if (!empty($selectedIds)) {
+        if ($bulkAction === 'cloturer') {
+            $nb = 0;
+            foreach ($selectedIds as $id) if (cloturerSession($id)) $nb++;
+            $q = $_GET; unset($q['cloturees'], $q['deleted'], $q['bulk_deleted'], $q['count']);
+            header("Location: results.php?" . http_build_query(array_merge($q, ['cloturees' => $nb])));
+            exit;
+        }
         if ($bulkAction === 'delete') {
             $nbDeleted = 0;
             foreach ($selectedIds as $id) {
@@ -489,6 +508,10 @@ $stats = getStatsGlobales();
                 <button type="button" class="btn btn-outline-success btn-sm" onclick="bulkValiderNotes()">
                     <i class="bi bi-check-all me-1"></i>Valider notes IA
                 </button>
+                <button type="button" class="btn btn-outline-warning btn-sm" onclick="bulkCloturer()"
+                        title="Envoyer et clôturer les sessions en cours sélectionnées">
+                    <i class="bi bi-lock me-1"></i>Clôturer
+                </button>
                 <button type="button" class="btn btn-outline-danger btn-sm" onclick="bulkDeleteResults()">
                     <i class="bi bi-trash me-1"></i>Supprimer
                 </button>
@@ -585,6 +608,11 @@ $stats = getStatsGlobales();
                                 <span class="badge bg-success-subtle text-success border border-success-subtle small">Terminé</span>
                             <?php else: ?>
                                 <span class="badge bg-warning-subtle text-warning border border-warning-subtle small">En cours</span>
+                                <button type="button" class="btn btn-outline-warning py-0 px-1 ms-1" style="font-size:11px;"
+                                        title="Envoyer et clôturer avec les réponses enregistrées"
+                                        onclick="cloturerSession(<?= (int)$s['id'] ?>)">
+                                    <i class="bi bi-lock"></i>
+                                </button>
                             <?php endif; ?>
                         </td>
                         <?php
@@ -743,6 +771,27 @@ function clearSelection() {
     document.querySelectorAll('.result-checkbox').forEach(cb => cb.checked = false);
     document.getElementById('selectAll').checked = false;
     updateBulkActionBar();
+}
+
+function postCloture(ids) {
+    const form = document.createElement('form');
+    form.method = 'POST';
+    const add = (n, v) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = n; i.value = v; form.appendChild(i); };
+    add('csrf_token', document.querySelector('input[name="csrf_token"]')?.value ?? '');
+    add('bulk_action', 'cloturer');
+    ids.forEach(id => add('selected_ids[]', id));
+    document.body.appendChild(form);
+    form.submit();
+}
+function cloturerSession(id) {
+    if (!confirm('Clôturer cette session ? Elle sera notée avec les réponses déjà enregistrées et le stagiaire ne pourra plus continuer.')) return;
+    postCloture([id]);
+}
+function bulkCloturer() {
+    const ids = [...document.querySelectorAll('.result-checkbox:checked')].map(cb => cb.value);
+    if (!ids.length) { showToast('Sélectionnez au moins une session.', 'warning'); return; }
+    if (!confirm('Clôturer les sessions en cours sélectionnées (' + ids.length + ') avec les réponses enregistrées ? Les sessions déjà terminées ne sont pas modifiées.')) return;
+    postCloture(ids);
 }
 
 function bulkDeleteResults() {

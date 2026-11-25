@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
 
+cloturerSessionsExpirees();
 $stats    = getStatsGlobales();
 $sessions = getAllSessions(10, 0);
 ?>
