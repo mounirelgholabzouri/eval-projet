@@ -1,0 +1,138 @@
+{
+  "evaluation": {
+    "module": "M103 Concevoir un réseau informatique",
+    "titre": "Récap configuration de base des switchs (glisser-déposer)",
+    "sujet": "Récap configuration de base des switchs (glisser-déposer)",
+    "description": "Évaluation du TP récap : commandes de configuration de base de deux switchs 2960, SVI, Telnet, SSH, vérification et dépannage. Toutes les questions sont en glisser-déposer.",
+    "duree_minutes": 30,
+    "note_max": 20,
+    "questions": [
+      {
+        "type": "Glisser_deposer",
+        "question": "Mode de configuration globale. Glisse chaque commande devant l'action qu'elle réalise.",
+        "gabarit": "Donner le nom S1 au switch : {{1}}\nNe plus chercher un serveur DNS quand une commande est mal tapée : {{2}}\nProtéger le mode privilégié par un mot de passe haché (MD5) : {{3}} <MDP_ENABLE>\nMasquer les mots de passe en clair de la configuration : {{4}}\nAfficher un message d'avertissement à la connexion : {{5}} #Acces reserve - S1#",
+        "bonnes": ["hostname S1", "no ip domain-lookup", "enable secret", "service password-encryption", "banner motd"],
+        "leurres": ["enable password", "ip domain-name m103.lan", "banner login"],
+        "points": 2,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT.docx (partie 2)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Complète la sécurisation de la ligne console de S1 : mot de passe, affichage non coupé par les messages, déconnexion après 5 minutes d'inactivité.",
+        "gabarit": "S1(config)# {{1}}\nS1(config-line)# password <MDP_CONSOLE>\nS1(config-line)# {{2}}   (activer la demande du mot de passe)\nS1(config-line)# {{3}}   (affichage non coupé)\nS1(config-line)# {{4}}   (inactivité 5 min)",
+        "bonnes": ["line console 0", "login", "logging synchronous", "exec-timeout 5 0"],
+        "leurres": ["line vty 0 15", "login local", "exec-timeout 0 5"],
+        "points": 2,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT-CORRIGE.docx (parties 2 et 3)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "S1 doit être administrable à distance à l'adresse 192.168.10.11/24, avec la passerelle 192.168.10.254. Complète la configuration.",
+        "gabarit": "S1(config)# {{1}}\nS1(config-if)# {{2}}\nS1(config-if)# {{3}}\nS1(config-if)# exit\nS1(config)# {{4}}",
+        "bonnes": ["interface vlan 1", "ip address 192.168.10.11 255.255.255.0", "no shutdown", "ip default-gateway 192.168.10.254"],
+        "leurres": ["interface FastEthernet0/1", "ip address 192.168.10.11 255.255.255.255", "ip default-gateway 192.168.10.11", "shutdown"],
+        "points": 2,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT.docx (partie 3)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Partie 4 du TP : autorise uniquement Telnet sur les 16 lignes distantes de S2, protégées par le mot de passe de ligne.",
+        "gabarit": "S2(config)# {{1}}\nS2(config-line)# password <MDP_VTY>\nS2(config-line)# {{2}}   (activer la demande du mot de passe)\nS2(config-line)# {{3}}   (protocole autorisé)",
+        "bonnes": ["line vty 0 15", "login", "transport input telnet"],
+        "leurres": ["line console 0", "login local", "transport input ssh"],
+        "points": 1,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT-CORRIGE.docx (partie 4)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Mise en service de SSH version 2 sur un switch neuf. Place la bonne commande à chaque étape.",
+        "gabarit": "Étape 1 – nom d'hôte autre que Switch : {{1}}\nÉtape 2 – nom de domaine : {{2}}\nÉtape 3 – utilisateur local avec tous les droits : {{3}}\nÉtape 4 – génération de la clé : {{4}}\nÉtape 5 – version du protocole : {{5}}\nÉtape 6 – sur les lignes VTY, authentification par la base locale : {{6}}\nÉtape 7 – sur les lignes VTY, protocole autorisé : {{7}}",
+        "bonnes": ["hostname S1", "ip domain-name m103.lan", "username admin privilege 15 secret <MDP_ADMIN>", "crypto key generate rsa", "ip ssh version 2", "login local", "transport input ssh"],
+        "leurres": ["ip domain-lookup", "ip ssh version 1", "transport input telnet", "login"],
+        "points": 2,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT-CORRIGE.docx (partie 5)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Après crypto key generate rsa, le switch demande la taille de la clé. Complète.",
+        "gabarit": "How many bits in the modulus [512]: {{1}}   (taille demandée dans le TP)\nTaille minimale de clé pour activer SSH version 2 : {{2}} bits",
+        "bonnes": ["1024", "768"],
+        "leurres": ["512", "256"],
+        "points": 1,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT-CORRIGE.docx (partie 5, points de vigilance)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Tu dois vérifier ta configuration. Glisse la commande show qui répond à chaque besoin.",
+        "gabarit": "La SVI est-elle up/up avec la bonne adresse ? {{1}}\nSSH est-il activé, et en quelle version ? {{2}}\nQuelles sessions SSH sont ouvertes ? {{3}}\nSur quel port S1 a-t-il appris la MAC de PC-ADMIN ? {{4}}\nLa configuration est-elle bien sauvegardée en NVRAM ? {{5}}",
+        "bonnes": ["show ip interface brief", "show ip ssh", "show ssh", "show mac address-table", "show startup-config"],
+        "leurres": ["show running-config", "show vlan brief", "show users"],
+        "points": 2,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT.docx (partie 6)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Sauvegarde de la configuration. Complète.",
+        "gabarit": "Commande de sauvegarde : S1# {{1}}\nMémoire qui contient la configuration active (running-config) : {{2}}\nMémoire qui contient la configuration chargée au démarrage (startup-config) : {{3}}",
+        "bonnes": ["copy running-config startup-config", "RAM", "NVRAM"],
+        "leurres": ["copy startup-config running-config", "Flash", "ROM"],
+        "points": 1,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT-CORRIGE.docx (Q11)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Navigation entre les modes du switch. Glisse la commande qui permet chaque passage.",
+        "gabarit": "S1> vers S1# : {{1}}\nS1# vers S1(config)# : {{2}}\nS1(config-line)# directement vers S1# : {{3}}",
+        "bonnes": ["enable", "configure terminal", "end"],
+        "leurres": ["exit", "disable", "line console 0"],
+        "points": 1,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT-CORRIGE.docx (configurations S1 et S2)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Associe chaque commande à son effet sur la sécurité des accès.",
+        "gabarit": "Sur une ligne, demande seulement le mot de passe de la ligne : {{1}}\nSur une ligne, demande un nom d'utilisateur et son mot de passe (base locale) : {{2}}\nMot de passe du mode privilégié haché en MD5 (type 5) : {{3}}\nMasquage réversible des mots de passe (type 7) : {{4}}",
+        "bonnes": ["login", "login local", "enable secret", "service password-encryption"],
+        "leurres": ["enable password", "transport input ssh"],
+        "points": 1,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT-CORRIGE.docx (Q3, Q4, Q10)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Depuis l'invite de commandes de PC-ADMIN (192.168.10.100), glisse la commande qui réalise chaque test.",
+        "gabarit": "Tester que la SVI de S2 répond : {{1}}\nOuvrir une session Telnet sur S1 : {{2}}\nOuvrir une session SSH sur S2 avec l'utilisateur admin : {{3}}",
+        "bonnes": ["ping 192.168.10.12", "telnet 192.168.10.11", "ssh -l admin 192.168.10.12"],
+        "leurres": ["ping 192.168.10.254", "telnet -l admin 192.168.10.11", "ssh -l 192.168.10.12 admin"],
+        "points": 1,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT.docx (parties 3 à 5)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Panne 1 : PC-ADMIN pingue S2 mais pas S1. show ip interface brief affiche « Vlan1 192.168.10.11 YES manual administratively down down ». Complète la correction.",
+        "gabarit": "S1(config)# {{1}}\nS1(config-if)# {{2}}",
+        "bonnes": ["interface vlan 1", "no shutdown"],
+        "leurres": ["interface GigabitEthernet0/1", "shutdown", "ip default-gateway 192.168.10.254"],
+        "points": 1,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT.docx (partie 7, panne 1)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Panne 2 : sur S2, telnet 192.168.10.12 fonctionne mais ssh -l admin 192.168.10.12 est refusé. Les lignes VTY contiennent « login local » et « transport input telnet ». Complète la correction.",
+        "gabarit": "S2(config)# {{1}}\nS2(config-line)# {{2}}",
+        "bonnes": ["line vty 0 15", "transport input ssh"],
+        "leurres": ["line console 0", "transport input telnet", "ip ssh version 1"],
+        "points": 1,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT.docx (partie 7, panne 2)"
+      },
+      {
+        "type": "Glisser_deposer",
+        "question": "Panne 3 : sur un switch neuf, crypto key generate rsa répond « % Please define a hostname other than Switch. ». Remets les commandes de correction dans l'ordre.",
+        "gabarit": "Switch(config)# {{1}}\nS1(config)# {{2}}\nS1(config)# {{3}}",
+        "bonnes": ["hostname S1", "ip domain-name m103.lan", "crypto key generate rsa"],
+        "leurres": ["no ip domain-lookup", "enable secret <MDP_ENABLE>"],
+        "points": 2,
+        "source": "TP-RECAP-CONFIG-BASE-2-SWITCHS-ACCES-DISTANT.docx (partie 7, panne 3)"
+      }
+    ]
+  }
+}
