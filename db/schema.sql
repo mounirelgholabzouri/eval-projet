@@ -122,6 +122,15 @@ CREATE TABLE `evaluations` (
   CONSTRAINT `fk_eval_module` FOREIGN KEY (`module_id`) REFERENCES `modules` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `evaluation_stagiaires`;
+CREATE TABLE `evaluation_stagiaires` (
+  `evaluation_id` int NOT NULL,
+  `stagiaire_id` int NOT NULL,
+  PRIMARY KEY (`evaluation_id`,`stagiaire_id`),
+  KEY `idx_es_stagiaire` (`stagiaire_id`),
+  CONSTRAINT `fk_es_eval` FOREIGN KEY (`evaluation_id`) REFERENCES `evaluations` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_es_stagiaire` FOREIGN KEY (`stagiaire_id`) REFERENCES `stagiaires` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 DROP TABLE IF EXISTS `formateur_groupes`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;

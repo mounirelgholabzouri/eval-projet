@@ -17,7 +17,7 @@ $stagGroupe   = $_SESSION['stagiaire_groupe_nom'];
 $stagAnnee    = $_SESSION['stagiaire_annee'];
 
 $erreurs = [];
-$evaluations = getEvaluationsActives();
+$evaluations = getEvaluationsActives($stagiaireId);
 
 // Types de questions par évaluation (pour info stagiaire)
 $pdo = getDB();
@@ -36,7 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (empty($erreurs)) {
         $eval = getEvaluation($evaluationId);
-        if (!$eval || !$eval['actif'] || !$eval['module_actif'] || $eval['mode'] === 'pratique') {
+        if (!$eval || !$eval['actif'] || !$eval['module_actif'] || $eval['mode'] === 'pratique'
+            || !stagiaireAccesEvaluation($evaluationId, $stagiaireId)) {
             $erreurs[] = "Évaluation invalide.";
         } else {
             if ((int)$eval['nb_questions_total'] === 0) {

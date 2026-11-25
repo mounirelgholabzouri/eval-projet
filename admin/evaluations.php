@@ -52,11 +52,15 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
     ];
     $estPratique = $d['type'] === 'cc' && $d['mode'] === 'pratique';
     if (!$estPratique) $d['question_ids'] = $_POST['q'] ?? [];
+    $accesRestreint = !$estPratique && ($_POST['acces'] ?? 'tous') === 'restreint';
+    $stagAutorises  = $accesRestreint ? array_map('intval', $_POST['stag'] ?? []) : [];
 
     if (!getModule($moduleId)) {
         $erreur = "Choisissez un module.";
     } elseif ($d['type'] === 'cc' && (int)$d['numero'] < 1) {
         $erreur = "Indiquez le numéro du CC.";
+    } elseif ($accesRestreint && !$stagAutorises) {
+        $erreur = "Accès restreint : cochez au moins un stagiaire (ou choisissez « Tous les stagiaires »).";
     } else {
         try {
             if ($existante) {
@@ -64,6 +68,7 @@ if ($action === 'save' && $_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $evalId = creerEvaluation($d);
             }
+            setStagiairesEvaluation($evalId, $stagAutorises);
             header("Location: evaluations.php?module_id=$moduleId&saved=$evalId");
             exit;
         } catch (InvalidArgumentException $ex) {
@@ -103,6 +108,22 @@ if ($showForm) {
                            FROM questions q ORDER BY q.module_id, q.ordre, q.id")->fetchAll();
 }
 $selSet = array_flip($selection);
+
+// Accès restreint : stagiaires autorisés (aucun = ouverte à tous)
+$stagSel = [];
+$stagParGroupe = [];
+if ($showForm) {
+    $stagSel = $erreur ? ((($_POST['acces'] ?? '') === 'restreint') ? array_map('intval', $_POST['stag'] ?? []) : [])
+                       : ($edit ? getStagiairesEvaluation($evalId) : []);
+    foreach ($pdo->query("SELECT s.id, s.nom, s.prenom, g.id AS gid, g.nom AS gnom
+                          FROM stagiaires s JOIN groupes g ON g.id = s.groupe_id
+                          ORDER BY g.nom, s.nom, s.prenom")->fetchAll() as $s) {
+        $stagParGroupe[$s['gid']]['nom'] = $s['gnom'];
+        $stagParGroupe[$s['gid']]['stag'][] = $s;
+    }
+}
+$stagSelSet = array_flip($stagSel);
+$accesRestreintForm = !empty($stagSel) || ($erreur && ($_POST['acces'] ?? '') === 'restreint');
 $typeLabels = ['qcm' => 'QCM', 'vrai_faux' => 'V/F', 'texte_libre' => 'Libre', 'multiple' => 'Multiple', 'glisser_deposer' => 'Glisser'];
 ?>
 <!DOCTYPE html>
@@ -192,7 +213,11 @@ $typeLabels = ['qcm' => 'QCM', 'vrai_faux' => 'V/F', 'texte_libre' => 'Libre', '
                 <?php foreach ($evals as $e):
                     $pratique = $e['mode'] === 'pratique'; ?>
                     <tr>
-                        <td class="ps-4 fw-semibold"><?= sanitize($e['nom']) ?></td>
+                        <td class="ps-4 fw-semibold"><?= sanitize($e['nom']) ?>
+                            <?php if (!$pratique && $e['nb_stagiaires_autorises'] > 0): ?>
+                                <span class="badge bg-warning text-dark ms-1" title="Visible uniquement par les stagiaires sélectionnés"><i class="bi bi-lock-fill me-1"></i><?= (int)$e['nb_stagiaires_autorises'] ?> stagiaire(s)</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="text-center">
                             <?php if ($e['type'] === 'efm'): ?>
                                 <span class="badge bg-danger">EFM</span>
@@ -336,6 +361,39 @@ $typeLabels = ['qcm' => 'QCM', 'vrai_faux' => 'V/F', 'texte_libre' => 'Libre', '
                         <input type="checkbox" name="actif" class="form-check-input" id="fActif" <?= !empty($f['actif']) ? 'checked' : '' ?>>
                         <label class="form-check-label" for="fActif">Active (proposée aux stagiaires si le module est publié)</label>
                     </div>
+                    <div class="mb-3 theo-only">
+                        <label class="form-label fw-semibold d-block">Accès</label>
+                        <div class="btn-group w-100 mb-2">
+                            <input type="radio" class="btn-check" name="acces" value="tous" id="aTous" <?= !$accesRestreintForm ? 'checked' : '' ?>>
+                            <label class="btn btn-outline-secondary btn-sm" for="aTous"><i class="bi bi-people me-1"></i>Tous les stagiaires</label>
+                            <input type="radio" class="btn-check" name="acces" value="restreint" id="aRestreint" <?= $accesRestreintForm ? 'checked' : '' ?>>
+                            <label class="btn btn-outline-warning btn-sm" for="aRestreint"><i class="bi bi-lock me-1"></i>Certains stagiaires</label>
+                        </div>
+                        <div id="stagPicker" class="border rounded-3 bg-white" style="<?= $accesRestreintForm ? '' : 'display:none' ?>">
+                            <div class="d-flex gap-2 align-items-center p-2 border-bottom">
+                                <input type="search" id="sFiltre" class="form-control form-control-sm" placeholder="Filtrer…">
+                                <span class="badge bg-warning text-dark text-nowrap" id="sCount">0</span>
+                            </div>
+                            <div style="max-height:300px; overflow-y:auto">
+                            <?php foreach ($stagParGroupe as $gid => $g): ?>
+                                <div class="s-groupe border-bottom">
+                                    <label class="d-flex gap-2 px-2 py-1 bg-light small fw-semibold" style="cursor:pointer">
+                                        <input type="checkbox" class="form-check-input g-check" data-g="<?= (int)$gid ?>">
+                                        <?= sanitize($g['nom']) ?> <span class="text-muted fw-normal">(<?= count($g['stag']) ?>)</span>
+                                    </label>
+                                    <?php foreach ($g['stag'] as $s): ?>
+                                    <label class="s-row d-flex gap-2 px-2 py-1 ps-4 small" style="cursor:pointer">
+                                        <input type="checkbox" class="form-check-input s-check" name="stag[]" value="<?= (int)$s['id'] ?>" data-g="<?= (int)$gid ?>"
+                                               <?= isset($stagSelSet[$s['id']]) ? 'checked' : '' ?>>
+                                        <span class="s-nom"><?= sanitize($s['nom'] . ' ' . $s['prenom']) ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                </div>
+                            <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <div class="form-text">« Certains stagiaires » : l'évaluation n'apparaît que pour les stagiaires cochés.</div>
+                    </div>
                     <div class="alert alert-warning small py-2 pratique-only">
                         <i class="bi bi-info-circle me-1"></i>CC pratique : les notes sont saisies dans <strong>Gestion CC/EFM</strong>.
                     </div>
@@ -463,6 +521,42 @@ if (form) {
         form.querySelector('[name=duree_minutes]').value = efm ? 120 : 30;
         form.querySelector('[name=note_max]').value = efm ? 40 : 20;
     }));
+    // Accès restreint
+    const picker = $('#stagPicker');
+    function majStag() {
+        $('#sCount').textContent = form.querySelectorAll('.s-check:checked').length;
+        form.querySelectorAll('.g-check').forEach(g => {
+            const items = [...form.querySelectorAll('.s-check[data-g="' + g.dataset.g + '"]')];
+            const n = items.filter(c => c.checked).length;
+            g.checked = n > 0 && n === items.length;
+            g.indeterminate = n > 0 && n < items.length;
+        });
+    }
+    form.querySelectorAll('input[name=acces]').forEach(r => r.addEventListener('change', () => {
+        picker.style.display = $('#aRestreint').checked ? '' : 'none';
+    }));
+    form.querySelectorAll('.g-check').forEach(g => g.addEventListener('change', () => {
+        form.querySelectorAll('.s-check[data-g="' + g.dataset.g + '"]').forEach(c => {
+            if (!c.closest('.s-row').classList.contains('d-none')) c.checked = g.checked;
+        });
+        majStag();
+    }));
+    form.querySelectorAll('.s-check').forEach(c => c.addEventListener('change', majStag));
+    $('#sFiltre').addEventListener('input', function () {
+        const t = this.value.toLowerCase();
+        form.querySelectorAll('.s-groupe').forEach(grp => {
+            const gNom = grp.querySelector('.g-check').parentElement.textContent.toLowerCase();
+            let vis = 0;
+            grp.querySelectorAll('.s-row').forEach(row => {
+                const ok = !t || gNom.includes(t) || row.querySelector('.s-nom').textContent.toLowerCase().includes(t);
+                row.classList.toggle('d-none', !ok);
+                if (ok) vis++;
+            });
+            grp.classList.toggle('d-none', vis === 0);
+        });
+    });
+    majStag();
+
     majForm(); majCompteur(); filtrer();
     form.scrollIntoView({ behavior: 'smooth' });
 }

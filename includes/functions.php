@@ -166,7 +166,8 @@ const EVALUATION_SELECT = "
     SELECT e.*, m.nom AS module_nom, m.code AS module_code, m.filiere AS module_filiere,
            m.description AS module_description, m.actif AS module_actif,
            (SELECT COUNT(*) FROM evaluation_questions eq WHERE eq.evaluation_id = e.id) AS nb_questions_total,
-           (SELECT COUNT(*) FROM sessions_eval s WHERE s.evaluation_id = e.id) AS nb_sessions
+           (SELECT COUNT(*) FROM sessions_eval s WHERE s.evaluation_id = e.id) AS nb_sessions,
+           (SELECT COUNT(*) FROM evaluation_stagiaires es WHERE es.evaluation_id = e.id) AS nb_stagiaires_autorises
     FROM evaluations e
     JOIN modules m ON m.id = e.module_id";
 
@@ -182,12 +183,50 @@ function _enrichirEvaluation(array $e): array {
     return $e;
 }
 
-/** Évaluations en ligne proposées aux stagiaires (CC théoriques et EFM actifs). */
-function getEvaluationsActives(): array {
-    $rows = getDB()->query(EVALUATION_SELECT . "
-        WHERE e.actif = 1 AND m.actif = 1 AND (e.mode IS NULL OR e.mode = 'theorique')
-        ORDER BY e.nom")->fetchAll();
-    return array_map('_enrichirEvaluation', $rows);
+/**
+ * Évaluations en ligne proposées aux stagiaires (CC théoriques et EFM actifs).
+ * Avec $stagiaireId : exclut les évaluations réservées à d'autres stagiaires
+ * (voir evaluation_stagiaires — aucune ligne = ouverte à tous).
+ */
+function getEvaluationsActives(?int $stagiaireId = null): array {
+    $sql = EVALUATION_SELECT . "
+        WHERE e.actif = 1 AND m.actif = 1 AND (e.mode IS NULL OR e.mode = 'theorique')";
+    $params = [];
+    if ($stagiaireId !== null) {
+        $sql .= " AND " . _SQL_EVAL_ACCES;
+        $params = [$stagiaireId];
+    }
+    $stmt = getDB()->prepare($sql . " ORDER BY e.nom");
+    $stmt->execute($params);
+    return array_map('_enrichirEvaluation', $stmt->fetchAll());
+}
+
+/** Condition SQL (alias e, 1 paramètre : stagiaire_id) : évaluation ouverte à tous ou réservée à ce stagiaire. */
+const _SQL_EVAL_ACCES = "(NOT EXISTS (SELECT 1 FROM evaluation_stagiaires es WHERE es.evaluation_id = e.id)
+         OR EXISTS (SELECT 1 FROM evaluation_stagiaires es WHERE es.evaluation_id = e.id AND es.stagiaire_id = ?))";
+
+/** Le stagiaire peut-il passer cette évaluation (au regard de la restriction d'accès uniquement) ? */
+function stagiaireAccesEvaluation(int $evaluationId, int $stagiaireId): bool {
+    $stmt = getDB()->prepare("SELECT 1 FROM evaluations e WHERE e.id = ? AND " . _SQL_EVAL_ACCES);
+    $stmt->execute([$evaluationId, $stagiaireId]);
+    return (bool)$stmt->fetchColumn();
+}
+
+/** Stagiaires autorisés sur une évaluation ([] = ouverte à tous). */
+function getStagiairesEvaluation(int $evaluationId): array {
+    $stmt = getDB()->prepare("SELECT stagiaire_id FROM evaluation_stagiaires WHERE evaluation_id = ?");
+    $stmt->execute([$evaluationId]);
+    return array_map('intval', $stmt->fetchAll(PDO::FETCH_COLUMN));
+}
+
+/** Remplace la liste des stagiaires autorisés ([] = ouverte à tous). */
+function setStagiairesEvaluation(int $evaluationId, array $stagiaireIds): void {
+    $pdo = getDB();
+    $pdo->prepare("DELETE FROM evaluation_stagiaires WHERE evaluation_id = ?")->execute([$evaluationId]);
+    $ins = $pdo->prepare("INSERT IGNORE INTO evaluation_stagiaires (evaluation_id, stagiaire_id) VALUES (?, ?)");
+    foreach (array_unique(array_map('intval', $stagiaireIds)) as $sid) {
+        if ($sid > 0) $ins->execute([$evaluationId, $sid]);
+    }
 }
 
 function getEvaluation(int $id): ?array {

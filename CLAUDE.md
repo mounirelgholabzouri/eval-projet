@@ -101,6 +101,7 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 - `getQuestionsEvaluation($evalId, $questionIds)` pour le quiz ; `getQuestionsModule($moduleId)` = banque admin.
 - `getReponsesSession($sessionId)` : si `questions_ids` présent → **LEFT JOIN** ; sinon (anciennes sessions) → réponses seules.
 - Stagiaire : seules les évaluations `actif=1`, `mode` théorique ou EFM, d'un module `actif=1` sont proposées.
+- **Accès restreint** : table `evaluation_stagiaires (evaluation_id, stagiaire_id)` — aucune ligne = ouverte à tous ; sinon seuls les stagiaires listés la voient (`getEvaluationsActives($stagiaireId)`, `stagiaireAccesEvaluation()`, `setStagiairesEvaluation()`). Réglage dans `admin/evaluations.php` (bloc « Accès »). Migration `db/migrations/evaluation_stagiaires.php`.
 - **⚠ Import JSON** : vérifier que `is_correct = 1` est bien positionné sur au moins un choix par question — sinon tous les stagiaires obtiennent 0.
 
 ## Vues admin
