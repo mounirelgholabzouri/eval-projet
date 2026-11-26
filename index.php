@@ -16,6 +16,14 @@ $stagGroupeId = (int)$_SESSION['stagiaire_groupe_id'];
 $stagGroupe   = $_SESSION['stagiaire_groupe_nom'];
 $stagAnnee    = $_SESSION['stagiaire_annee'];
 
+// Groupe à jour (l'admin peut avoir changé le stagiaire de groupe depuis sa connexion)
+if ($stagFrais = getStagiaire($stagiaireId)) {
+    $stagGroupeId = (int)$stagFrais['groupe_id'];
+    $stagGroupe   = $stagFrais['groupe_nom'];
+    $_SESSION['stagiaire_groupe_id']  = $stagGroupeId;
+    $_SESSION['stagiaire_groupe_nom'] = $stagGroupe;
+}
+
 $erreurs = [];
 $evaluations = getEvaluationsActives($stagiaireId);
 

@@ -523,6 +523,15 @@ function creerSession(string $nom, string $prenom, ?int $groupeId, string $group
     $eval = getEvaluation($evaluationId);
     if (!$eval) throw new \InvalidArgumentException("Évaluation $evaluationId introuvable.");
 
+    // Groupe réel du stagiaire en base (la session PHP peut garder un groupe périmé
+    // si l'admin a changé le stagiaire de groupe après sa connexion)
+    if ($stagiaireId) {
+        $g = $pdo->prepare("SELECT groupe_id FROM stagiaires WHERE id = ?");
+        $g->execute([$stagiaireId]);
+        $gid = $g->fetchColumn();
+        if ($gid) $groupeId = (int)$gid;
+    }
+
     // Liste figée pour la session : tirage aléatoire si un quota est défini
     $questionsIds = getQuestionIdsEvaluation($evaluationId);
     $nbMax = $eval['nb_questions'] ? (int)$eval['nb_questions'] : 0;
