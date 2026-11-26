@@ -371,7 +371,7 @@ $totalPointsModule = 0;
 
 if ($moduleId > 0 && $module) {
     $questionsCurrent = getQuestionsModule($moduleId);
-    $statsQuestions   = getStatsQuestionsModule($moduleId); // taux de réussite (enregistré par « Préparer CC3 »)
+    $statsQuestions   = getStatsQuestionsModule($moduleId); // taux de réussite en direct, toutes sessions et tous groupes
 
     $totalPointsModule = array_sum(array_column($questionsCurrent, 'points'));
 
@@ -619,7 +619,7 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
                                 <?php if ($st = $statsQuestions[(int)$q['id']] ?? null):
                                     $cl = $st['taux'] >= 50 ? 'success' : ($st['taux'] >= 30 ? 'warning' : 'danger');
                                     $det = implode(' · ', array_map(fn($g, $t) => "$g : " . round($t) . ' %', array_keys($st['groupes']), $st['groupes'])); ?>
-                                <span class="badge bg-<?= $cl ?>-subtle text-<?= $cl ?> small" title="Taux de réussite par groupe — <?= htmlspecialchars($det) ?>">
+                                <span class="badge bg-<?= $cl ?>-subtle text-<?= $cl ?> small" title="Réussite toutes sessions — par groupe : <?= htmlspecialchars($det) ?>">
                                     <i class="bi bi-graph-up me-1"></i>Réussite <?= $st['taux'] ?> % (<?= $st['ok'] ?>/<?= $st['n'] ?>)
                                 </span>
                                 <?php endif; ?>

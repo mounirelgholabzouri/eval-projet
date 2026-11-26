@@ -62,17 +62,29 @@ function getOrCreateEvalCC(PDO $pdo, int $mid, int $gid, int $num): int {
 // Les contrôles théoriques d'un module passés par un groupe (dans l'ordre numéro, puis création)
 // sont découpés en 2 parties consécutives (8 → 4+4, 7 → 4+3) ; la moyenne de chaque partie
 // devient le total des grilles CC1 et CC2 Pratique du groupe.
-// CC3 : évaluation théorique créée avec les CC3_NB_QUESTIONS questions des contrôles regroupés
-// les mieux réussies par le groupe (taux ≥ CC3_SEUIL_REUSSITE) ; sa note devient la grille CC3.
+// CC3 : évaluation théorique de 20 questions tirées de la banque du module, réparties par taux de
+// réussite : 5 au hasard dans chaque tranche (≥ 80 %, 50–80 %, 20–50 %, < 20 %). Taux du groupe
+// si assez de réponses, sinon taux tous groupes confondus. Sa note devient la grille CC3.
 const SEUIL_CONTROLE_PASSE = 0.30; // part du groupe ayant passé un contrôle pour qu'il compte (absents = 0)
-const CC3_NB_QUESTIONS     = 20;
-const CC3_SEUIL_REUSSITE   = 0.50; // part des stagiaires ayant répondu juste
+const CC3_PAR_TRANCHE      = 5;
+const CC3_TRANCHES         = [     // [taux min inclus, taux max exclu, libellé]
+    [0.80, 1.01, '≥ 80 %'],
+    [0.50, 0.80, '50 – 80 %'],
+    [0.20, 0.50, '20 – 50 %'],
+    [0.00, 0.20, '< 20 %'],
+];
+const CC3_NB_QUESTIONS     = CC3_PAR_TRANCHE * 4;
 const CC3_MIN_REPONSES     = 3;    // nb minimal de stagiaires ayant eu la question (évite 1/1 = 100 %)
+
+function trancheCC3(float $taux): int {
+    foreach (CC3_TRANCHES as $i => [$min, $max]) if ($taux >= $min && $taux < $max) return $i;
+    return count(CC3_TRANCHES) - 1;
+}
 
 function estRegroupe(?string $metaJson): bool {
     return !empty((json_decode($metaJson ?? '{}', true) ?: [])['regroupe']);
 }
-/** Évaluation CC3 de synthèse (créée depuis les questions les mieux réussies) ? */
+/** Évaluation CC3 de synthèse (créée depuis les questions tirées par tranche de réussite) ? */
 function estCC3Synthese(?string $metaJson): bool {
     return !empty((json_decode($metaJson ?? '{}', true) ?: [])['cc3_groupe_id']);
 }
@@ -104,56 +116,70 @@ function notesEvalCC3(PDO $pdo, int $evalId, int $groupeId, array $roster): ?arr
     return $res;
 }
 /**
- * Questions des contrôles regroupés classées par taux de réussite du groupe.
- * Retourne ['choisies' => [qid…], 'stats' => [qid => ['texte','partie','controle','n','ok','taux']], 'nb_eligibles' => n]
- * Sélection : alternance partie 1 / partie 2 parmi les questions ≥ seuil, complétée si besoin par les meilleures restantes.
+ * Tirage des questions du CC3 dans la banque du module, par tranche de taux de réussite.
+ * Taux d'une question = dernière réponse de chaque stagiaire (sessions terminées, hors évaluations CC3) :
+ * celui du groupe s'il a ≥ CC3_MIN_REPONSES réponses, sinon tous groupes confondus (≥ CC3_MIN_REPONSES),
+ * sinon la question est ignorée (jamais assez posée).
+ * 5 questions au hasard par tranche ; une tranche trop petite est complétée par la tranche la plus proche.
+ * Retourne ['choisies' => [qid…], 'stats' => [qid => ['texte','n','ok','taux','source','tranche']],
+ *           'stats_groupe' => [qid => ['n','ok']], 'dispo' => [tranche => nb], 'nb_eligibles' => n]
  */
-function selectionnerQuestionsCC3(PDO $pdo, array $rg, int $groupeId, array $roster): array {
-    $res = ['choisies' => [], 'stats' => [], 'nb_eligibles' => 0];
-    if (!$rg['parties']) return $res;
-    $partieDe = [];
-    foreach ($rg['parties'] as $p => $ids) foreach ($ids as $id) $partieDe[$id] = $p;
-    $in = implode(',', array_fill(0, count($partieDe), '?'));
-    $q = $pdo->prepare("SELECT s.evaluation_id, s.stagiaire_id, r.question_id, r.is_correct, q.texte
+function selectionnerQuestionsCC3(PDO $pdo, int $moduleId, int $groupeId, array $roster): array {
+    $nbT = count(CC3_TRANCHES);
+    $res = ['choisies' => [], 'stats' => [], 'stats_groupe' => [], 'dispo' => array_fill(0, $nbT, 0), 'nb_eligibles' => 0];
+    $q = $pdo->prepare("SELECT s.stagiaire_id, s.groupe_id, r.question_id, MAX(COALESCE(r.is_correct, 0)) AS ok,
+                               MAX(s.date_fin) AS date_fin
                         FROM reponses_stagiaires r
                         JOIN sessions_eval s ON s.id = r.session_id
                         JOIN questions q     ON q.id = r.question_id
-                        WHERE s.evaluation_id IN ($in) AND s.groupe_id = ? AND s.statut = 'termine'
-                        ORDER BY s.date_fin");
-    $q->execute(array_merge(array_keys($partieDe), [$groupeId]));
-    $last = []; $info = [];
+                        LEFT JOIN evaluations e ON e.id = s.evaluation_id
+                        WHERE q.module_id = ? AND s.statut = 'termine'
+                          AND JSON_EXTRACT(COALESCE(e.meta_json, '{}'), '$.cc3_groupe_id') IS NULL
+                        GROUP BY r.session_id, s.stagiaire_id, s.groupe_id, r.question_id
+                        ORDER BY date_fin");
+    $q->execute([$moduleId]);
+    $grp = []; $tous = [];
     foreach ($q->fetchAll() as $r) {
-        $sid = (int)$r['stagiaire_id']; $qid = (int)$r['question_id'];
-        if (!isset($roster[$sid])) continue;
-        $last[$qid][$sid] = (int)$r['is_correct'];          // dernière réponse du stagiaire à la question
-        if (!isset($info[$qid])) $info[$qid] = ['texte' => $r['texte'], 'eval' => (int)$r['evaluation_id']];
+        $sid = (int)$r['stagiaire_id']; $qid = (int)$r['question_id']; $ok = (int)$r['ok'];
+        $tous[$qid][$sid] = $ok;                                   // dernière réponse du stagiaire
+        if ((int)$r['groupe_id'] === $groupeId && isset($roster[$sid])) $grp[$qid][$sid] = $ok;
     }
-    foreach ($last as $qid => $parStg) {
-        $n = count($parStg); $ok = array_sum($parStg);
-        $res['stats'][$qid] = [
-            'texte' => $info[$qid]['texte'], 'partie' => $partieDe[$info[$qid]['eval']],
-            'controle' => $rg['controles'][$info[$qid]['eval']] ?? '', 'n' => $n, 'ok' => $ok, 'taux' => $n ? $ok / $n : 0,
-        ];
+    foreach ($grp as $qid => $p) $res['stats_groupe'][$qid] = ['n' => count($p), 'ok' => array_sum($p)];
+    $minGrp = max(1, min(CC3_MIN_REPONSES, count($roster)));
+    $textes = [];
+    if ($tous) {
+        $in = implode(',', array_fill(0, count($tous), '?'));
+        $t = $pdo->prepare("SELECT id, texte FROM questions WHERE id IN ($in)");
+        $t->execute(array_keys($tous));
+        $textes = $t->fetchAll(PDO::FETCH_KEY_PAIR);
     }
-    $ordre = fn($a, $b) => [$res['stats'][$b]['taux'], $res['stats'][$b]['n']] <=> [$res['stats'][$a]['taux'], $res['stats'][$a]['n']];
-    $elig = []; $reste = [];
-    foreach ($res['stats'] as $qid => $s) {
-        if ($s['n'] >= min(CC3_MIN_REPONSES, count($roster)) && $s['taux'] >= CC3_SEUIL_REUSSITE) $elig[$s['partie']][] = $qid;
-        else $reste[] = $qid;
+    $parTranche = array_fill(0, $nbT, []);
+    foreach ($tous as $qid => $pTous) {
+        if (!isset($textes[$qid])) continue;
+        if (isset($grp[$qid]) && count($grp[$qid]) >= $minGrp) { $p = $grp[$qid]; $src = 'groupe'; }
+        elseif (count($pTous) >= CC3_MIN_REPONSES)             { $p = $pTous;      $src = 'tous'; }
+        else continue;
+        $n = count($p); $ok = array_sum($p); $taux = $ok / $n; $tr = trancheCC3($taux);
+        $res['stats'][$qid] = ['texte' => $textes[$qid], 'n' => $n, 'ok' => $ok, 'taux' => $taux, 'source' => $src, 'tranche' => $tr];
+        $parTranche[$tr][] = $qid;
     }
-    foreach ($elig as &$l) usort($l, $ordre); unset($l);
-    usort($reste, $ordre);
-    $res['nb_eligibles'] = array_sum(array_map('count', $elig));
-    // Alternance entre les 2 parties pour que les deux groupes de contrôles soient représentés
-    while (count($res['choisies']) < CC3_NB_QUESTIONS && array_filter($elig)) {
-        foreach (array_keys($elig) as $p) {
-            if ($elig[$p] && count($res['choisies']) < CC3_NB_QUESTIONS) $res['choisies'][] = array_shift($elig[$p]);
+    foreach ($parTranche as $tr => &$l) { $res['dispo'][$tr] = count($l); shuffle($l); } unset($l);
+    $res['nb_eligibles'] = count($res['stats']);
+    // 1er passage : 5 par tranche ; 2e : les places manquantes sont prises dans la tranche voisine la plus proche
+    $pris = array_fill(0, $nbT, []);
+    foreach ($parTranche as $tr => &$l) $pris[$tr] = array_splice($l, 0, CC3_PAR_TRANCHE); unset($l);
+    foreach (array_keys($pris) as $tr) {
+        for ($d = 1; count($pris[$tr]) < CC3_PAR_TRANCHE && $d < $nbT; $d++) {
+            foreach ([$tr - $d, $tr + $d] as $v) {
+                if (!isset($parTranche[$v])) continue;
+                $manque = CC3_PAR_TRANCHE - count($pris[$tr]);
+                if ($manque > 0) $pris[$tr] = array_merge($pris[$tr], array_splice($parTranche[$v], 0, $manque));
+            }
         }
     }
-    foreach ($reste as $qid) {
-        if (count($res['choisies']) >= CC3_NB_QUESTIONS) break;
-        $res['choisies'][] = $qid;
-    }
+    foreach ($pris as $l) foreach ($l as $qid) $res['choisies'][] = $qid;
+    // Ordre final : du plus réussi au moins réussi
+    usort($res['choisies'], fn($a, $b) => $res['stats'][$b]['taux'] <=> $res['stats'][$a]['taux']);
     return $res;
 }
 /** ['controles' => [id => nom], 'parties' => [[ids]…], 'notes' => [sid => [p => note]], 'detail' => [sid => [id => note]]] */
@@ -532,17 +558,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['recap_confirm'])) {
     }
 }
 
-// ── POST : Préparer le CC3 (questions les mieux réussies → évaluation théorique) ─
+// ── POST : Préparer le CC3 (5 questions par tranche de réussite → évaluation théorique) ─
 $cc3Prep = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['cc3_preview']) || isset($_POST['cc3_confirm']))) {
     verifyCsrfToken();
     if (!$groupeId || !$moduleId) { $erreur = "Sélectionnez un groupe et un module."; }
     else {
         $rg  = calculerRegroupement($pdo, $moduleId, $groupeId, $roster);
-        $sel = selectionnerQuestionsCC3($pdo, $rg, $groupeId, $roster);
-        enregistrerStatsQuestions($groupeId, $sel['stats']); // taux de réussite → banque de questions
+        $sel = selectionnerQuestionsCC3($pdo, $moduleId, $groupeId, $roster);
+        enregistrerStatsQuestions($groupeId, $sel['stats_groupe']); // taux de réussite du groupe → banque de questions
         if (!$sel['choisies']) {
-            $erreur = "Aucune réponse trouvée dans les contrôles théoriques de ce groupe pour ce module.";
+            $erreur = "Aucune question de ce module n'a encore assez de réponses (minimum " . CC3_MIN_REPONSES . ") pour calculer un taux de réussite.";
         } elseif (isset($_POST['cc3_confirm'])) {
             $existante = findEvalCC3($pdo, $moduleId, $groupeId);
             $pdo->beginTransaction();
@@ -569,7 +595,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['cc3_preview']) || is
     }
 }
 if (isset($_GET['cc3_cree'])) {
-    $msg = "Évaluation CC3 enregistrée (questions les mieux réussies, réservée aux stagiaires du groupe). "
+    $msg = "Évaluation CC3 enregistrée (5 questions par tranche de réussite, réservée aux stagiaires du groupe). "
          . "Une fois passée par les stagiaires, cliquez sur « Générer CC3 » pour remplir la grille.";
 }
 
@@ -615,7 +641,7 @@ if (isset($_GET['regroupe'])) $msg = (int)$_GET['regroupe'] . " note(s) injecté
 
 // ── POST : Générer CCn ────────────────────────────────────────
 // CC1 ← moyenne de la partie 1, CC2 ← moyenne de la partie 2 du regroupement des contrôles ;
-// CC3 ← note de l'évaluation CC3 de synthèse (questions les mieux réussies).
+// CC3 ← note de l'évaluation CC3 de synthèse (tirage par tranche de réussite).
 // Les notes sont pré-remplies dans la grille ; elles ne sont enregistrées qu'au clic sur « Sauvegarder ».
 $partieGen = $isPrat ? (int)($cfg['numero'] ?? 1) - 1 : null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
@@ -1032,12 +1058,12 @@ window.addEventListener('load', function() {
                         <i class="bi bi-diagram-3 me-1"></i>Regrouper → CC1/CC2
                     </button>
                     <button form="genForm" type="submit" name="cc3_preview" value="1" class="btn btn-sm btn-outline-warning"
-                            title="Crée l'évaluation CC3 avec les <?= CC3_NB_QUESTIONS ?> questions des contrôles réussies par au moins <?= (int)(CC3_SEUIL_REUSSITE * 100) ?> % du groupe">
+                            title="Crée l'évaluation CC3 : <?= CC3_NB_QUESTIONS ?> questions de la banque du module, <?= CC3_PAR_TRANCHE ?> au hasard par tranche de réussite (≥ 80 %, 50–80 %, 20–50 %, < 20 %)">
                         <i class="bi bi-stars me-1"></i>Préparer CC3
                     </button>
                     <?php if ($partieGen !== null): ?>
                     <button form="genForm" type="submit" name="generate" value="1" class="btn btn-sm btn-outline-warning"
-                            title="<?= $partieGen === 2 ? "Note de l'évaluation CC3 (questions les mieux réussies) passée par le groupe" : 'Moyenne de la partie ' . ($partieGen + 1) . ' des contrôles théoriques du groupe (regroupés en 2 parties)' ?>">
+                            title="<?= $partieGen === 2 ? "Note de l'évaluation CC3 (tirage par tranche de réussite) passée par le groupe" : 'Moyenne de la partie ' . ($partieGen + 1) . ' des contrôles théoriques du groupe (regroupés en 2 parties)' ?>">
                         <i class="bi bi-magic me-1"></i><?= $partieGen === 2 ? 'Générer CC3' : 'Générer de moyenne CC' . ($partieGen + 1) ?>
                     </button>
                     <?php endif; ?>
@@ -1119,21 +1145,29 @@ window.addEventListener('load', function() {
     <?php endif; ?>
 
     <?php if ($cc3Prep): $c3 = $cc3Prep; $nbChoisies = count($c3['choisies']); ?>
-    <!-- ── Aperçu du CC3 (questions les mieux réussies) ─────────── -->
+    <!-- ── Aperçu du CC3 (tirage par tranche de réussite) ─────────── -->
     <div class="card border-warning shadow-sm rounded-4 mb-4">
         <div class="card-header bg-warning fw-semibold">
-            <i class="bi bi-stars me-2"></i>CC3 — questions les mieux réussies — <?= htmlspecialchars($groupeNom) ?> — <?= htmlspecialchars($moduleNom) ?>
+            <i class="bi bi-stars me-2"></i>CC3 — tirage par tranche de réussite — <?= htmlspecialchars($groupeNom) ?> — <?= htmlspecialchars($moduleNom) ?>
         </div>
         <div class="card-body">
             <p class="small mb-2">
-                <?= (int)$c3['nb_eligibles'] ?> question(s) des contrôles regroupés (CC1 + CC2) réussie(s) par au moins
-                <?= (int)(CC3_SEUIL_REUSSITE * 100) ?> % des stagiaires du groupe qui les ont eues (minimum <?= CC3_MIN_REPONSES ?> réponses).
-                <?= $nbChoisies ?> retenue(s), en alternant les deux parties.
+                <?= (int)$c3['nb_eligibles'] ?> question(s) de la banque du module ont un taux de réussite (minimum <?= CC3_MIN_REPONSES ?> réponses :
+                taux du groupe, sinon tous groupes confondus). <?= CC3_PAR_TRANCHE ?> tirées au hasard par tranche — <?= $nbChoisies ?> retenue(s).
+                Cliquez à nouveau sur « Préparer CC3 » pour un autre tirage.
             </p>
-            <?php if ($c3['nb_eligibles'] < CC3_NB_QUESTIONS): ?>
+            <div class="d-flex flex-wrap gap-2 mb-2 small">
+                <?php foreach (CC3_TRANCHES as $tr => $t):
+                    $nbPris = count(array_filter($c3['choisies'], fn($qid) => $c3['stats'][$qid]['tranche'] === $tr)); ?>
+                <span class="badge <?= $c3['dispo'][$tr] < CC3_PAR_TRANCHE ? 'bg-warning text-dark' : 'bg-light text-dark border' ?>">
+                    <?= $t[2] ?> : <?= $nbPris ?> retenue(s) / <?= $c3['dispo'][$tr] ?> disponible(s)
+                </span>
+                <?php endforeach; ?>
+            </div>
+            <?php if (min($c3['dispo']) < CC3_PAR_TRANCHE): ?>
             <div class="alert alert-warning small py-2">
-                <i class="bi bi-exclamation-triangle me-1"></i>Moins de <?= CC3_NB_QUESTIONS ?> questions atteignent <?= (int)(CC3_SEUIL_REUSSITE * 100) ?> % :
-                <?= max(0, $nbChoisies - (int)$c3['nb_eligibles']) ?> question(s) sous le seuil (en orange) complètent la liste.
+                <i class="bi bi-exclamation-triangle me-1"></i>Une ou plusieurs tranches ont moins de <?= CC3_PAR_TRANCHE ?> questions :
+                elles sont complétées par la tranche voisine la plus proche<?= $nbChoisies < CC3_NB_QUESTIONS ? ' (banque insuffisante : ' . $nbChoisies . ' questions seulement)' : '' ?>.
             </div>
             <?php endif; ?>
             <?php if ($c3['existante']): ?>
@@ -1145,15 +1179,16 @@ window.addEventListener('load', function() {
             <?php endif; ?>
             <div class="table-responsive" style="max-height:420px">
             <table class="table table-sm table-bordered bg-white mb-3 small">
-                <thead class="table-light"><tr><th>#</th><th>Question</th><th>Partie</th><th>Contrôle</th><th>Réussite</th></tr></thead>
+                <thead class="table-light"><tr><th>#</th><th>Question</th><th>Tranche</th><th>Taux de</th><th>Réussite</th></tr></thead>
                 <tbody>
-                <?php foreach ($c3['choisies'] as $i => $qid): $s = $c3['stats'][$qid]; $ok = $s['taux'] >= CC3_SEUIL_REUSSITE; ?>
-                <tr class="<?= $ok ? '' : 'table-warning' ?>">
+                <?php foreach ($c3['choisies'] as $i => $qid): $s = $c3['stats'][$qid];
+                      $coul = ['text-success', 'text-primary', 'text-warning', 'text-danger'][$s['tranche']] ?? ''; ?>
+                <tr>
                     <td><?= $i + 1 ?></td>
                     <td><?= htmlspecialchars(mb_strimwidth(strip_tags($s['texte']), 0, 140, '…', 'UTF-8')) ?></td>
-                    <td class="text-center">CC<?= $s['partie'] + 1 ?></td>
-                    <td><?= htmlspecialchars($s['controle']) ?></td>
-                    <td class="text-center fw-bold <?= $ok ? 'text-success' : 'text-warning' ?>"><?= round($s['taux'] * 100) ?> % <span class="fw-normal text-muted">(<?= $s['ok'] ?>/<?= $s['n'] ?>)</span></td>
+                    <td class="text-center text-nowrap"><?= CC3_TRANCHES[$s['tranche']][2] ?></td>
+                    <td class="text-center small"><?= $s['source'] === 'groupe' ? 'Groupe' : 'Tous groupes' ?></td>
+                    <td class="text-center fw-bold <?= $coul ?>"><?= round($s['taux'] * 100) ?> % <span class="fw-normal text-muted">(<?= $s['ok'] ?>/<?= $s['n'] ?>)</span></td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>

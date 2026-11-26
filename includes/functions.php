@@ -414,26 +414,38 @@ function enregistrerStatsQuestions(int $groupeId, array $stats): void {
     }
 }
 
-/** Taux de réussite des questions d'un module, tous groupes : [qid => ['n','ok','taux','groupes' => [nom => taux]]]. */
+/**
+ * Taux de réussite des questions d'un module, calculé en direct sur TOUTES les sessions terminées
+ * (tous groupes, toutes évaluations, y compris EFM multi-modules) : une réponse = un couple
+ * (session, question), juste si is_correct = 1.
+ * Retour : [qid => ['n' => nb réponses, 'ok' => nb justes, 'taux' => %, 'groupes' => [nom => %]]].
+ */
 function getStatsQuestionsModule(int $moduleId): array {
-    try {
-        $stmt = getDB()->prepare("SELECT qs.question_id, qs.nb_reponses, qs.nb_justes, qs.taux, g.nom AS groupe
-                                  FROM questions_stats qs
-                                  JOIN questions q ON q.id = qs.question_id
-                                  JOIN groupes g   ON g.id = qs.groupe_id
-                                  WHERE q.module_id = ? ORDER BY g.nom");
-        $stmt->execute([$moduleId]);
-    } catch (PDOException $e) {
-        return []; // table absente (migration questions_stats non lancée)
-    }
+    $stmt = getDB()->prepare("
+        SELECT x.question_id, COALESCE(g.nom, NULLIF(TRIM(x.groupe_libre), ''), 'Sans groupe') AS groupe,
+               COUNT(*) AS n, SUM(x.ok) AS ok
+        FROM (
+            SELECT r.question_id, r.session_id, MAX(se.groupe_id) AS groupe_id,
+                   MAX(se.groupe_libre) AS groupe_libre, MAX(COALESCE(r.is_correct, 0)) AS ok
+            FROM reponses_stagiaires r
+            JOIN questions q     ON q.id  = r.question_id
+            JOIN sessions_eval se ON se.id = r.session_id
+            WHERE q.module_id = ? AND se.statut = 'termine'
+            GROUP BY r.question_id, r.session_id
+        ) x
+        LEFT JOIN groupes g ON g.id = x.groupe_id
+        GROUP BY x.question_id, groupe
+        ORDER BY groupe");
+    $stmt->execute([$moduleId]);
     $res = [];
     foreach ($stmt->fetchAll() as $r) {
-        $qid = (int)$r['question_id'];
-        $res[$qid]['n']  = ($res[$qid]['n']  ?? 0) + (int)$r['nb_reponses'];
-        $res[$qid]['ok'] = ($res[$qid]['ok'] ?? 0) + (int)$r['nb_justes'];
-        $res[$qid]['groupes'][$r['groupe']] = (float)$r['taux'];
+        $qid = (int)$r['question_id']; $n = (int)$r['n']; $ok = (int)$r['ok'];
+        $res[$qid]['n']  = ($res[$qid]['n']  ?? 0) + $n;
+        $res[$qid]['ok'] = ($res[$qid]['ok'] ?? 0) + $ok;
+        $res[$qid]['groupes'][$r['groupe']] = $n ? $ok / $n * 100 : 0;
     }
     foreach ($res as &$s) $s['taux'] = $s['n'] ? round($s['ok'] / $s['n'] * 100) : 0;
+    unset($s);
     return $res;
 }
 
