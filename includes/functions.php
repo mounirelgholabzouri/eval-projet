@@ -937,10 +937,53 @@ function modifierStagiaire(int $id, string $nom, string $prenom, int $groupeId, 
         $numeroClasse = nextNumeroClasse($groupeId);
         $pdo->prepare("UPDATE stagiaires SET nom=?, prenom=?, groupe_id=?, annee_scolaire=?, login=?, numero_classe=? WHERE id=?")
             ->execute([$nom, $prenom, $groupeId, $annee, $login, $numeroClasse, $id]);
+        transfererEvaluationsStagiaire($id, $groupeId); // ses évaluations suivent le stagiaire
     } else {
         $pdo->prepare("UPDATE stagiaires SET nom=?, prenom=?, groupe_id=?, annee_scolaire=?, login=? WHERE id=?")
             ->execute([$nom, $prenom, $groupeId, $annee, $login, $id]);
     }
+}
+
+/**
+ * Rattache les évaluations d'un stagiaire à son (nouveau) groupe :
+ *  - sessions_eval.groupe_id (CC théoriques, EFM) ;
+ *  - notes de CC pratique : déplacées vers la grille du même module + numéro du nouveau groupe
+ *    (créée si besoin). Si le stagiaire a déjà une note sur la grille d'arrivée, l'ancienne est conservée telle quelle.
+ * Idempotent. Retourne ['sessions' => n, 'cc_pratique' => n, 'conflits' => n].
+ */
+function transfererEvaluationsStagiaire(int $stagiaireId, int $groupeId): array {
+    $pdo = getDB();
+    $res = ['sessions' => 0, 'cc_pratique' => 0, 'conflits' => 0];
+    if ($groupeId <= 0) return $res;
+
+    $u = $pdo->prepare("UPDATE sessions_eval SET groupe_id = ? WHERE stagiaire_id = ? AND (groupe_id IS NULL OR groupe_id <> ?)");
+    $u->execute([$groupeId, $stagiaireId, $groupeId]);
+    $res['sessions'] = $u->rowCount();
+
+    $q = $pdo->prepare("SELECT n.id, e.module_id, e.numero, e.duree_minutes, e.note_max
+                        FROM cc_pratique_notes n JOIN evaluations e ON e.id = n.evaluation_id
+                        WHERE n.stagiaire_id = ? AND e.type = 'cc' AND e.mode = 'pratique'
+                          AND COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(e.meta_json, '$.groupe_id')) AS UNSIGNED), 0) <> ?");
+    $q->execute([$stagiaireId, $groupeId]);
+    foreach ($q->fetchAll() as $n) {
+        $f = $pdo->prepare("SELECT id FROM evaluations WHERE module_id = ? AND type = 'cc' AND mode = 'pratique' AND numero = ?
+                            AND JSON_UNQUOTE(JSON_EXTRACT(meta_json, '$.groupe_id')) = ? ORDER BY id LIMIT 1");
+        $f->execute([(int)$n['module_id'], (int)$n['numero'], (string)$groupeId]);
+        $cible = (int)$f->fetchColumn();
+        if (!$cible) {
+            $cible = creerEvaluation([
+                'module_id' => (int)$n['module_id'], 'type' => 'cc', 'mode' => 'pratique', 'numero' => (int)$n['numero'],
+                'duree_minutes' => (int)($n['duree_minutes'] ?: 60), 'note_max' => (float)($n['note_max'] ?: 20), 'actif' => true,
+                'meta' => ['numero' => (int)$n['numero'], 'groupe_id' => $groupeId],
+            ]);
+        }
+        $x = $pdo->prepare("SELECT 1 FROM cc_pratique_notes WHERE evaluation_id = ? AND stagiaire_id = ?");
+        $x->execute([$cible, $stagiaireId]);
+        if ($x->fetchColumn()) { $res['conflits']++; continue; }
+        $pdo->prepare("UPDATE cc_pratique_notes SET evaluation_id = ? WHERE id = ?")->execute([$cible, (int)$n['id']]);
+        $res['cc_pratique']++;
+    }
+    return $res;
 }
 
 function supprimerStagiaire(int $id): bool {
