@@ -10,7 +10,7 @@ $msg = ''; $erreur = '';
 $TYPES = [
     'cc1_pratique'  => ['label' => 'CC1 Pratique',  'source' => 'pratique',  'numero' => 1, 'note_max' => 20, 'color' => 'primary', 'icon' => 'bi-1-circle-fill'],
     'cc2_pratique'  => ['label' => 'CC2 Pratique',  'source' => 'pratique',  'numero' => 2, 'note_max' => 20, 'color' => 'success', 'icon' => 'bi-2-circle-fill'],
-    'cc3_theorique' => ['label' => 'CC3 Théorique', 'source' => 'theorique', 'note_max' => 20, 'color' => 'warning', 'icon' => 'bi-3-circle-fill'],
+    'cc3_pratique'  => ['label' => 'CC3 Pratique',  'source' => 'pratique',  'numero' => 3, 'note_max' => 20, 'color' => 'warning', 'icon' => 'bi-3-circle-fill'],
     'efm'           => ['label' => 'EFM',            'source' => 'efm',       'note_max' => 40, 'color' => 'danger',  'icon' => 'bi-award-fill'],
 ];
 const CC_CELLS = ['p1q1','p1q2','p2q1','p2q2','p3q1','p3q2','p4'];
@@ -56,6 +56,54 @@ function getOrCreateEvalCC(PDO $pdo, int $mid, int $gid, int $num): int {
         'duree_minutes' => 60, 'note_max' => 20, 'actif' => true,
         'meta' => ['numero' => $num, 'groupe_id' => $gid],
     ]);
+}
+
+// ── Regroupement des contrôles → CC1 / CC2 / CC3 ──────────────
+// Les contrôles théoriques d'un module passés par un groupe (dans l'ordre numéro, puis création)
+// sont découpés en 3 parties consécutives (9 → 3+3+3, 7 → 3+2+2) ; la moyenne de chaque partie
+// devient le total des grilles CC1, CC2 et CC3 Pratique du groupe.
+const SEUIL_CONTROLE_PASSE = 0.30; // part du groupe ayant passé un contrôle pour qu'il compte (absents = 0)
+
+function estRegroupe(?string $metaJson): bool {
+    return !empty((json_decode($metaJson ?? '{}', true) ?: [])['regroupe']);
+}
+function decouper3(array $ids): array {
+    $n = count($ids); $res = []; $pos = 0;
+    for ($i = 0; $i < 3 && $pos < $n; $i++) {
+        $t = intdiv($n, 3) + ($i < $n % 3 ? 1 : 0);
+        $res[$i] = array_slice($ids, $pos, $t); $pos += $t;
+    }
+    return $res;
+}
+/** ['controles' => [id => nom], 'parties' => [[ids]…], 'notes' => [sid => [p => note]], 'detail' => [sid => [id => note]]] */
+function calculerRegroupement(PDO $pdo, int $moduleId, int $groupeId, array $roster): array {
+    $res = ['controles' => [], 'parties' => [], 'notes' => [], 'detail' => []];
+    if (!$roster) return $res;
+    $ev = $pdo->prepare("SELECT id, nom, meta_json FROM evaluations
+                         WHERE module_id = ? AND type = 'cc' AND mode = 'theorique' ORDER BY numero, id");
+    $ev->execute([$moduleId]);
+    $q = $pdo->prepare("SELECT stagiaire_id, pourcentage FROM sessions_eval
+                        WHERE evaluation_id = ? AND groupe_id = ? AND statut = 'termine' ORDER BY date_fin");
+    foreach ($ev->fetchAll() as $e) {
+        if (estRegroupe($e['meta_json'])) continue;
+        $q->execute([(int)$e['id'], $groupeId]);
+        $notes = [];
+        foreach ($q->fetchAll() as $r) {          // dernière session terminée du stagiaire
+            $sid = (int)$r['stagiaire_id'];
+            if (isset($roster[$sid])) $notes[$sid] = round((float)$r['pourcentage'] / 5, 2);
+        }
+        if (count($notes) / count($roster) < SEUIL_CONTROLE_PASSE) continue;
+        $res['controles'][(int)$e['id']] = $e['nom'];
+        foreach ($roster as $sid => $_) $res['detail'][$sid][(int)$e['id']] = $notes[$sid] ?? 0.0; // absent = 0
+    }
+    $res['parties'] = decouper3(array_keys($res['controles']));
+    foreach ($roster as $sid => $_) {
+        foreach ($res['parties'] as $p => $ids) {
+            $v = array_map(fn($id) => $res['detail'][$sid][$id], $ids);
+            $res['notes'][$sid][$p] = snapNote(array_sum($v) / count($v)); // arrondi au demi-point
+        }
+    }
+    return $res;
 }
 
 // ── Helpers import "récap" multi-modules (1 feuille Excel = 1 module) ──
@@ -146,6 +194,7 @@ function parseRecapNote(string $raw): ?array {
 
 // ── Paramètres ────────────────────────────────────────────────
 $type      = $_GET['type'] ?? $_POST['type'] ?? 'cc1_pratique';
+if ($type === 'cc3_theorique') $type = 'cc3_pratique'; // ancien onglet CC3 (anciens liens)
 if (!array_key_exists($type, $TYPES)) $type = 'cc1_pratique';
 $cfg       = $TYPES[$type];
 $isPrat    = $cfg['source'] === 'pratique';
@@ -402,23 +451,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['recap_confirm'])) {
     }
 }
 
-// ── POST : Générer CC1/CC2 depuis CC3 ────────────────────────
+// ── POST : Regrouper les contrôles → CC1/CC2/CC3 (aperçu puis validation) ─
+$regroupement = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['regrouper_preview']) || isset($_POST['regrouper_confirm']))) {
+    verifyCsrfToken();
+    if (!$groupeId || !$moduleId) { $erreur = "Sélectionnez un groupe et un module."; }
+    else {
+        $regroupement = calculerRegroupement($pdo, $moduleId, $groupeId, $roster);
+        if (!$regroupement['controles']) {
+            $erreur = "Aucun contrôle théorique passé par ce groupe pour ce module.";
+            $regroupement = null;
+        } elseif (isset($_POST['regrouper_confirm'])) {
+            $pdo->beginTransaction();
+            try {
+                $up = $pdo->prepare("INSERT INTO cc_pratique_notes (evaluation_id,stagiaire_id,p1q1,p1q2,p2q1,p2q2,p3q1,p3q2,p4,total,absent)
+                                     VALUES (?,?,?,?,?,?,?,?,?,?,0) ON DUPLICATE KEY UPDATE p1q1=VALUES(p1q1),p1q2=VALUES(p1q2),
+                                     p2q1=VALUES(p2q1),p2q2=VALUES(p2q2),p3q1=VALUES(p3q1),p3q2=VALUES(p3q2),p4=VALUES(p4),total=VALUES(total),absent=0");
+                $mark = $pdo->prepare("UPDATE evaluations SET meta_json = JSON_SET(COALESCE(meta_json, '{}'), '$.regroupe', true) WHERE id = ?");
+                $nb = 0;
+                foreach ([0 => 1, 1 => 2, 2 => 3] as $p => $num) {   // CC1, CC2, CC3 → grilles du groupe (total réparti)
+                    if (!isset($regroupement['parties'][$p])) continue;
+                    $eid = getOrCreateEvalCC($pdo, $moduleId, $groupeId, $num);
+                    $mark->execute([$eid]);
+                    foreach ($regroupement['notes'] as $sid => $parts) {
+                        $cells = distribuer($parts[$p]);
+                        $up->execute(array_merge([$eid, $sid], array_map(fn($c) => $cells[$c], CC_CELLS), [$parts[$p]]));
+                        $nb++;
+                    }
+                }
+                $pdo->commit();
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                throw $e;
+            }
+            header("Location: gestion_impression.php?type=$type&groupe_id=$groupeId&module_id=$moduleId&regroupe=$nb");
+            exit;
+        }
+    }
+}
+if (isset($_GET['regroupe'])) $msg = (int)$_GET['regroupe'] . " note(s) injectée(s) dans CC1, CC2 et CC3 à partir du regroupement des contrôles.";
+
+// ── POST : Générer CCn depuis la moyenne de la partie n du regroupement des contrôles ─
+// CC1 ← partie 1, CC2 ← partie 2, CC3 ← partie 3 (grilles pratiques du groupe).
+// Les notes sont pré-remplies dans la grille ; elles ne sont enregistrées qu'au clic sur « Sauvegarder ».
+$partieGen = $isPrat ? (int)($cfg['numero'] ?? 1) - 1 : null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     verifyCsrfToken();
-    if (!$isPrat) { $erreur = "Génération uniquement pour CC1/CC2."; }
+    if ($partieGen === null) { $erreur = "Génération uniquement pour CC1, CC2 et CC3."; }
     elseif (!$groupeId || !$moduleId) { $erreur = "Sélectionnez groupe et module."; }
     else {
-        $q = $pdo->prepare("SELECT s.stagiaire_id, s.score FROM sessions_eval s JOIN evaluations e ON e.id=s.evaluation_id WHERE s.groupe_id=? AND e.module_id=? AND " . CATEG_SQL['cc_theorique'] . " AND s.statut='termine' ORDER BY s.date_fin");
-        $q->execute([$groupeId, $moduleId]);
-        $cc3 = []; foreach ($q->fetchAll() as $r) $cc3[(int)$r['stagiaire_id']] = (float)$r['score'];
-        if (empty($cc3)) { $erreur = "Aucune note CC3 disponible pour ce groupe/module."; }
-        else {
-            $delta = ($cfg['numero'] === 1) ? -1 : 1; $data = [];
-            foreach ($cc3 as $sid => $s3) {
-                $note = snapNote($s3 + $delta);
-                $data[$sid] = array_merge(distribuer($note), ['total'=>$note,'absent'=>0,'stagiaire_id'=>$sid]);
+        $rg = calculerRegroupement($pdo, $moduleId, $groupeId, $roster);
+        $label = 'CC' . ($partieGen + 1);
+        if (!isset($rg['parties'][$partieGen])) {
+            $erreur = count($rg['controles']) . " contrôle(s) théorique(s) passé(s) par ce groupe : pas assez pour former la partie $label.";
+        } else {
+            $data = [];
+            foreach ($rg['notes'] as $sid => $parts) {
+                $note = $parts[$partieGen];
+                $data[$sid] = array_merge(distribuer($note), ['total' => $note, 'absent' => 0, 'stagiaire_id' => $sid]);
             }
-            $msg = count($data)." note(s) générée(s) depuis CC3 (non encore sauvegardées).";
+            $genereRegroupement = true;
+            $ctrl = implode(' + ', array_map(fn($id) => $rg['controles'][$id], $rg['parties'][$partieGen]));
+            $msg = count($data) . " note(s) $label générée(s) = moyenne de : $ctrl. Vérifiez puis cliquez sur « Sauvegarder ».";
         }
     }
 }
@@ -435,6 +529,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save'])) {
 
     if ($ok && $isPrat) {
         $eid = getOrCreateEvalCC($pdo, $moduleId, $groupeId, $cfg['numero'] ?? 1);
+        if (!empty($_POST['from_regroupement'])) // notes issues du regroupement : exclues de l'export Moyennes CC
+            $pdo->prepare("UPDATE evaluations SET meta_json = JSON_SET(COALESCE(meta_json, '{}'), '$.regroupe', true) WHERE id = ?")->execute([$eid]);
         $up  = $pdo->prepare("INSERT INTO cc_pratique_notes (evaluation_id,stagiaire_id,p1q1,p1q2,p2q1,p2q2,p3q1,p3q2,p4,total,absent) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE p1q1=VALUES(p1q1),p1q2=VALUES(p1q2),p2q1=VALUES(p2q1),p2q2=VALUES(p2q2),p3q1=VALUES(p3q1),p3q2=VALUES(p3q2),p4=VALUES(p4),total=VALUES(total),absent=VALUES(absent)");
         foreach ($notesIn as $sid => $cells) {
             $sid=$sid=(int)$sid; $vals=[]; $tot=0;
@@ -792,11 +888,17 @@ window.addEventListener('load', function() {
                 <?php endif; ?>
                 <?php if ($groupeId > 0 && $moduleId > 0): ?>
                 <div class="col-auto ms-auto d-flex gap-2">
-                    <?php if ($isPrat): ?>
-                    <button form="genForm" type="submit" name="generate" value="1" class="btn btn-sm btn-outline-warning">
-                        <i class="bi bi-magic me-1"></i>Générer depuis CC3
-                        <span class="badge bg-warning text-dark ms-1"><?= $cfg['label']==='CC1 Pratique'?'CC3−1':'CC3+1' ?></span>
+                    <button form="genForm" type="submit" name="regrouper_preview" value="1" class="btn btn-sm btn-outline-primary"
+                            title="Regroupe les contrôles théoriques du groupe en 3 parties : la moyenne de chaque partie devient CC1, CC2, CC3">
+                        <i class="bi bi-diagram-3 me-1"></i>Regrouper → CC1/CC2/CC3
                     </button>
+                    <?php if ($partieGen !== null): ?>
+                    <button form="genForm" type="submit" name="generate" value="1" class="btn btn-sm btn-outline-warning"
+                            title="Moyenne de la partie <?= $partieGen + 1 ?> des contrôles théoriques du groupe (regroupés en 3 parties)">
+                        <i class="bi bi-magic me-1"></i>Générer de moyenne CC<?= $partieGen + 1 ?>
+                    </button>
+                    <?php endif; ?>
+                    <?php if ($isPrat): ?>
                     <a href="?type=<?= $type ?>&groupe_id=<?= $groupeId ?>&module_id=<?= $moduleId ?>&model=1" class="btn btn-sm btn-outline-secondary" download>
                         <i class="bi bi-download me-1"></i>Modèle totaux
                     </a>
@@ -819,6 +921,59 @@ window.addEventListener('load', function() {
             </form>
         </div>
     </div>
+
+    <?php if ($regroupement): $rp = $regroupement; ?>
+    <!-- ── Aperçu du regroupement CC1/CC2/CC3 ─────────────────── -->
+    <div class="card border-primary shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-primary text-white fw-semibold">
+            <i class="bi bi-diagram-3 me-2"></i>Regroupement des contrôles — <?= htmlspecialchars($groupeNom) ?> — <?= htmlspecialchars($moduleNom) ?>
+        </div>
+        <div class="card-body">
+            <p class="small mb-2">
+                <?= count($rp['controles']) ?> contrôle(s) théorique(s) passé(s) par le groupe (au moins <?= (int)(SEUIL_CONTROLE_PASSE * 100) ?> % des stagiaires ; un stagiaire sans note a 0).
+                Chaque partie = moyenne de ses contrôles, arrondie au demi-point.
+            </p>
+            <ul class="small mb-3">
+                <?php $dest = ['CC1 Pratique (total de la grille)', 'CC2 Pratique (total de la grille)', 'CC3 Pratique (total de la grille)'];
+                foreach ($rp['parties'] as $p => $ids): ?>
+                <li><strong>CC<?= $p + 1 ?></strong> → <?= $dest[$p] ?> : <?= htmlspecialchars(implode(' + ', array_map(fn($id) => $rp['controles'][$id], $ids))) ?></li>
+                <?php endforeach; ?>
+            </ul>
+            <div class="table-responsive" style="max-height:420px">
+            <table class="table table-sm table-bordered grille bg-white mb-3">
+                <thead class="table-light"><tr>
+                    <th class="name">NOM</th><th class="name">PRÉNOM</th>
+                    <?php $c = 1; foreach ($rp['parties'] as $p => $ids): foreach ($ids as $id): ?>
+                    <th title="<?= htmlspecialchars($rp['controles'][$id]) ?>">C<?= $c++ ?></th>
+                    <?php endforeach; ?><th class="table-primary">CC<?= $p + 1 ?></th><?php endforeach; ?>
+                </tr></thead>
+                <tbody>
+                <?php foreach ($roster as $sid => $stg): ?>
+                <tr>
+                    <td class="name"><?= htmlspecialchars($stg['nom']) ?></td><td class="name"><?= htmlspecialchars($stg['prenom']) ?></td>
+                    <?php foreach ($rp['parties'] as $p => $ids): foreach ($ids as $id): ?>
+                    <td><?= fmtN($rp['detail'][$sid][$id]) ?></td>
+                    <?php endforeach; $v = $rp['notes'][$sid][$p]; ?>
+                    <td class="fw-bold <?= $v >= 10 ? 'text-success' : 'text-danger' ?>"><?= fmtN($v) ?></td>
+                    <?php endforeach; ?>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
+            <form method="POST" class="d-flex gap-2 align-items-center flex-wrap"
+                  onsubmit="return confirm('Remplacer les notes CC1, CC2 et CC3 Pratique de ce groupe par ces moyennes ?')">
+                <?= csrfField() ?>
+                <input type="hidden" name="type" value="<?= $type ?>">
+                <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
+                <input type="hidden" name="module_id" value="<?= $moduleId ?>">
+                <button name="regrouper_confirm" value="1" class="btn btn-primary btn-sm"><i class="bi bi-check2-circle me-1"></i>Injecter dans CC1, CC2, CC3</button>
+                <a href="?type=<?= $type ?>&groupe_id=<?= $groupeId ?>&module_id=<?= $moduleId ?>" class="btn btn-outline-secondary btn-sm">Annuler</a>
+                <span class="small text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Les notes déjà saisies dans CC1, CC2 et CC3 Pratique de ce groupe seront remplacées.</span>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Modal import Excel des totaux CC1/CC2 -->
     <?php if ($isPrat && $groupeId > 0 && $moduleId > 0): ?>
@@ -991,6 +1146,7 @@ window.addEventListener('load', function() {
         <?php else: ?>
         <form method="POST" id="saveForm">
             <?= csrfField() ?>
+            <?php if (!empty($genereRegroupement)): ?><input type="hidden" name="from_regroupement" value="1"><?php endif; ?>
             <input type="hidden" name="type"      value="<?= $type ?>">
             <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
             <input type="hidden" name="module_id" value="<?= $moduleId ?>"><input type="hidden" name="evaluation_id" value="<?= $evalChoisie ?>">

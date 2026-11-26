@@ -111,7 +111,7 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 | `admin/modules.php` | Modules (code, filière, intitulé, publication) — liens banque / évaluations / résultats |
 | `admin/evaluations.php` | **Création et édition des CC/EFM** : `?module_id=X`, `?action=new&type=cc\|efm`, `?action=edit&id=Y` — sélection des questions, impressions, rééquilibrage des points |
 | `admin/gestion_questions.php` | Banque de questions — `?tab=gerer\|deplacer\|import_eval` (l'import JSON crée une évaluation inactive) |
-| `admin/gestion_impression.php` | `?type=cc1_pratique\|cc2_pratique\|cc3_theorique\|efm` — filtres groupe+module(+évaluation), saisie des grilles CC pratique, génération CC1/CC2 depuis CC3, **impression A4 paysage une page** |
+| `admin/gestion_impression.php` | `?type=cc1_pratique\|cc2_pratique\|cc3_pratique\|efm` (ancien `cc3_theorique` redirigé) — filtres groupe+module, saisie des grilles CC1/CC2/CC3 (même grille, `cc_pratique_notes` numéro 1/2/3 par groupe), **impression A4 paysage une page** · **Regroupement** : les CC théoriques du groupe (passés par ≥ 30 %, absent = 0, ordre numéro puis id) sont découpés en 3 parties consécutives (9 → 3+3+3) ; bouton « Générer de moyenne CCn » = moyenne de la partie n (demi-point) pré-remplie dans la grille, « Regrouper → CC1/CC2/CC3 » = aperçu puis injection des 3 · grilles issues du regroupement marquées `meta_json.regroupe=true` → exclues de `export_moyennes_cc.php` |
 | `admin/sessions_view.php` | Sessions groupées par évaluation + date — `?evaluation_id=X&jour=Y` |
 | `admin/results.php` | Liste de toutes les sessions (`?module_id=X`, `?categorie=efm\|cc_theorique\|cc_pratique`) |
 | `admin/detail.php` | Détail question par question d'une session |
@@ -122,6 +122,7 @@ Admin : `require_once admin_auth.php` gère session_name + session_start automat
 
 - Suppression stagiaire : cascade manuelle `reponses_stagiaires → sessions_eval → stagiaire` via `supprimerStagiaire()` — FK `sessions_eval.stagiaire_id` en **RESTRICT** (refuse un stagiaire qui a encore des sessions) ; `cc_pratique_notes` part en CASCADE
 - Groupes : FK `stagiaires.groupe_id` en **RESTRICT** (vider un groupe avant de le supprimer) · `groupes.nom` **UNIQUE**, toujours passé par `normaliserNomGroupe()` (majuscules, sans espaces : « id 101 » → « ID101 ») · migration `db/migrations/integrite_stagiaires_groupes.php`
+- Changement de groupe d'un stagiaire : `modifierStagiaire()` appelle `transfererEvaluationsStagiaire()` → `sessions_eval.groupe_id` mis à jour et notes CC pratique déplacées vers la grille (module + numéro) du nouveau groupe, créée si besoin · rattrapage : `db/migrations/rattacher_evaluations_groupe.php [--dry]`
 - `stagiaires.annee_scolaire` n'a plus de valeur par défaut : toujours la fournir à l'INSERT (format `2026-2027`)
 - Clés API : table `config` — `anthropic_api_key`, `openai_api_key`, `google_api_key`, `ollama_base_url`
 - Provider IA actif : `config.ai_provider` ∈ {`anthropic`, `openai`, `google`, `ollama`}

@@ -12,7 +12,9 @@
  * Absent à un CC = 0 : un CC compte pour une promo (groupe + année scolaire) quand au moins
  * SEUIL_CC_ORGANISE (30 %) de ses stagiaires ont une note ; ceux sans note y ont 0 (en rouge).
  * Un CC non organisé pour la promo reste vide et n'entre pas dans la moyenne.
- * Moyenne CC = moyenne des CC organisés pour la promo du stagiaire.
+ * Regroupement : les CC de la promo (dans l'ordre CC1 T, CC1 P, CC2 T…) sont découpés en 3 parties
+ * consécutives (4 → 2+1+1, 5 → 2+2+1) ; chaque partie = moyenne de ses CC → colonnes CC1/CC2/CC3 (regroupé).
+ * Moyenne CC = moyenne de CC1, CC2, CC3 regroupés.
  * Chaque feuille module a une ligne « Moyenne du groupe X » par groupe (si plusieurs groupes).
  * Première feuille « Synthèse par groupe » : moyenne CC par groupe × module.
  */
@@ -47,6 +49,8 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
     $pratVues   = [];   // "numero|groupe" déjà pris
 
     foreach ($evals->fetchAll() as $e) {
+        // Notes injectées par « Regrouper → CC1/CC2/CC3 » (Notes par groupe) : déjà issues des autres contrôles
+        if (!empty((json_decode($e['meta_json'] ?? '{}', true) ?: [])['regroupe'])) continue;
         $num     = (int)$e['numero'];
         $prat    = $e['mode'] === 'pratique';
         $key     = ($prat ? 'P' : 'T') . str_pad((string)$num, 3, '0', STR_PAD_LEFT);
@@ -118,6 +122,7 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
             }
         }
 
+        $lignesBrutes = []; $slotsPromo = [];
         foreach ($stagiaires as $s) {
             $sid   = (int)$s['id'];
             $promo = $s['groupe_id'] . '|' . $s['annee_scolaire'];
@@ -127,19 +132,52 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
                 if (isset($notes[$sid][$k]))      $vals[$k] = $notes[$sid][$k];
                 elseif (isset($organise[$promo][$k])) { $vals[$k] = 0.0; $abs[$k] = true; }
                 else                              $vals[$k] = null;
+                if ($vals[$k] !== null) $slotsPromo[$promo][$k] = true;
             }
-            $comptes = array_filter($vals, fn($v) => $v !== null);
+            $lignesBrutes[] = [$s, $promo, $vals, $abs];
+        }
+
+        // Regroupement des contrôles de chaque promo en 3 parties consécutives → CC1, CC2, CC3
+        $partiesPromo = [];
+        foreach ($slotsPromo as $promo => $ks) {
+            $ks = array_values(array_filter(array_keys($slots), fn($k) => isset($ks[$k])));
+            $partiesPromo[$promo] = decouperEn3($ks);
+        }
+
+        foreach ($lignesBrutes as [$s, $promo, $vals, $abs]) {
+            $parts = [];
+            foreach ($partiesPromo[$promo] ?? [] as $i => $ks) {
+                $v = array_filter(array_map(fn($k) => $vals[$k], $ks), fn($x) => $x !== null);
+                $parts[$i] = $v ? round(array_sum($v) / count($v), 2) : null;
+            }
+            $parts   += array_fill(0, 3, null);
+            ksort($parts);
+            $comptes = array_filter($parts, fn($v) => $v !== null);
             $lignes[] = [
                 'groupe_id' => (int)$s['groupe_id'],
+                'promo'     => $promo,
                 'nom'       => $s['nom'],
                 'prenom'    => $s['prenom'],
                 'notes'     => $vals,
                 'absents'   => $abs,
+                'parties'   => $parts,
                 'moyenne'   => $comptes ? round(array_sum($comptes) / count($comptes), 2) : null,
             ];
         }
     }
-    return ['slots' => $slots, 'lignes' => $lignes];
+    return ['slots' => $slots, 'lignes' => $lignes, 'parties' => $partiesPromo ?? []];
+}
+
+/** Découpe une liste ordonnée en 3 parties consécutives (le reste va aux premières) : 4 → 2+1+1, 5 → 2+2+1. */
+function decouperEn3(array $ks): array {
+    $n = count($ks); $res = []; $pos = 0;
+    for ($i = 0; $i < 3 && $pos < $n; $i++) {
+        $taille = intdiv($n, 3) + ($i < $n % 3 ? 1 : 0);
+        if ($taille === 0) break;
+        $res[$i] = array_slice($ks, $pos, $taille);
+        $pos += $taille;
+    }
+    return $res;
 }
 
 $sheets = [];
@@ -150,14 +188,16 @@ foreach ($modules as $m) {
     if (!$res['slots'] && $moduleId === 0) continue; // module sans CC noté : pas de feuille
 
     $slots  = $res['slots'];
-    $nbCols = 4 + count($slots) + 2;
+    // Colonnes : détail de chaque contrôle, puis CC1/CC2/CC3 regroupés (R0..R2)
+    $colsCC = $slots + ['R0' => 'CC1 (regroupé)', 'R1' => 'CC2 (regroupé)', 'R2' => 'CC3 (regroupé)'];
+    $nbCols = 4 + count($colsCC) + 2;
     $rows   = []; $styles = [];
 
     $rows[] = ['Moyenne des contrôles continus — ' . moduleLibelle($m)];                       $styles[0] = 1;
     $rows[] = ['Année de formation ' . getAnneeFormation(false) . ' — généré le ' . date('d/m/Y à H:i')
               . ($groupeId > 0 ? ' — groupe ' . ($groupesNoms[$groupeId] ?? $groupeId) : '')]; $styles[1] = 6;
     $rows[] = [];
-    $rows[] = array_merge(['N°', 'Groupe', 'Nom', 'Prénom'], array_values($slots), ['Absences', 'Moyenne CC /20']);
+    $rows[] = array_merge(['N°', 'Groupe', 'Nom', 'Prénom'], array_values($colsCC), ['Absences', 'Moyenne CC /20']);
     $styles[3] = 2;
 
     if (!$res['lignes']) {
@@ -167,14 +207,17 @@ foreach ($modules as $m) {
     // Ligne de moyenne (groupe ou générale) : moyenne par CC + moyenne des « Moyenne CC »
     $ligneMoyenne = function (string $libelle, array $sommes, array $moys) {
         $row = [['v' => $libelle, 's' => 7], ['v' => '', 's' => 7], ['v' => '', 's' => 7], ['v' => '', 's' => 7]];
-        foreach ($sommes as $vals) $row[] = ['v' => $vals ? round(array_sum($vals) / count($vals), 2) : null, 's' => 3];
+        foreach ($sommes as $k => $vals) {
+            $v = $vals ? round(array_sum($vals) / count($vals), 2) : null;
+            $row[] = ['v' => $v, 's' => ($k[0] === 'R' && $v !== null) ? ($v >= 10 ? 4 : 5) : 3];
+        }
         $row[] = ['v' => count($moys) . ' stag.', 's' => 7];
         $gm = $moys ? round(array_sum($moys) / count($moys), 2) : null;
         $row[] = ['v' => $gm, 's' => $gm === null ? 3 : ($gm >= 10 ? 4 : 5)];
         return [$row, $gm];
     };
 
-    $sommes = array_fill_keys(array_keys($slots), []);
+    $sommes = array_fill_keys(array_keys($colsCC), []);
     $moys   = [];
     $nbGroupes = count(array_unique(array_column($res['lignes'], 'groupe_id')));
     $gSommes = $sommes; $gMoys = []; $gCourant = null;
@@ -188,8 +231,10 @@ foreach ($modules as $m) {
     foreach ($res['lignes'] as $i => $l) {
         if ($l['groupe_id'] !== $gCourant) { $fermerGroupe(); $gCourant = $l['groupe_id']; }
         $row = [$i + 1, $groupesNoms[$l['groupe_id']] ?? '', $l['nom'], $l['prenom']];
-        foreach ($l['notes'] as $k => $v) {
-            $row[] = ['v' => $v, 's' => isset($l['absents'][$k]) ? 5 : 3];
+        $cells = $l['notes'] + ['R0' => $l['parties'][0], 'R1' => $l['parties'][1], 'R2' => $l['parties'][2]];
+        foreach ($cells as $k => $v) {
+            $st = $k[0] === 'R' ? ($v === null ? 3 : ($v >= 10 ? 4 : 5)) : (isset($l['absents'][$k]) ? 5 : 3);
+            $row[] = ['v' => $v, 's' => $st];
             if ($v !== null) { $sommes[$k][] = $v; $gSommes[$k][] = $v; }
         }
         $row[] = ['v' => count($l['absents']) ?: '', 's' => 3];
@@ -204,11 +249,30 @@ foreach ($modules as $m) {
     }
     $modulesSynthese[(int)$m['id']] = $m;
 
+    // Légende du regroupement, par groupe
+    if ($res['parties']) {
+        $rows[] = [];
+        $rows[] = ["Regroupement des contrôles (dans l'ordre, en 3 parties) : note de la partie = moyenne de ses contrôles ; Moyenne CC = moyenne de CC1, CC2, CC3"];
+        $styles[count($rows) - 1] = 6;
+        $vus = [];
+        foreach ($res['lignes'] as $l) {
+            if (isset($vus[$l['promo']]) || empty($res['parties'][$l['promo']])) continue;
+            $vus[$l['promo']] = true;
+            $txt = [];
+            foreach ($res['parties'][$l['promo']] as $i => $ks) {
+                $txt[] = 'CC' . ($i + 1) . ' = ' . implode(' + ', array_map(fn($k) => $slots[$k], $ks));
+            }
+            $annee  = explode('|', $l['promo'], 2)[1] ?? '';
+            $rows[] = [($groupesNoms[$l['groupe_id']] ?? '') . ($annee !== '' ? " ($annee)" : '') . ' : ' . implode('   ·   ', $txt)];
+            $styles[count($rows) - 1] = 6;
+        }
+    }
+
     $lastCol = _colLetter($nbCols - 1);
     $widths  = [0 => 5, 1 => 14, 2 => 22, 3 => 22];
-    for ($c = 4; $c < 4 + count($slots); $c++) $widths[$c] = 14;
-    $widths[4 + count($slots)] = 10;
-    $widths[5 + count($slots)] = 16;
+    for ($c = 4; $c < 4 + count($colsCC); $c++) $widths[$c] = 14;
+    $widths[4 + count($colsCC)] = 10;
+    $widths[5 + count($colsCC)] = 16;
 
     $sheets[] = [
         'name'       => trim(($m['code'] ?? '') ?: $m['nom']),
