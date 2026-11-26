@@ -58,20 +58,101 @@ function getOrCreateEvalCC(PDO $pdo, int $mid, int $gid, int $num): int {
     ]);
 }
 
-// ── Regroupement des contrôles → CC1 / CC2 / CC3 ──────────────
+// ── Regroupement des contrôles → CC1 / CC2 ; CC3 = évaluation de synthèse ──
 // Les contrôles théoriques d'un module passés par un groupe (dans l'ordre numéro, puis création)
-// sont découpés en 3 parties consécutives (9 → 3+3+3, 7 → 3+2+2) ; la moyenne de chaque partie
-// devient le total des grilles CC1, CC2 et CC3 Pratique du groupe.
+// sont découpés en 2 parties consécutives (8 → 4+4, 7 → 4+3) ; la moyenne de chaque partie
+// devient le total des grilles CC1 et CC2 Pratique du groupe.
+// CC3 : évaluation théorique créée avec les CC3_NB_QUESTIONS questions des contrôles regroupés
+// les mieux réussies par le groupe (taux ≥ CC3_SEUIL_REUSSITE) ; sa note devient la grille CC3.
 const SEUIL_CONTROLE_PASSE = 0.30; // part du groupe ayant passé un contrôle pour qu'il compte (absents = 0)
+const CC3_NB_QUESTIONS     = 20;
+const CC3_SEUIL_REUSSITE   = 0.50; // part des stagiaires ayant répondu juste
+const CC3_MIN_REPONSES     = 3;    // nb minimal de stagiaires ayant eu la question (évite 1/1 = 100 %)
 
 function estRegroupe(?string $metaJson): bool {
     return !empty((json_decode($metaJson ?? '{}', true) ?: [])['regroupe']);
 }
-function decouper3(array $ids): array {
-    $n = count($ids); $res = []; $pos = 0;
-    for ($i = 0; $i < 3 && $pos < $n; $i++) {
-        $t = intdiv($n, 3) + ($i < $n % 3 ? 1 : 0);
-        $res[$i] = array_slice($ids, $pos, $t); $pos += $t;
+/** Évaluation CC3 de synthèse (créée depuis les questions les mieux réussies) ? */
+function estCC3Synthese(?string $metaJson): bool {
+    return !empty((json_decode($metaJson ?? '{}', true) ?: [])['cc3_groupe_id']);
+}
+function decouper2(array $ids): array {
+    $n = count($ids);
+    if (!$n) return [];
+    $t = intdiv($n + 1, 2);
+    return array_values(array_filter([array_slice($ids, 0, $t), array_slice($ids, $t)]));
+}
+function findEvalCC3(PDO $pdo, int $mid, int $gid): ?array {
+    $s = $pdo->prepare("SELECT e.id, e.nom, e.actif FROM evaluations e WHERE e.module_id = ? AND " . CATEG_SQL['cc_theorique'] . "
+                        AND JSON_UNQUOTE(JSON_EXTRACT(e.meta_json, '$.cc3_groupe_id')) = ? ORDER BY e.id DESC LIMIT 1");
+    $s->execute([$mid, (string)$gid]);
+    return $s->fetch() ?: null;
+}
+/** Notes /20 de l'évaluation CC3 (dernière session terminée ; absent = 0) : [sid => note] ou null si non passée. */
+function notesEvalCC3(PDO $pdo, int $evalId, int $groupeId, array $roster): ?array {
+    $q = $pdo->prepare("SELECT stagiaire_id, pourcentage FROM sessions_eval
+                        WHERE evaluation_id = ? AND groupe_id = ? AND statut = 'termine' ORDER BY date_fin");
+    $q->execute([$evalId, $groupeId]);
+    $notes = [];
+    foreach ($q->fetchAll() as $r) {
+        $sid = (int)$r['stagiaire_id'];
+        if (isset($roster[$sid])) $notes[$sid] = (float)$r['pourcentage'] / 5;
+    }
+    if (!$notes) return null;
+    $res = [];
+    foreach ($roster as $sid => $_) $res[$sid] = snapNote($notes[$sid] ?? 0.0);
+    return $res;
+}
+/**
+ * Questions des contrôles regroupés classées par taux de réussite du groupe.
+ * Retourne ['choisies' => [qid…], 'stats' => [qid => ['texte','partie','controle','n','ok','taux']], 'nb_eligibles' => n]
+ * Sélection : alternance partie 1 / partie 2 parmi les questions ≥ seuil, complétée si besoin par les meilleures restantes.
+ */
+function selectionnerQuestionsCC3(PDO $pdo, array $rg, int $groupeId, array $roster): array {
+    $res = ['choisies' => [], 'stats' => [], 'nb_eligibles' => 0];
+    if (!$rg['parties']) return $res;
+    $partieDe = [];
+    foreach ($rg['parties'] as $p => $ids) foreach ($ids as $id) $partieDe[$id] = $p;
+    $in = implode(',', array_fill(0, count($partieDe), '?'));
+    $q = $pdo->prepare("SELECT s.evaluation_id, s.stagiaire_id, r.question_id, r.is_correct, q.texte
+                        FROM reponses_stagiaires r
+                        JOIN sessions_eval s ON s.id = r.session_id
+                        JOIN questions q     ON q.id = r.question_id
+                        WHERE s.evaluation_id IN ($in) AND s.groupe_id = ? AND s.statut = 'termine'
+                        ORDER BY s.date_fin");
+    $q->execute(array_merge(array_keys($partieDe), [$groupeId]));
+    $last = []; $info = [];
+    foreach ($q->fetchAll() as $r) {
+        $sid = (int)$r['stagiaire_id']; $qid = (int)$r['question_id'];
+        if (!isset($roster[$sid])) continue;
+        $last[$qid][$sid] = (int)$r['is_correct'];          // dernière réponse du stagiaire à la question
+        if (!isset($info[$qid])) $info[$qid] = ['texte' => $r['texte'], 'eval' => (int)$r['evaluation_id']];
+    }
+    foreach ($last as $qid => $parStg) {
+        $n = count($parStg); $ok = array_sum($parStg);
+        $res['stats'][$qid] = [
+            'texte' => $info[$qid]['texte'], 'partie' => $partieDe[$info[$qid]['eval']],
+            'controle' => $rg['controles'][$info[$qid]['eval']] ?? '', 'n' => $n, 'ok' => $ok, 'taux' => $n ? $ok / $n : 0,
+        ];
+    }
+    $ordre = fn($a, $b) => [$res['stats'][$b]['taux'], $res['stats'][$b]['n']] <=> [$res['stats'][$a]['taux'], $res['stats'][$a]['n']];
+    $elig = []; $reste = [];
+    foreach ($res['stats'] as $qid => $s) {
+        if ($s['n'] >= min(CC3_MIN_REPONSES, count($roster)) && $s['taux'] >= CC3_SEUIL_REUSSITE) $elig[$s['partie']][] = $qid;
+        else $reste[] = $qid;
+    }
+    foreach ($elig as &$l) usort($l, $ordre); unset($l);
+    usort($reste, $ordre);
+    $res['nb_eligibles'] = array_sum(array_map('count', $elig));
+    // Alternance entre les 2 parties pour que les deux groupes de contrôles soient représentés
+    while (count($res['choisies']) < CC3_NB_QUESTIONS && array_filter($elig)) {
+        foreach (array_keys($elig) as $p) {
+            if ($elig[$p] && count($res['choisies']) < CC3_NB_QUESTIONS) $res['choisies'][] = array_shift($elig[$p]);
+        }
+    }
+    foreach ($reste as $qid) {
+        if (count($res['choisies']) >= CC3_NB_QUESTIONS) break;
+        $res['choisies'][] = $qid;
     }
     return $res;
 }
@@ -85,7 +166,7 @@ function calculerRegroupement(PDO $pdo, int $moduleId, int $groupeId, array $ros
     $q = $pdo->prepare("SELECT stagiaire_id, pourcentage FROM sessions_eval
                         WHERE evaluation_id = ? AND groupe_id = ? AND statut = 'termine' ORDER BY date_fin");
     foreach ($ev->fetchAll() as $e) {
-        if (estRegroupe($e['meta_json'])) continue;
+        if (estRegroupe($e['meta_json']) || estCC3Synthese($e['meta_json'])) continue;
         $q->execute([(int)$e['id'], $groupeId]);
         $notes = [];
         foreach ($q->fetchAll() as $r) {          // dernière session terminée du stagiaire
@@ -96,7 +177,7 @@ function calculerRegroupement(PDO $pdo, int $moduleId, int $groupeId, array $ros
         $res['controles'][(int)$e['id']] = $e['nom'];
         foreach ($roster as $sid => $_) $res['detail'][$sid][(int)$e['id']] = $notes[$sid] ?? 0.0; // absent = 0
     }
-    $res['parties'] = decouper3(array_keys($res['controles']));
+    $res['parties'] = decouper2(array_keys($res['controles']));
     foreach ($roster as $sid => $_) {
         foreach ($res['parties'] as $p => $ids) {
             $v = array_map(fn($id) => $res['detail'][$sid][$id], $ids);
@@ -451,7 +532,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['recap_confirm'])) {
     }
 }
 
-// ── POST : Regrouper les contrôles → CC1/CC2/CC3 (aperçu puis validation) ─
+// ── POST : Préparer le CC3 (questions les mieux réussies → évaluation théorique) ─
+$cc3Prep = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['cc3_preview']) || isset($_POST['cc3_confirm']))) {
+    verifyCsrfToken();
+    if (!$groupeId || !$moduleId) { $erreur = "Sélectionnez un groupe et un module."; }
+    else {
+        $rg  = calculerRegroupement($pdo, $moduleId, $groupeId, $roster);
+        $sel = selectionnerQuestionsCC3($pdo, $rg, $groupeId, $roster);
+        enregistrerStatsQuestions($groupeId, $sel['stats']); // taux de réussite → banque de questions
+        if (!$sel['choisies']) {
+            $erreur = "Aucune réponse trouvée dans les contrôles théoriques de ce groupe pour ce module.";
+        } elseif (isset($_POST['cc3_confirm'])) {
+            $existante = findEvalCC3($pdo, $moduleId, $groupeId);
+            $pdo->beginTransaction();
+            try {
+                $d = [
+                    'module_id' => $moduleId, 'type' => 'cc', 'mode' => 'theorique', 'numero' => 3,
+                    'contenu' => 'Synthèse ' . $groupeNom, 'duree_minutes' => 30, 'note_max' => 20,
+                    'actif' => !empty($_POST['cc3_actif']), 'question_ids' => $sel['choisies'],
+                    'meta' => ['cc3_groupe_id' => $groupeId, 'cc3_controles' => array_keys($rg['controles'])],
+                ];
+                if ($existante) { modifierEvaluation((int)$existante['id'], $d); $eidCC3 = (int)$existante['id']; }
+                else            { $eidCC3 = creerEvaluation($d); }
+                setStagiairesEvaluation($eidCC3, array_keys($roster)); // réservée au groupe
+                $pdo->commit();
+            } catch (Throwable $e) {
+                $pdo->rollBack();
+                throw $e;
+            }
+            header("Location: gestion_impression.php?type=cc3_pratique&groupe_id=$groupeId&module_id=$moduleId&cc3_cree=$eidCC3");
+            exit;
+        } else {
+            $cc3Prep = $sel + ['existante' => findEvalCC3($pdo, $moduleId, $groupeId)];
+        }
+    }
+}
+if (isset($_GET['cc3_cree'])) {
+    $msg = "Évaluation CC3 enregistrée (questions les mieux réussies, réservée aux stagiaires du groupe). "
+         . "Une fois passée par les stagiaires, cliquez sur « Générer CC3 » pour remplir la grille.";
+}
+
+// ── POST : Regrouper les contrôles → CC1/CC2 (aperçu puis validation) ─
 $regroupement = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['regrouper_preview']) || isset($_POST['regrouper_confirm']))) {
     verifyCsrfToken();
@@ -469,7 +591,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['regrouper_preview'])
                                      p2q1=VALUES(p2q1),p2q2=VALUES(p2q2),p3q1=VALUES(p3q1),p3q2=VALUES(p3q2),p4=VALUES(p4),total=VALUES(total),absent=0");
                 $mark = $pdo->prepare("UPDATE evaluations SET meta_json = JSON_SET(COALESCE(meta_json, '{}'), '$.regroupe', true) WHERE id = ?");
                 $nb = 0;
-                foreach ([0 => 1, 1 => 2, 2 => 3] as $p => $num) {   // CC1, CC2, CC3 → grilles du groupe (total réparti)
+                foreach ([0 => 1, 1 => 2] as $p => $num) {   // CC1, CC2 → grilles du groupe (total réparti) ; CC3 traité à part
                     if (!isset($regroupement['parties'][$p])) continue;
                     $eid = getOrCreateEvalCC($pdo, $moduleId, $groupeId, $num);
                     $mark->execute([$eid]);
@@ -489,16 +611,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && (isset($_POST['regrouper_preview'])
         }
     }
 }
-if (isset($_GET['regroupe'])) $msg = (int)$_GET['regroupe'] . " note(s) injectée(s) dans CC1, CC2 et CC3 à partir du regroupement des contrôles.";
+if (isset($_GET['regroupe'])) $msg = (int)$_GET['regroupe'] . " note(s) injectée(s) dans CC1 et CC2 à partir du regroupement des contrôles.";
 
-// ── POST : Générer CCn depuis la moyenne de la partie n du regroupement des contrôles ─
-// CC1 ← partie 1, CC2 ← partie 2, CC3 ← partie 3 (grilles pratiques du groupe).
+// ── POST : Générer CCn ────────────────────────────────────────
+// CC1 ← moyenne de la partie 1, CC2 ← moyenne de la partie 2 du regroupement des contrôles ;
+// CC3 ← note de l'évaluation CC3 de synthèse (questions les mieux réussies).
 // Les notes sont pré-remplies dans la grille ; elles ne sont enregistrées qu'au clic sur « Sauvegarder ».
 $partieGen = $isPrat ? (int)($cfg['numero'] ?? 1) - 1 : null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['generate'])) {
     verifyCsrfToken();
     if ($partieGen === null) { $erreur = "Génération uniquement pour CC1, CC2 et CC3."; }
     elseif (!$groupeId || !$moduleId) { $erreur = "Sélectionnez groupe et module."; }
+    elseif ($partieGen === 2) {
+        $ev3 = findEvalCC3($pdo, $moduleId, $groupeId);
+        $n3  = $ev3 ? notesEvalCC3($pdo, (int)$ev3['id'], $groupeId, $roster) : null;
+        if (!$ev3) {
+            $erreur = "Aucune évaluation CC3 pour ce groupe : cliquez d'abord sur « Préparer CC3 ».";
+        } elseif ($n3 === null) {
+            $erreur = "L'évaluation « {$ev3['nom']} » n'a encore été passée par aucun stagiaire du groupe"
+                    . ((int)$ev3['actif'] ? '.' : ' (elle est désactivée).');
+        } else {
+            $data = [];
+            foreach ($n3 as $sid => $note)
+                $data[$sid] = array_merge(distribuer($note), ['total' => $note, 'absent' => 0, 'stagiaire_id' => $sid]);
+            $genereRegroupement = true;
+            $msg = count($data) . " note(s) CC3 générée(s) depuis « {$ev3['nom']} » (absent = 0). Vérifiez puis cliquez sur « Sauvegarder ».";
+        }
+    }
     else {
         $rg = calculerRegroupement($pdo, $moduleId, $groupeId, $roster);
         $label = 'CC' . ($partieGen + 1);
@@ -889,13 +1028,17 @@ window.addEventListener('load', function() {
                 <?php if ($groupeId > 0 && $moduleId > 0): ?>
                 <div class="col-auto ms-auto d-flex gap-2">
                     <button form="genForm" type="submit" name="regrouper_preview" value="1" class="btn btn-sm btn-outline-primary"
-                            title="Regroupe les contrôles théoriques du groupe en 3 parties : la moyenne de chaque partie devient CC1, CC2, CC3">
-                        <i class="bi bi-diagram-3 me-1"></i>Regrouper → CC1/CC2/CC3
+                            title="Regroupe les contrôles théoriques du groupe en 2 parties : la moyenne de chaque partie devient CC1, CC2">
+                        <i class="bi bi-diagram-3 me-1"></i>Regrouper → CC1/CC2
+                    </button>
+                    <button form="genForm" type="submit" name="cc3_preview" value="1" class="btn btn-sm btn-outline-warning"
+                            title="Crée l'évaluation CC3 avec les <?= CC3_NB_QUESTIONS ?> questions des contrôles réussies par au moins <?= (int)(CC3_SEUIL_REUSSITE * 100) ?> % du groupe">
+                        <i class="bi bi-stars me-1"></i>Préparer CC3
                     </button>
                     <?php if ($partieGen !== null): ?>
                     <button form="genForm" type="submit" name="generate" value="1" class="btn btn-sm btn-outline-warning"
-                            title="Moyenne de la partie <?= $partieGen + 1 ?> des contrôles théoriques du groupe (regroupés en 3 parties)">
-                        <i class="bi bi-magic me-1"></i>Générer de moyenne CC<?= $partieGen + 1 ?>
+                            title="<?= $partieGen === 2 ? "Note de l'évaluation CC3 (questions les mieux réussies) passée par le groupe" : 'Moyenne de la partie ' . ($partieGen + 1) . ' des contrôles théoriques du groupe (regroupés en 2 parties)' ?>">
+                        <i class="bi bi-magic me-1"></i><?= $partieGen === 2 ? 'Générer CC3' : 'Générer de moyenne CC' . ($partieGen + 1) ?>
                     </button>
                     <?php endif; ?>
                     <?php if ($isPrat): ?>
@@ -923,7 +1066,7 @@ window.addEventListener('load', function() {
     </div>
 
     <?php if ($regroupement): $rp = $regroupement; ?>
-    <!-- ── Aperçu du regroupement CC1/CC2/CC3 ─────────────────── -->
+    <!-- ── Aperçu du regroupement CC1/CC2 ─────────────────── -->
     <div class="card border-primary shadow-sm rounded-4 mb-4">
         <div class="card-header bg-primary text-white fw-semibold">
             <i class="bi bi-diagram-3 me-2"></i>Regroupement des contrôles — <?= htmlspecialchars($groupeNom) ?> — <?= htmlspecialchars($moduleNom) ?>
@@ -934,7 +1077,7 @@ window.addEventListener('load', function() {
                 Chaque partie = moyenne de ses contrôles, arrondie au demi-point.
             </p>
             <ul class="small mb-3">
-                <?php $dest = ['CC1 Pratique (total de la grille)', 'CC2 Pratique (total de la grille)', 'CC3 Pratique (total de la grille)'];
+                <?php $dest = ['CC1 Pratique (total de la grille)', 'CC2 Pratique (total de la grille)'];
                 foreach ($rp['parties'] as $p => $ids): ?>
                 <li><strong>CC<?= $p + 1 ?></strong> → <?= $dest[$p] ?> : <?= htmlspecialchars(implode(' + ', array_map(fn($id) => $rp['controles'][$id], $ids))) ?></li>
                 <?php endforeach; ?>
@@ -962,14 +1105,71 @@ window.addEventListener('load', function() {
             </table>
             </div>
             <form method="POST" class="d-flex gap-2 align-items-center flex-wrap"
-                  onsubmit="return confirm('Remplacer les notes CC1, CC2 et CC3 Pratique de ce groupe par ces moyennes ?')">
+                  onsubmit="return confirm('Remplacer les notes CC1 et CC2 Pratique de ce groupe par ces moyennes ?')">
                 <?= csrfField() ?>
                 <input type="hidden" name="type" value="<?= $type ?>">
                 <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
                 <input type="hidden" name="module_id" value="<?= $moduleId ?>">
-                <button name="regrouper_confirm" value="1" class="btn btn-primary btn-sm"><i class="bi bi-check2-circle me-1"></i>Injecter dans CC1, CC2, CC3</button>
+                <button name="regrouper_confirm" value="1" class="btn btn-primary btn-sm"><i class="bi bi-check2-circle me-1"></i>Injecter dans CC1, CC2</button>
                 <a href="?type=<?= $type ?>&groupe_id=<?= $groupeId ?>&module_id=<?= $moduleId ?>" class="btn btn-outline-secondary btn-sm">Annuler</a>
-                <span class="small text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Les notes déjà saisies dans CC1, CC2 et CC3 Pratique de ce groupe seront remplacées.</span>
+                <span class="small text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Les notes déjà saisies dans CC1 et CC2 Pratique de ce groupe seront remplacées. Le CC3 se prépare à part (« Préparer CC3 »).</span>
+            </form>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php if ($cc3Prep): $c3 = $cc3Prep; $nbChoisies = count($c3['choisies']); ?>
+    <!-- ── Aperçu du CC3 (questions les mieux réussies) ─────────── -->
+    <div class="card border-warning shadow-sm rounded-4 mb-4">
+        <div class="card-header bg-warning fw-semibold">
+            <i class="bi bi-stars me-2"></i>CC3 — questions les mieux réussies — <?= htmlspecialchars($groupeNom) ?> — <?= htmlspecialchars($moduleNom) ?>
+        </div>
+        <div class="card-body">
+            <p class="small mb-2">
+                <?= (int)$c3['nb_eligibles'] ?> question(s) des contrôles regroupés (CC1 + CC2) réussie(s) par au moins
+                <?= (int)(CC3_SEUIL_REUSSITE * 100) ?> % des stagiaires du groupe qui les ont eues (minimum <?= CC3_MIN_REPONSES ?> réponses).
+                <?= $nbChoisies ?> retenue(s), en alternant les deux parties.
+            </p>
+            <?php if ($c3['nb_eligibles'] < CC3_NB_QUESTIONS): ?>
+            <div class="alert alert-warning small py-2">
+                <i class="bi bi-exclamation-triangle me-1"></i>Moins de <?= CC3_NB_QUESTIONS ?> questions atteignent <?= (int)(CC3_SEUIL_REUSSITE * 100) ?> % :
+                <?= max(0, $nbChoisies - (int)$c3['nb_eligibles']) ?> question(s) sous le seuil (en orange) complètent la liste.
+            </div>
+            <?php endif; ?>
+            <?php if ($c3['existante']): ?>
+            <div class="alert alert-info small py-2">
+                <i class="bi bi-info-circle me-1"></i>Une évaluation CC3 existe déjà pour ce groupe :
+                <a href="evaluations.php?action=edit&id=<?= (int)$c3['existante']['id'] ?>"><?= htmlspecialchars($c3['existante']['nom']) ?></a>.
+                Ses questions seront remplacées (les sessions déjà passées ne changent pas).
+            </div>
+            <?php endif; ?>
+            <div class="table-responsive" style="max-height:420px">
+            <table class="table table-sm table-bordered bg-white mb-3 small">
+                <thead class="table-light"><tr><th>#</th><th>Question</th><th>Partie</th><th>Contrôle</th><th>Réussite</th></tr></thead>
+                <tbody>
+                <?php foreach ($c3['choisies'] as $i => $qid): $s = $c3['stats'][$qid]; $ok = $s['taux'] >= CC3_SEUIL_REUSSITE; ?>
+                <tr class="<?= $ok ? '' : 'table-warning' ?>">
+                    <td><?= $i + 1 ?></td>
+                    <td><?= htmlspecialchars(mb_strimwidth(strip_tags($s['texte']), 0, 140, '…', 'UTF-8')) ?></td>
+                    <td class="text-center">CC<?= $s['partie'] + 1 ?></td>
+                    <td><?= htmlspecialchars($s['controle']) ?></td>
+                    <td class="text-center fw-bold <?= $ok ? 'text-success' : 'text-warning' ?>"><?= round($s['taux'] * 100) ?> % <span class="fw-normal text-muted">(<?= $s['ok'] ?>/<?= $s['n'] ?>)</span></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
+            <form method="POST" class="d-flex gap-3 align-items-center flex-wrap">
+                <?= csrfField() ?>
+                <input type="hidden" name="type" value="<?= $type ?>">
+                <input type="hidden" name="groupe_id" value="<?= $groupeId ?>">
+                <input type="hidden" name="module_id" value="<?= $moduleId ?>">
+                <div class="form-check mb-0">
+                    <input class="form-check-input" type="checkbox" name="cc3_actif" value="1" id="cc3Actif" checked>
+                    <label class="form-check-label small" for="cc3Actif">Activer tout de suite (visible par les stagiaires du groupe)</label>
+                </div>
+                <button name="cc3_confirm" value="1" class="btn btn-warning btn-sm"><i class="bi bi-check2-circle me-1"></i><?= $c3['existante'] ? 'Mettre à jour' : 'Créer' ?> l'évaluation CC3</button>
+                <a href="?type=<?= $type ?>&groupe_id=<?= $groupeId ?>&module_id=<?= $moduleId ?>" class="btn btn-outline-secondary btn-sm">Annuler</a>
             </form>
         </div>
     </div>

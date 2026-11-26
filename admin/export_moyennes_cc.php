@@ -12,9 +12,11 @@
  * Absent à un CC = 0 : un CC compte pour une promo (groupe + année scolaire) quand au moins
  * SEUIL_CC_ORGANISE (30 %) de ses stagiaires ont une note ; ceux sans note y ont 0 (en rouge).
  * Un CC non organisé pour la promo reste vide et n'entre pas dans la moyenne.
- * Regroupement : les CC de la promo (dans l'ordre CC1 T, CC1 P, CC2 T…) sont découpés en 3 parties
- * consécutives (4 → 2+1+1, 5 → 2+2+1) ; chaque partie = moyenne de ses CC → colonnes CC1/CC2/CC3 (regroupé).
- * Moyenne CC = moyenne de CC1, CC2, CC3 regroupés.
+ * Regroupement : les CC de la promo (dans l'ordre CC1 T, CC1 P, CC2 T…) sont découpés en 2 parties
+ * consécutives (5 → 3+2) ; chaque partie = moyenne de ses CC → colonnes CC1/CC2 (regroupé).
+ * CC3 = note de l'évaluation CC3 de synthèse du groupe (meta cc3_groupe_id, questions les mieux réussies),
+ * absent = 0 si la promo l'a passée (≥ 30 %).
+ * Moyenne CC = moyenne de CC1, CC2 (regroupés) et CC3.
  * Chaque feuille module a une ligne « Moyenne du groupe X » par groupe (si plusieurs groupes).
  * Première feuille « Synthèse par groupe » : moyenne CC par groupe × module.
  */
@@ -47,10 +49,28 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
     $dates  = [];   // stagiaire_id => key => date (pour garder la dernière session théorique)
     $groupesIds = [];
     $pratVues   = [];   // "numero|groupe" déjà pris
+    $cc3 = []; $cc3Dates = []; $cc3Groupes = [];   // CC3 de synthèse : stagiaire_id => note/20
 
     foreach ($evals->fetchAll() as $e) {
-        // Notes injectées par « Regrouper → CC1/CC2/CC3 » (Notes par groupe) : déjà issues des autres contrôles
-        if (!empty((json_decode($e['meta_json'] ?? '{}', true) ?: [])['regroupe'])) continue;
+        $metaE = json_decode($e['meta_json'] ?? '{}', true) ?: [];
+        // Notes injectées par « Regrouper / Générer » (Notes par groupe) : déjà issues des autres contrôles
+        if (!empty($metaE['regroupe'])) continue;
+        // Évaluation CC3 de synthèse : colonne CC3 à part, hors regroupement
+        if (!empty($metaE['cc3_groupe_id'])) {
+            $gid3 = (int)$metaE['cc3_groupe_id'];
+            if ($groupeId > 0 && $gid3 !== $groupeId) continue;
+            $q = $pdo->prepare("SELECT stagiaire_id, pourcentage, date_fin FROM sessions_eval
+                                WHERE evaluation_id = ? AND groupe_id = ? AND statut = 'termine'");
+            $q->execute([(int)$e['id'], $gid3]);
+            foreach ($q->fetchAll() as $r) {
+                $sid = (int)$r['stagiaire_id'];
+                if (isset($cc3Dates[$sid]) && $cc3Dates[$sid] >= $r['date_fin']) continue;
+                $cc3Dates[$sid] = (string)$r['date_fin'];
+                $cc3[$sid] = round((float)$r['pourcentage'] / 5, 2);
+                $cc3Groupes[$gid3] = true;
+            }
+            continue;
+        }
         $num     = (int)$e['numero'];
         $prat    = $e['mode'] === 'pratique';
         $key     = ($prat ? 'P' : 'T') . str_pad((string)$num, 3, '0', STR_PAD_LEFT);
@@ -100,7 +120,8 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
 
     // Stagiaires des groupes concernés ; promo = groupe + année scolaire
     $lignes = [];
-    if ($slots && $groupesIds) {
+    $groupesIds += $cc3Groupes;
+    if (($slots || $cc3) && $groupesIds) {
         $ids = array_keys($groupesIds);
         $in  = implode(',', array_fill(0, count($ids), '?'));
         $st  = $pdo->prepare("SELECT id, nom, prenom, groupe_id, annee_scolaire FROM stagiaires
@@ -115,6 +136,7 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
             $promo = $s['groupe_id'] . '|' . $s['annee_scolaire'];
             $effectif[$promo] = ($effectif[$promo] ?? 0) + 1;
             foreach ($notes[(int)$s['id']] ?? [] as $k => $_) $passes[$promo][$k] = ($passes[$promo][$k] ?? 0) + 1;
+            if (isset($cc3[(int)$s['id']])) $passes[$promo]['CC3'] = ($passes[$promo]['CC3'] ?? 0) + 1;
         }
         foreach ($passes as $promo => $parCC) {
             foreach ($parCC as $k => $n) {
@@ -126,8 +148,11 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
         foreach ($stagiaires as $s) {
             $sid   = (int)$s['id'];
             $promo = $s['groupe_id'] . '|' . $s['annee_scolaire'];
-            if (empty($organise[$promo]) && empty($notes[$sid])) continue; // rien à afficher
+            if (empty($organise[$promo]) && empty($notes[$sid]) && !isset($cc3[$sid])) continue; // rien à afficher
             $vals = []; $abs = [];
+            if (isset($cc3[$sid]))                   $vals['CC3'] = $cc3[$sid];
+            elseif (isset($organise[$promo]['CC3'])) { $vals['CC3'] = 0.0; $abs['CC3'] = true; }
+            else                                     $vals['CC3'] = null;
             foreach ($slots as $k => $_) {
                 if (isset($notes[$sid][$k]))      $vals[$k] = $notes[$sid][$k];
                 elseif (isset($organise[$promo][$k])) { $vals[$k] = 0.0; $abs[$k] = true; }
@@ -137,21 +162,23 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
             $lignesBrutes[] = [$s, $promo, $vals, $abs];
         }
 
-        // Regroupement des contrôles de chaque promo en 3 parties consécutives → CC1, CC2, CC3
+        // Regroupement des contrôles de chaque promo en 2 parties consécutives → CC1, CC2 (CC3 = synthèse)
         $partiesPromo = [];
         foreach ($slotsPromo as $promo => $ks) {
             $ks = array_values(array_filter(array_keys($slots), fn($k) => isset($ks[$k])));
-            $partiesPromo[$promo] = decouperEn3($ks);
+            $partiesPromo[$promo] = decouperEn2($ks);
         }
 
         foreach ($lignesBrutes as [$s, $promo, $vals, $abs]) {
+            $cc3Val = $vals['CC3']; unset($vals['CC3']);
             $parts = [];
             foreach ($partiesPromo[$promo] ?? [] as $i => $ks) {
                 $v = array_filter(array_map(fn($k) => $vals[$k], $ks), fn($x) => $x !== null);
                 $parts[$i] = $v ? round(array_sum($v) / count($v), 2) : null;
             }
-            $parts   += array_fill(0, 3, null);
+            $parts   += array_fill(0, 2, null);
             ksort($parts);
+            $parts[2] = $cc3Val;
             $comptes = array_filter($parts, fn($v) => $v !== null);
             $lignes[] = [
                 'groupe_id' => (int)$s['groupe_id'],
@@ -168,16 +195,12 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
     return ['slots' => $slots, 'lignes' => $lignes, 'parties' => $partiesPromo ?? []];
 }
 
-/** Découpe une liste ordonnée en 3 parties consécutives (le reste va aux premières) : 4 → 2+1+1, 5 → 2+2+1. */
-function decouperEn3(array $ks): array {
-    $n = count($ks); $res = []; $pos = 0;
-    for ($i = 0; $i < 3 && $pos < $n; $i++) {
-        $taille = intdiv($n, 3) + ($i < $n % 3 ? 1 : 0);
-        if ($taille === 0) break;
-        $res[$i] = array_slice($ks, $pos, $taille);
-        $pos += $taille;
-    }
-    return $res;
+/** Découpe une liste ordonnée en 2 parties consécutives (le reste va à la première) : 5 → 3+2. */
+function decouperEn2(array $ks): array {
+    $n = count($ks);
+    if (!$n) return [];
+    $t = intdiv($n + 1, 2);
+    return array_values(array_filter([array_slice($ks, 0, $t), array_slice($ks, $t)]));
 }
 
 $sheets = [];
@@ -188,8 +211,8 @@ foreach ($modules as $m) {
     if (!$res['slots'] && $moduleId === 0) continue; // module sans CC noté : pas de feuille
 
     $slots  = $res['slots'];
-    // Colonnes : détail de chaque contrôle, puis CC1/CC2/CC3 regroupés (R0..R2)
-    $colsCC = $slots + ['R0' => 'CC1 (regroupé)', 'R1' => 'CC2 (regroupé)', 'R2' => 'CC3 (regroupé)'];
+    // Colonnes : détail de chaque contrôle, puis CC1/CC2 regroupés (R0, R1) et CC3 de synthèse (R2)
+    $colsCC = $slots + ['R0' => 'CC1 (regroupé)', 'R1' => 'CC2 (regroupé)', 'R2' => 'CC3 (synthèse)'];
     $nbCols = 4 + count($colsCC) + 2;
     $rows   = []; $styles = [];
 
@@ -252,7 +275,7 @@ foreach ($modules as $m) {
     // Légende du regroupement, par groupe
     if ($res['parties']) {
         $rows[] = [];
-        $rows[] = ["Regroupement des contrôles (dans l'ordre, en 3 parties) : note de la partie = moyenne de ses contrôles ; Moyenne CC = moyenne de CC1, CC2, CC3"];
+        $rows[] = ["Regroupement des contrôles (dans l'ordre, en 2 parties) : note de la partie = moyenne de ses contrôles ; CC3 = évaluation de synthèse (questions les mieux réussies) ; Moyenne CC = moyenne de CC1, CC2, CC3"];
         $styles[count($rows) - 1] = 6;
         $vus = [];
         foreach ($res['lignes'] as $l) {

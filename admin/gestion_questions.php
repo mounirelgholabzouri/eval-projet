@@ -365,11 +365,13 @@ $allModules = getAllModules();
 $module     = $moduleId > 0 ? getModule($moduleId) : null;
 
 $questionsCurrent = [];
+$statsQuestions   = [];
 $editQuestion     = null;
 $totalPointsModule = 0;
 
 if ($moduleId > 0 && $module) {
     $questionsCurrent = getQuestionsModule($moduleId);
+    $statsQuestions   = getStatsQuestionsModule($moduleId); // taux de réussite (enregistré par « Préparer CC3 »)
 
     $totalPointsModule = array_sum(array_column($questionsCurrent, 'points'));
 
@@ -614,6 +616,13 @@ if (isset($flash['moved']))        $msg = "Questions déplacées avec succès.";
                                 </span>
                                 <span class="badge bg-primary-subtle text-primary small"><?= $q['points'] ?> pt(s)</span>
                                 <span class="badge bg-secondary-subtle text-secondary small"><?= count($q['choix']) ?> choix</span>
+                                <?php if ($st = $statsQuestions[(int)$q['id']] ?? null):
+                                    $cl = $st['taux'] >= 50 ? 'success' : ($st['taux'] >= 30 ? 'warning' : 'danger');
+                                    $det = implode(' · ', array_map(fn($g, $t) => "$g : " . round($t) . ' %', array_keys($st['groupes']), $st['groupes'])); ?>
+                                <span class="badge bg-<?= $cl ?>-subtle text-<?= $cl ?> small" title="Taux de réussite par groupe — <?= htmlspecialchars($det) ?>">
+                                    <i class="bi bi-graph-up me-1"></i>Réussite <?= $st['taux'] ?> % (<?= $st['ok'] ?>/<?= $st['n'] ?>)
+                                </span>
+                                <?php endif; ?>
                             </div>
                         </div>
                         <div class="d-flex gap-1 flex-shrink-0">

@@ -244,6 +244,19 @@ CREATE TABLE `questions` (
   CONSTRAINT `questions_ibfk_1` FOREIGN KEY (`module_id`) REFERENCES `modules` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
+DROP TABLE IF EXISTS `questions_stats`;
+CREATE TABLE `questions_stats` (
+  `question_id` int NOT NULL,
+  `groupe_id` int NOT NULL,
+  `nb_reponses` int NOT NULL DEFAULT '0',
+  `nb_justes` int NOT NULL DEFAULT '0',
+  `taux` decimal(5,2) NOT NULL DEFAULT '0.00' COMMENT 'pourcentage de réponses justes',
+  `updated_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`question_id`,`groupe_id`),
+  KEY `idx_qs_groupe` (`groupe_id`),
+  CONSTRAINT `fk_qs_question` FOREIGN KEY (`question_id`) REFERENCES `questions` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_qs_groupe` FOREIGN KEY (`groupe_id`) REFERENCES `groupes` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 DROP TABLE IF EXISTS `ref_filieres`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;

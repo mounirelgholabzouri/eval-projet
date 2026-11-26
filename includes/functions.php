@@ -399,6 +399,44 @@ function getQuestionsModule(int $moduleId): array {
     return getQuestionsByIds($stmt->fetchAll(PDO::FETCH_COLUMN));
 }
 
+/**
+ * Enregistre le taux de réussite des questions pour un groupe (table questions_stats, migration
+ * db/migrations/questions_stats.php). $stats : [question_id => ['n' => nb réponses, 'ok' => nb justes]].
+ */
+function enregistrerStatsQuestions(int $groupeId, array $stats): void {
+    $up = getDB()->prepare("INSERT INTO questions_stats (question_id, groupe_id, nb_reponses, nb_justes, taux)
+                            VALUES (?, ?, ?, ?, ?)
+                            ON DUPLICATE KEY UPDATE nb_reponses = VALUES(nb_reponses), nb_justes = VALUES(nb_justes),
+                                                    taux = VALUES(taux), updated_at = CURRENT_TIMESTAMP");
+    foreach ($stats as $qid => $s) {
+        $n = (int)$s['n']; $ok = (int)$s['ok'];
+        $up->execute([(int)$qid, $groupeId, $n, $ok, $n ? round($ok / $n * 100, 2) : 0]);
+    }
+}
+
+/** Taux de réussite des questions d'un module, tous groupes : [qid => ['n','ok','taux','groupes' => [nom => taux]]]. */
+function getStatsQuestionsModule(int $moduleId): array {
+    try {
+        $stmt = getDB()->prepare("SELECT qs.question_id, qs.nb_reponses, qs.nb_justes, qs.taux, g.nom AS groupe
+                                  FROM questions_stats qs
+                                  JOIN questions q ON q.id = qs.question_id
+                                  JOIN groupes g   ON g.id = qs.groupe_id
+                                  WHERE q.module_id = ? ORDER BY g.nom");
+        $stmt->execute([$moduleId]);
+    } catch (PDOException $e) {
+        return []; // table absente (migration questions_stats non lancée)
+    }
+    $res = [];
+    foreach ($stmt->fetchAll() as $r) {
+        $qid = (int)$r['question_id'];
+        $res[$qid]['n']  = ($res[$qid]['n']  ?? 0) + (int)$r['nb_reponses'];
+        $res[$qid]['ok'] = ($res[$qid]['ok'] ?? 0) + (int)$r['nb_justes'];
+        $res[$qid]['groupes'][$r['groupe']] = (float)$r['taux'];
+    }
+    foreach ($res as &$s) $s['taux'] = $s['n'] ? round($s['ok'] / $s['n'] * 100) : 0;
+    return $res;
+}
+
 /** Questions posées lors d'une session : tirage figé, sinon (anciennes sessions) celles de l'évaluation. */
 function questionIdsSession(array $session): array {
     $ids = !empty($session['questions_ids']) ? (json_decode($session['questions_ids'], true) ?: []) : [];
