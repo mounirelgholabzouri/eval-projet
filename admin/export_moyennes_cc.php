@@ -13,6 +13,8 @@
  * SEUIL_CC_ORGANISE (30 %) de ses stagiaires ont une note ; ceux sans note y ont 0 (en rouge).
  * Un CC non organisé pour la promo reste vide et n'entre pas dans la moyenne.
  * Moyenne CC = moyenne des CC organisés pour la promo du stagiaire.
+ * Chaque feuille module a une ligne « Moyenne du groupe X » par groupe (si plusieurs groupes).
+ * Première feuille « Synthèse par groupe » : moyenne CC par groupe × module.
  */
 require_once __DIR__ . '/../includes/admin_auth.php';
 require_once __DIR__ . '/../includes/functions.php';
@@ -141,6 +143,8 @@ function moyennesCCModule(PDO $pdo, int $moduleId, int $groupeId): array {
 }
 
 $sheets = [];
+$synthese = [];        // groupe_id => module_id => ['moy' => x, 'n' => nb stagiaires]
+$modulesSynthese = []; // module_id => module (ordre des colonnes)
 foreach ($modules as $m) {
     $res = moyennesCCModule($pdo, (int)$m['id'], $groupeId);
     if (!$res['slots'] && $moduleId === 0) continue; // module sans CC noté : pas de feuille
@@ -160,27 +164,45 @@ foreach ($modules as $m) {
         $rows[] = ['Aucune note de contrôle continu pour ce module.'];
         $styles[4] = 6;
     }
+    // Ligne de moyenne (groupe ou générale) : moyenne par CC + moyenne des « Moyenne CC »
+    $ligneMoyenne = function (string $libelle, array $sommes, array $moys) {
+        $row = [['v' => $libelle, 's' => 7], ['v' => '', 's' => 7], ['v' => '', 's' => 7], ['v' => '', 's' => 7]];
+        foreach ($sommes as $vals) $row[] = ['v' => $vals ? round(array_sum($vals) / count($vals), 2) : null, 's' => 3];
+        $row[] = ['v' => count($moys) . ' stag.', 's' => 7];
+        $gm = $moys ? round(array_sum($moys) / count($moys), 2) : null;
+        $row[] = ['v' => $gm, 's' => $gm === null ? 3 : ($gm >= 10 ? 4 : 5)];
+        return [$row, $gm];
+    };
+
     $sommes = array_fill_keys(array_keys($slots), []);
     $moys   = [];
+    $nbGroupes = count(array_unique(array_column($res['lignes'], 'groupe_id')));
+    $gSommes = $sommes; $gMoys = []; $gCourant = null;
+    $fermerGroupe = function () use (&$rows, &$gSommes, &$gMoys, &$gCourant, $sommes, $ligneMoyenne, $groupesNoms, $nbGroupes, $m, &$synthese) {
+        if ($gCourant === null) return;
+        [$row, $gm] = $ligneMoyenne('Moyenne du groupe ' . ($groupesNoms[$gCourant] ?? $gCourant), $gSommes, $gMoys);
+        if ($nbGroupes > 1) $rows[] = $row;
+        if ($gm !== null) $synthese[$gCourant][(int)$m['id']] = ['moy' => $gm, 'n' => count($gMoys)];
+        $gSommes = $sommes; $gMoys = [];
+    };
     foreach ($res['lignes'] as $i => $l) {
+        if ($l['groupe_id'] !== $gCourant) { $fermerGroupe(); $gCourant = $l['groupe_id']; }
         $row = [$i + 1, $groupesNoms[$l['groupe_id']] ?? '', $l['nom'], $l['prenom']];
         foreach ($l['notes'] as $k => $v) {
             $row[] = ['v' => $v, 's' => isset($l['absents'][$k]) ? 5 : 3];
-            if ($v !== null) $sommes[$k][] = $v;
+            if ($v !== null) { $sommes[$k][] = $v; $gSommes[$k][] = $v; }
         }
         $row[] = ['v' => count($l['absents']) ?: '', 's' => 3];
         $row[] = ['v' => $l['moyenne'], 's' => $l['moyenne'] === null ? 3 : ($l['moyenne'] >= 10 ? 4 : 5)];
-        if ($l['moyenne'] !== null) $moys[] = $l['moyenne'];
+        if ($l['moyenne'] !== null) { $moys[] = $l['moyenne']; $gMoys[] = $l['moyenne']; }
         $rows[] = $row;
     }
+    $fermerGroupe();
     if ($res['lignes']) {
-        $row = [['v' => 'Moyenne de la classe', 's' => 7], ['v' => '', 's' => 7], ['v' => '', 's' => 7], ['v' => '', 's' => 7]];
-        foreach ($sommes as $vals) $row[] = ['v' => $vals ? round(array_sum($vals) / count($vals), 2) : null, 's' => 3];
-        $row[] = ['v' => '', 's' => 7];
-        $gm = $moys ? round(array_sum($moys) / count($moys), 2) : null;
-        $row[] = ['v' => $gm, 's' => $gm === null ? 3 : ($gm >= 10 ? 4 : 5)];
+        [$row] = $ligneMoyenne($nbGroupes > 1 ? 'Moyenne générale (tous groupes)' : 'Moyenne du groupe', $sommes, $moys);
         $rows[] = $row;
     }
+    $modulesSynthese[(int)$m['id']] = $m;
 
     $lastCol = _colLetter($nbCols - 1);
     $widths  = [0 => 5, 1 => 14, 2 => 22, 3 => 22];
@@ -196,6 +218,59 @@ foreach ($modules as $m) {
         'merges'     => ["A1:{$lastCol}1", "A2:{$lastCol}2"],
         'freeze_row' => 4,
     ];
+}
+
+// ── Feuille de synthèse : moyenne CC par groupe (lignes) × module (colonnes) ──
+$modulesSynthese = array_filter($modulesSynthese, function ($m) use ($synthese) {
+    foreach ($synthese as $parModule) if (isset($parModule[(int)$m['id']])) return true;
+    return false;
+});
+if ($synthese && $modulesSynthese) {
+    uksort($synthese, fn($a, $b) => strnatcasecmp($groupesNoms[$a] ?? (string)$a, $groupesNoms[$b] ?? (string)$b));
+    $nbCols = 1 + count($modulesSynthese) + 1;
+    $rows = []; $styles = [];
+    $rows[] = ['Moyenne des contrôles continus par module et par groupe']; $styles[0] = 1;
+    $rows[] = ['Année de formation ' . getAnneeFormation(false) . ' — généré le ' . date('d/m/Y à H:i')
+              . ' — moyenne des « Moyenne CC /20 » des stagiaires du groupe']; $styles[1] = 6;
+    $rows[] = [];
+    $entete = ['Groupe'];
+    foreach ($modulesSynthese as $m) $entete[] = moduleLibelle($m);
+    $entete[] = 'Moyenne générale';
+    $rows[] = $entete; $styles[3] = 2;
+
+    $colVals = [];
+    foreach ($synthese as $gid => $parModule) {
+        $row = [['v' => $groupesNoms[$gid] ?? (string)$gid, 's' => 7]];
+        $vals = [];
+        foreach ($modulesSynthese as $mid => $_) {
+            $v = $parModule[$mid]['moy'] ?? null;
+            $row[] = ['v' => $v, 's' => $v === null ? 3 : ($v >= 10 ? 4 : 5)];
+            if ($v !== null) { $vals[] = $v; $colVals[$mid][] = $v; }
+        }
+        $g = $vals ? round(array_sum($vals) / count($vals), 2) : null;
+        $row[] = ['v' => $g, 's' => $g === null ? 3 : ($g >= 10 ? 4 : 5)];
+        $rows[] = $row;
+    }
+    if (count($synthese) > 1) {
+        $row = [['v' => 'Moyenne des groupes', 's' => 7]];
+        foreach ($modulesSynthese as $mid => $_) {
+            $v = !empty($colVals[$mid]) ? round(array_sum($colVals[$mid]) / count($colVals[$mid]), 2) : null;
+            $row[] = ['v' => $v, 's' => 3];
+        }
+        $row[] = ['v' => '', 's' => 3];
+        $rows[] = $row;
+    }
+    $widths = [0 => 18];
+    for ($c = 1; $c < $nbCols; $c++) $widths[$c] = 22;
+    $lastCol = _colLetter($nbCols - 1);
+    array_unshift($sheets, [
+        'name'       => 'Synthèse par groupe',
+        'rows'       => $rows,
+        'styles'     => $styles,
+        'widths'     => $widths,
+        'merges'     => ["A1:{$lastCol}1", "A2:{$lastCol}2"],
+        'freeze_row' => 4,
+    ]);
 }
 
 if (!$sheets) {
